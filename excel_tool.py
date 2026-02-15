@@ -353,10 +353,10 @@ def show_excel_page():
                     c5.markdown(f"<div class='grid-row'><span class='cell-qty'>{item['數量']}</span></div>", unsafe_allow_html=True)
                     with c6:
                         if item.get('ready_html'):
-                            if st.button("Please Click Print", key=f"btn_{item['id']}_{index}"):
+                            if st.button("Print", key=f"btn_{item['id']}_{index}"):
                                 js_instant_print(item['ready_html'], item['id'])
                         else:
-                            st.markdown(f"<span class='cell-badge-err'>No Data/Print Another Lable</span>", unsafe_allow_html=True)
+                            st.markdown(f"<span class='cell-badge-err'>No Data</span>", unsafe_allow_html=True)
     elif not uploaded_pdf:
         st.info("👈 Please upload a PDF file or transfer from PDF Tool.")
     elif df_master is None:
