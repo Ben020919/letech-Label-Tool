@@ -6,14 +6,14 @@ import io
 import base64
 import time
 import os
+import gc  # 引入垃圾回收機制
 import streamlit.components.v1 as components
 
 # ================= 設定預設檔案名稱 =================
 DEFAULT_EXCEL_PATH = "data.xlsx"
 DEFAULT_FONT_PATH = "font.ttf"
 
-# ================= 1. 快取讀取函式 (效能優化關鍵) =================
-# 加上這個 @st.cache_data 裝飾器，讓電腦記住讀取結果，不用每次重讀
+# ================= 1. 快取讀取函式 =================
 @st.cache_data
 def load_local_excel(file_path):
     """讀取本地 Excel 並快取結果"""
@@ -52,31 +52,25 @@ def extract_date_from_text(text):
     return "未偵測到"
 
 def font_to_base64_css(font_bytes, file_name):
-    if not font_bytes:
-        return ""
+    if not font_bytes: return ""
     try:
         b64_str = base64.b64encode(font_bytes).decode('utf-8')
         mime_type = "font/ttf"
         if file_name.endswith(".otf"): mime_type = "font/otf"
         elif file_name.endswith(".woff"): mime_type = "font/woff"
-        
         return f"""
-        @font-face {{
-            font-family: 'CustomLabelFont';
-            src: url(data:{mime_type};base64,{b64_str}) format('truetype');
-            font-weight: bold;
-            font-style: normal;
-        }}
-        body, .label-container, div, span {{
-            font-family: 'CustomLabelFont', Helvetica, Arial, sans-serif !important;
-        }}
+        @font-face {{ font-family: 'CustomLabelFont'; src: url(data:{mime_type};base64,{b64_str}) format('truetype'); font-weight: bold; font-style: normal; }}
+        body, .label-container, div, span {{ font-family: 'CustomLabelFont', Helvetica, Arial, sans-serif !important; }}
         """
-    except Exception as e:
-        print(f"Font Error: {e}")
-        return ""
+    except Exception as e: return ""
 
-# ================= 3. HTML 標籤生成器 =================
-def create_label_html(item, data, font_css):
+# ================= 3. HTML 標籤生成器 (現在改為即時生成) =================
+def create_label_html_on_the_fly(item, matched_data, font_css, qty):
+    """
+    這個函式會在按鈕被點擊時才執行，避免記憶體爆炸
+    """
+    data = matched_data if matched_data else {}
+    
     desc_text = clean_val(data.get('Description', item['商品名稱']))
     barcode_text = item['Barcode'] if item['Barcode'] != "未偵測到" else clean_val(data.get('Barcode', ''))
     
@@ -97,7 +91,8 @@ def create_label_html(item, data, font_css):
     mfr_text = f"{clean_val(data.get('Madeby_Prefix', ''))} {clean_val(data.get('Madeby', ''))}".strip()
     if "Manufacturer" not in mfr_text: mfr_text = "Manufacturer: " + mfr_text
 
-    html = f"""
+    # 生成單張標籤
+    single_label_html = f"""
     <html><head><style>
         {font_css}
         @page {{ size: auto; margin: 0mm; }}
@@ -142,7 +137,18 @@ def create_label_html(item, data, font_css):
         </div>
     </body></html>
     """
-    return html
+    
+    # 複製 N 份 (根據 Qty)
+    import re as regex
+    match = regex.search(r'<body>(.*?)</body>', single_label_html, regex.DOTALL)
+    if match:
+        div_content = match.group(1)
+        full_body = div_content * qty
+        final_html = single_label_html.replace(div_content, full_body)
+    else:
+        final_html = single_label_html
+        
+    return final_html
 
 def js_instant_print(full_html_content, item_id):
     b64_html = base64.b64encode(full_html_content.encode('utf-8')).decode('utf-8')
@@ -163,12 +169,14 @@ def js_instant_print(full_html_content, item_id):
 
 # ================= 4. 主頁面 =================
 def show_excel_page():
+    # 初始化
     if 'parsed_items' not in st.session_state: st.session_state['parsed_items'] = []
     if 'last_uploaded_file_id' not in st.session_state: st.session_state['last_uploaded_file_id'] = None
     if 'font_css' not in st.session_state: st.session_state['font_css'] = ""
 
     st.markdown("""
         <style>
+            /* 與之前相同的 CSS 樣式 */
             .logo-container { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
             .logo-text { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 28px; font-weight: 800; color: #2c3e50; letter-spacing: -0.5px; margin-left: 10px; line-height: 1; }
             .logo-dot { color: #007bff; }
@@ -206,10 +214,10 @@ def show_excel_page():
 
     with col_up1:
         if bridge_pdf:
-            st.success(f"Files transferred by PDF Tool: **{bridge_name}**")
+            st.success(f"📂 使用 PDF Tool 傳送的檔案: **{bridge_name}**")
             uploaded_pdf = io.BytesIO(bridge_pdf)
             uploaded_pdf.name = bridge_name 
-            if st.button("Delete / Upload New PDF File", key="clr_pdf"):
+            if st.button("❌ 清除 / 上傳新 PDF", key="clr_pdf"):
                 del st.session_state['bridge_pdf_data']
                 del st.session_state['bridge_pdf_name']
                 st.rerun()
@@ -217,21 +225,18 @@ def show_excel_page():
             uploaded_pdf = st.file_uploader("1. Please Upload PDF File", type=["pdf"])
 
     with col_up2:
-        uploaded_excel_file = st.file_uploader("2. Please Upload Excel File (Optional)", type=["csv", "xlsx"])
+        uploaded_excel_file = st.file_uploader("2. Please Upload Excel File (可選)", type=["csv", "xlsx"])
         df_master = None
         current_excel_name = ""
 
         if uploaded_excel_file:
-            if uploaded_excel_file.name.endswith('.csv'): 
-                df_master = pd.read_csv(uploaded_excel_file)
-            else: 
-                df_master = pd.read_excel(uploaded_excel_file)
+            if uploaded_excel_file.name.endswith('.csv'): df_master = pd.read_csv(uploaded_excel_file)
+            else: df_master = pd.read_excel(uploaded_excel_file)
             current_excel_name = uploaded_excel_file.name
         elif os.path.exists(DEFAULT_EXCEL_PATH):
             try:
-                # 使用 Cache 讀取本地檔案
                 df_master = load_local_excel(DEFAULT_EXCEL_PATH)
-                st.info(f"Loaded into the default database: {DEFAULT_EXCEL_PATH}")
+                st.info(f"✅ 已載入預設資料庫: {DEFAULT_EXCEL_PATH}")
                 current_excel_name = DEFAULT_EXCEL_PATH
             except Exception as e:
                 st.error(f"預設資料庫讀取失敗: {e}")
@@ -239,7 +244,7 @@ def show_excel_page():
         if df_master is not None:
             df_master.columns = df_master.columns.str.strip()
 
-    uploaded_font_file = st.sidebar.file_uploader("Upload bold font (.ttf/.otf)", type=["ttf", "otf", "woff"])
+    uploaded_font_file = st.sidebar.file_uploader("上傳粗體字型 (.ttf/.otf)", type=["ttf", "otf", "woff"])
     font_bytes = None
     font_filename = ""
     
@@ -248,13 +253,12 @@ def show_excel_page():
         font_filename = uploaded_font_file.name
     elif os.path.exists(DEFAULT_FONT_PATH):
         try:
-            # 使用 Cache 讀取本地檔案
             font_bytes = load_local_font_bytes(DEFAULT_FONT_PATH)
             font_filename = DEFAULT_FONT_PATH
-            st.sidebar.info(f"Use the default font: font.ttf: {DEFAULT_FONT_PATH}")
-        except:
-            pass
+            st.sidebar.info(f"✅ 使用預設字型: {DEFAULT_FONT_PATH}")
+        except: pass
 
+    # ================= 處理邏輯 =================
     if uploaded_pdf and df_master is not None:
         current_file_id = f"{uploaded_pdf.name}_{current_excel_name}_{font_filename}"
 
@@ -262,10 +266,14 @@ def show_excel_page():
             st.session_state['parsed_items'] = []
             st.session_state['font_css'] = ""
             st.session_state['last_uploaded_file_id'] = current_file_id
+            
+            # 強制清理記憶體
+            gc.collect() 
             st.cache_data.clear()
 
         if not st.session_state['parsed_items']:
             try:
+                # 預先處理 Font CSS，這個只需要一份，不會佔太多記憶體
                 if font_bytes and not st.session_state['font_css']:
                     st.session_state['font_css'] = font_to_base64_css(font_bytes, font_filename)
                 
@@ -294,37 +302,44 @@ def show_excel_page():
                             if re.search(r"\d+\.0000|\b\d{12,14}\b", line): break
                             name_parts.append(line)
                     p_name = " ".join(name_parts)
+                    
+                    # 匹配 Excel 資料
                     row = df_master[df_master['Product_No'].astype(str).str.strip() == p_no]
-                    html_content = ""
+                    matched_data = {}
+                    has_match = False
                     if not row.empty:
-                        single_label_html = create_label_html({
-                            '商品名稱': p_name, 'Barcode': barcode
-                        }, row.iloc[0], st.session_state['font_css'])
-                        import re as regex
-                        match = regex.search(r'<body>(.*?)</body>', single_label_html, regex.DOTALL)
-                        if match:
-                            div_content = match.group(1)
-                            full_body = div_content * qty
-                            html_content = single_label_html.replace(div_content, full_body)
-                        else:
-                            html_content = single_label_html
+                        matched_data = row.iloc[0].to_dict()
+                        has_match = True
+
+                    # ✅ 記憶體優化重點：
+                    # 不要儲存生成的 HTML！只儲存原始數據 (dict)
+                    # HTML 在按下按鈕時再生成
+                    
                     temp_items.append({
-                        "id": f"{p_no}_{i}", "Product No": p_no, "商品名稱": p_name, 
-                        "Barcode": barcode, "數量": qty, "日期": p_date,
-                        "ready_html": html_content
+                        "id": f"{p_no}_{i}", 
+                        "Product No": p_no, 
+                        "商品名稱": p_name, 
+                        "Barcode": barcode, 
+                        "數量": qty, 
+                        "日期": p_date,
+                        "matched_data": matched_data,  # 存 Excel 資料
+                        "has_match": has_match
                     })
                     prog.progress((i+1)/total_pages)
                 
                 st.session_state['parsed_items'] = temp_items
                 prog.empty()
                 status_text.empty()
+                gc.collect() # 再次清理
                 st.success("✅ Processing Complete!")
                 time.sleep(1)
                 st.rerun()
+
             except Exception as e:
                 st.error(f"Error: {e}")
                 return
 
+        # ================= 顯示列表 =================
         if st.session_state['parsed_items']:
             st.markdown("---")
             col_ratios = [0.5, 1.5, 4, 2, 1.5, 0.8, 1.2]
@@ -351,12 +366,23 @@ def show_excel_page():
                     c3.markdown(f"<div class='grid-row'>{code_html}</div>", unsafe_allow_html=True)
                     c4.markdown(f"<div class='grid-row'><div class='cell-sub'>{item['日期']}</div></div>", unsafe_allow_html=True)
                     c5.markdown(f"<div class='grid-row'><span class='cell-qty'>{item['數量']}</span></div>", unsafe_allow_html=True)
+                    
                     with c6:
-                        if item.get('ready_html'):
+                        # 只有當找到 Excel 對應資料時才顯示按鈕
+                        if item['has_match']:
                             if st.button("Print", key=f"btn_{item['id']}_{index}"):
-                                js_instant_print(item['ready_html'], item['id'])
+                                # 🔥 關鍵修改：按下去的瞬間才生成 HTML 🔥
+                                # 這樣不會佔用 session_state 記憶體
+                                final_html = create_label_html_on_the_fly(
+                                    item, 
+                                    item['matched_data'], 
+                                    st.session_state['font_css'],
+                                    item['數量']
+                                )
+                                js_instant_print(final_html, item['id'])
                         else:
-                            st.markdown(f"<span class='cell-badge-err'>No Data</span>", unsafe_allow_html=True)
+                            st.markdown(f"<span class='cell-badge-err'>無資料</span>", unsafe_allow_html=True)
+
     elif not uploaded_pdf:
         st.info("👈 Please upload a PDF file or transfer from PDF Tool.")
     elif df_master is None:
