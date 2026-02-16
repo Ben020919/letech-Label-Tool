@@ -53,7 +53,7 @@ def show_search_barcode_page():
         </style>
     """, unsafe_allow_html=True)
 
-    st.markdown("### 🔍 智慧條碼搜尋 (Smart Search)")
+   st.markdown("### 🔍 Search Barcode/SKU/Name")
     
     df = load_data()
     if df is None:
