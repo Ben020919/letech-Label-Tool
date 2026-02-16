@@ -137,17 +137,12 @@ def show_anymall_page():
                 use_container_width=False,
                 height=800,
                 column_config={
-                    "序號": st.column_config.NumberColumn( # ✅ 新增：序號欄位設定
-                        "No.", 
-                        width=50, 
-                        format="%d"
-                    ),
                     "原始頁碼": st.column_config.NumberColumn(
                         "頁碼", 
                         width=60, 
                         format="%d"
                     ),
-                    "Product No": st.column_config.TextColumn("Product No", width=160),
+                    "Product No": st.column_config.TextColumn("Product No", width=150),
                     "Barcode": st.column_config.TextColumn("Barcode", width=160),
                     "商品名稱": st.column_config.TextColumn("商品名稱", width=1000),
                     "數量": st.column_config.NumberColumn("數量", width=90, format="%d")
