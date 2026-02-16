@@ -75,7 +75,6 @@ def show_anymall_page():
 
                 # 3. 組合資料 (在此處加入 "序號")
                 valid_rows.append({
-                    "序號": len(valid_rows) + 1,  # ✅ 新增：自動從 1 開始編號
                     "原始頁碼": i + 1,
                     "Product No": p_no,
                     "Barcode": barcode,
