@@ -135,7 +135,7 @@ def show_anymall_page():
             st.dataframe(
                 styled_df,
                 use_container_width=False,
-                height=900,
+                height=800,
                 column_config={
                     "序號": st.column_config.NumberColumn( # ✅ 新增：序號欄位設定
                         "No.", 
