@@ -38,7 +38,7 @@ def load_data():
         return None
 
 def show_search_barcode_page():
-    st.markdown("### 🔍 Search Barcode/SKU/Name")
+    st.markdown("### 🔍 Search Barcode System")
     
     # 1. 載入固定資料
     df = load_data()
