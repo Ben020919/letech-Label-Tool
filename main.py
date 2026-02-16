@@ -1,187 +1,247 @@
 import streamlit as st
 import base64
 
-# 匯入另外兩個檔案的功能函式
-# 請確保這兩個檔案在同一目錄下，且函式名稱正確
+# ================= 匯入功能模組 =================
 try:
     from pdf_tool import show_pdf_page
-except ImportError:
-    def show_pdf_page(): st.error("找不到 pdf_tool.py 或函式錯誤")
-
-try:
     from excel_tool import show_excel_page
+    # 假設您剛才的新程式碼是存成 anymall_tool.py
+    from anymall_tool import show_anymall_page
 except ImportError:
-    def show_excel_page(): st.error("找不到 excel_tool.py 或函式錯誤")
+    def show_pdf_page(): st.error("找不到 pdf_tool.py")
+    def show_excel_page(): st.error("找不到 excel_tool.py")
+    def show_anymall_page(): st.error("找不到 anymall_tool.py")
 
-# 1. 設定必須在最前面
+# ================= 預留的其他 3PL 功能 =================
+def show_hellobear_page():
+    st.title("🐻 Hello Bear 3PL System")
+    st.info("🚧 Hello Bear 功能開發中...")
+
+def show_homey_page():
+    st.title("🏠 Homey 3PL System")
+    st.info("🚧 Homey 功能開發中...")
+
+def show_search_barcode_page():
+    st.title("🔍 Search Barcode")
+    st.info("💡 手機版提示：點擊下方相機可直接掃描")
+    st.text_input("🔢 手動輸入條碼", placeholder="請掃描或輸入...")
+    st.camera_input("點擊拍照")
+
+# ================= 頁面設定 =================
 st.set_page_config(
-    page_title="Letech - Professional Tools",
-    page_icon="🖨️",
+    page_title="Letech 3PL",
+    page_icon="📦",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# ================= CSS 美化樣式 =================
+# ================= CSS 美化 =================
 st.markdown("""
     <style>
-    /* 全局字體 */
-    html, body, [class*="css"] {
-        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-    }
+    html, body, [class*="css"] { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
     
-    /* 側邊欄樣式優化 */
-    section[data-testid="stSidebar"] {
-        background-color: #f8f9fa;
-        border-right: 1px solid #e9ecef;
-    }
+    /* 側邊欄優化 */
+    section[data-testid="stSidebar"] { background-color: #f7f9fc; border-right: 1px solid #e3e6f0; }
     
-    /* 隱藏 Radio Button 的原始圓圈，改成選單樣式 */
+    /* 側邊欄按鈕美化 */
     section[data-testid="stSidebar"] .stRadio > div[role="radiogroup"] > label {
-        background-color: transparent;
-        border: 1px solid transparent;
-        padding: 10px 15px;
-        margin-bottom: 5px;
-        border-radius: 8px;
-        transition: all 0.3s;
-        cursor: pointer;
+        background-color: #ffffff; border: 1px solid #e0e0e0; padding: 12px 15px; margin-bottom: 8px;
+        border-radius: 8px; transition: all 0.2s; cursor: pointer; display: flex; align-items: center;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.03);
     }
-    
-    /* 滑鼠懸停效果 */
     section[data-testid="stSidebar"] .stRadio > div[role="radiogroup"] > label:hover {
-        background-color: #e7f5ff;
-        color: #007bff;
+        background-color: #eef2f7; border-color: #007bff; color: #007bff; padding-left: 20px;
     }
-    
-    /* 選中狀態效果 (需要配合 Streamlit 的結構，這裡做簡單的粗體強化) */
     section[data-testid="stSidebar"] .stRadio > div[role="radiogroup"] > label[data-checked="true"] {
-        background-color: #e7f5ff;
-        border: 1px solid #cce5ff;
-        color: #0056b3;
-        font-weight: bold;
+        background-color: #007bff; border-color: #007bff; color: white; font-weight: 600;
+        box-shadow: 0 4px 6px rgba(0,123,255,0.25);
     }
-    
-    /* 隱藏 Radio 的圓點圖標 */
-    section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label > div:first-child {
-        display: none;
-    }
-    
-    /* 卡片樣式 (用於首頁) */
+    section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label > div:first-child { display: none; }
+    .sidebar-header { font-size: 12px; font-weight: bold; color: #888; margin-top: 20px; margin-bottom: 5px; padding-left: 5px; letter-spacing: 1px; }
+
+    /* 首頁卡片 */
     .home-card {
-        background-color: white;
-        border: 1px solid #e0e0e0;
-        border-radius: 10px;
-        padding: 25px;
-        text-align: center;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        transition: transform 0.2s;
-        height: 100%;
+        background-color: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 25px;
+        text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: transform 0.2s; height: 100%;
     }
-    .home-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        border-color: #007bff;
-    }
-    .card-icon { font-size: 40px; margin-bottom: 15px; }
-    .card-title { font-size: 18px; font-weight: bold; color: #333; margin-bottom: 10px; }
-    .card-desc { font-size: 14px; color: #666; line-height: 1.5; }
-    
+    .home-card:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); border-color: #007bff; }
+    .card-icon { font-size: 36px; margin-bottom: 15px; }
+    .card-title { font-size: 18px; font-weight: bold; color: #2c3e50; margin-bottom: 10px; }
+    .card-desc { font-size: 13px; color: #666; line-height: 1.6; }
+    .card-tag { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; margin-bottom: 15px; }
+    .tag-yummy { background-color: #fff3cd; color: #856404; }
+    .tag-anymall { background-color: #d4edda; color: #155724; }
+    .tag-bear { background-color: #f8d7da; color: #721c24; }
+    .tag-homey { background-color: #e2e3e5; color: #383d41; }
+    .tag-tool { background-color: #d1ecf1; color: #0c5460; }
     </style>
 """, unsafe_allow_html=True)
 
-# ================= 側邊欄 LOGO 函式 =================
+# ================= 側邊欄 LOGO =================
 def render_sidebar_logo():
-    logo_html = """
-    <div style="display: flex; align-items: center; padding: 15px 5px 25px 5px; border-bottom: 1px solid #ddd; margin-bottom: 20px;">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#007bff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 10px;">
-            <path d="M6 9V2h12v7"></path>
-            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-            <path d="M6 14h12v8H6z"></path>
+    st.sidebar.markdown("""
+    <div style="display: flex; align-items: center; padding: 10px 5px 20px 5px; border-bottom: 1px solid #ddd; margin-bottom: 10px;">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#007bff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 10px;">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+            <line x1="12" y1="22.08" x2="12" y2="12"></line>
         </svg>
         <div>
-            <div style="font-size: 20px; font-weight: 800; color: #2c3e50; line-height: 1;">Letech<span style="color:#007bff">.</span></div>
-            <div style="font-size: 10px; color: #888; font-weight: 400; letter-spacing: 0.5px;">MAKE PROFESSIONAL</div>
+            <div style="font-size: 18px; font-weight: 800; color: #2c3e50; line-height: 1;">Letech<span style="color:#007bff">.</span></div>
+            <div style="font-size: 10px; color: #888; font-weight: 400; letter-spacing: 0.5px;">SYSTEM PORTAL</div>
         </div>
     </div>
-    """
-    st.sidebar.markdown(logo_html, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
+
+# ================= 首頁主視覺 =================
+def render_main_header():
+    col_logo, col_text = st.columns([0.08, 0.92])
+    
+    with col_logo:
+        st.markdown("""
+        <svg width="55" height="55" viewBox="0 0 24 24" fill="none" stroke="#007bff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+        </svg>
+        """, unsafe_allow_html=True)
+        
+    with col_text:
+        st.markdown("""
+        <div style="font-family: 'Helvetica Neue', sans-serif; font-size: 42px; font-weight: 800; color: #2c3e50; line-height: 1.1; margin-top: 5px;">
+            Letech<span style="color:#007bff">.</span> 3PL
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div style="font-size: 16px; color: #888; margin-top: -10px; margin-bottom: 20px; letter-spacing: 0.5px;">
+        Intelligent Logistics System & Label Solution
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.divider()
 
 # ================= 主程式邏輯 =================
 def main():
-    # 1. 渲染側邊欄 Logo
     render_sidebar_logo()
     
-    # 2. 側邊選單 (使用 Radio 但透過 CSS 偽裝成 Menu)
-    st.sidebar.markdown("<small style='color:#888; font-weight:600; padding-left:5px;'>MAIN MENU</small>", unsafe_allow_html=True)
+    st.sidebar.markdown("<div class='sidebar-header'>MAIN MENU</div>", unsafe_allow_html=True)
     
-    # 定義選單選項與對應的圖示
-    menu_options = {
-        "🏠  首頁總覽": "home",
-        "📄  PDF 處理工具": "pdf",
-        "🖨️  Excel 標籤生成": "excel"
-    }
-    
-    selection = st.sidebar.radio(
-        "Menu", 
-        list(menu_options.keys()), 
-        label_visibility="collapsed" # 隱藏標題，讓視覺更乾淨
+    category_selection = st.sidebar.radio(
+        "Main Category", 
+        [
+            "🏠 首頁總覽",
+            "🍔 Yummy 3PL",
+            "🛍️ Anymall 3PL",
+            "🐻 Hello Bear 3PL",
+            "🏠 Homey 3PL",
+            "🔍 Search Barcode"
+        ],
+        label_visibility="collapsed"
     )
 
-    # 3. 路由控制 (Routing)
-    
-    # --- 首頁 (Dashboard) ---
-    if menu_options[selection] == "home":
-        st.title("Welcome to Letech")
-        st.markdown("### Intelligent Document & Label Solutions")
-        st.markdown("Please select the tool you need from the menu on the left.")
-        st.markdown("---")
+    # 1. 首頁
+    if category_selection == "🏠 首頁總覽":
+        render_main_header()
         
         col1, col2 = st.columns(2)
-        
         with col1:
             st.markdown("""
             <div class="home-card">
-                <div class="card-icon">📄</div>
-                <div class="card-title">PDF 處理工具</div>
-                <div class="card-desc">
-                    分割PDF空白文件，提取文字內容。<br>
-                    查詢重複SKU訂單。
-                </div>
+                <span class="card-tag tag-yummy">YUMMY 3PL</span>
+                <div class="card-icon">🍔</div>
+                <div class="card-title">Yummy 倉儲系統</div>
+                <div class="card-desc">包含 PDF 訂單處理與標籤列印功能</div>
             </div>
             """, unsafe_allow_html=True)
-            
         with col2:
             st.markdown("""
             <div class="home-card">
-                <div class="card-icon">🖨️</div>
-                <div class="card-title">Excel 標籤生成</div>
-                <div class="card-desc">
-                    讀取 Excel 資料庫與 PDF 訂單，<br>
-                    一鍵生成標準化商品標籤並支援即時列印。
-                </div>
+                <span class="card-tag tag-anymall">ANYMALL 3PL</span>
+                <div class="card-icon">🛍️</div>
+                <div class="card-title">Anymall 倉儲系統</div>
+                <div class="card-desc">專屬物流功能模組 (已上線)</div>
             </div>
             """, unsafe_allow_html=True)
             
-        st.markdown("<br><br>", unsafe_allow_html=True)
+        st.write("") 
+        
+        col3, col4 = st.columns(2)
+        with col3:
+            st.markdown("""
+            <div class="home-card">
+                <span class="card-tag tag-bear">HELLO BEAR</span>
+                <div class="card-icon">🐻</div>
+                <div class="card-title">Hello Bear 3PL</div>
+                <div class="card-desc">Hello Bear 專屬物流功能 (Coming Soon)</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with col4:
+            st.markdown("""
+            <div class="home-card">
+                <span class="card-tag tag-homey">HOMEY</span>
+                <div class="card-icon">🏠</div>
+                <div class="card-title">Homey 3PL</div>
+                <div class="card-desc">Homey 專屬物流功能 (Coming Soon)</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-    # --- PDF 工具 ---
-    elif menu_options[selection] == "pdf":
-        show_pdf_page()
+        st.write("") 
 
-    # --- Excel 工具 ---
-    elif menu_options[selection] == "excel":
-        show_excel_page()
-    
-    # 4. 側邊欄底部版權
+        c1, c2, c3 = st.columns([1, 2, 1])
+        with c2:
+             st.markdown("""
+            <div class="home-card">
+                <span class="card-tag tag-tool">Mobile Tool</span>
+                <div class="card-icon">🔍</div>
+                <div class="card-title">Search Barcode</div>
+                <div class="card-desc">手機相機掃描與條碼查詢</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    # 2. Yummy 3PL
+    elif category_selection == "🍔 Yummy 3PL":
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("<div class='sidebar-header'>YUMMY TOOLS</div>", unsafe_allow_html=True)
+        yummy_function = st.sidebar.radio("Yummy Functions", ["📄 PDF 處理工具", "🖨️ Excel 標籤生成"], label_visibility="collapsed")
+        
+        if yummy_function == "📄 PDF 處理工具": show_pdf_page()
+        elif yummy_function == "🖨️ Excel 標籤生成": show_excel_page()
+
+    # 3. Anymall (✅ 修改處：模仿 Yummy 結構)
+    elif category_selection == "🛍️ Anymall 3PL":
+        st.sidebar.markdown("---")
+        # 改用 sidebar-header 統一樣式
+        st.sidebar.markdown("<div class='sidebar-header'>ANYMALL TOOLS</div>", unsafe_allow_html=True)
+        
+        # 新增子選單，預留擴充空間
+        anymall_function = st.sidebar.radio(
+            "Anymall Functions", 
+            ["🛍️ Anymall 訂單處理工具"], 
+            label_visibility="collapsed"
+        )
+        
+        if anymall_function == "🛍️ Anymall 訂單處理工具":
+            show_anymall_page()
+
+    # 4. Hello Bear
+    elif category_selection == "🐻 Hello Bear 3PL":
+        st.sidebar.markdown("---")
+        st.sidebar.caption("HELLO BEAR 功能選擇")
+        show_hellobear_page()
+
+    # 5. Homey
+    elif category_selection == "🏠 Homey 3PL":
+        st.sidebar.markdown("---")
+        st.sidebar.caption("HOMEY 功能選擇")
+        show_homey_page()
+
+    # 6. Search Barcode
+    elif category_selection == "🔍 Search Barcode":
+        show_search_barcode_page()
+
     st.sidebar.markdown("---")
-    st.sidebar.markdown(
-        """
-        <div style="text-align: center; color: #aaa; font-size: 12px;">
-            © 2024 Letech System<br>
-            v1.2.0 Professional
-        </div>
-        """, 
-        unsafe_allow_html=True
-    )
+    st.sidebar.markdown("<div style='text-align: center; color: #aaa; font-size: 12px;'>© 2024 Letech System v3.0</div>", unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
