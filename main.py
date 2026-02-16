@@ -115,7 +115,7 @@ def render_main_header():
     
     st.markdown("""
     <div style="font-size: 16px; color: #888; margin-top: -10px; margin-bottom: 20px; letter-spacing: 0.5px;">
-        Intelligent Logistics System & Label Solution
+        <br><br>Intelligent Logistics System & Label Solution
     </div>
     """, unsafe_allow_html=True)
     
