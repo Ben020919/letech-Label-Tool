@@ -24,9 +24,10 @@ def load_data():
         return None
 
 def show_search_barcode_page():
-    # 注入 CSS：美化手機版卡片與移除預設表格邊距
+    # 注入 CSS：核心邏輯在於 @media 判斷螢幕寬度
     st.markdown("""
         <style>
+            /* 1. 定義手機版卡片樣式 */
             .result-card {
                 background-color: #ffffff;
                 border: 1px solid #e0e0e0;
@@ -35,25 +36,19 @@ def show_search_barcode_page():
                 margin-bottom: 12px;
                 box-shadow: 0 2px 4px rgba(0,0,0,0.05);
             }
-            .card-label {
-                color: #888;
-                font-size: 11px;
-                font-weight: bold;
-                margin-bottom: 2px;
-            }
-            .card-value {
-                color: #333;
-                font-size: 15px;
-                margin-bottom: 8px;
-                word-break: break-all;
-            }
-            .card-name {
-                color: #2c3e50;
-                font-weight: 600;
-                font-size: 16px;
-                line-height: 1.4;
-                border-top: 1px solid #eee;
-                padding-top: 8px;
+            .card-label { color: #888; font-size: 11px; font-weight: bold; margin-bottom: 2px; }
+            .card-value { color: #333; font-size: 15px; margin-bottom: 8px; word-break: break-all; }
+            .card-name { color: #2c3e50; font-weight: 600; font-size: 16px; line-height: 1.4; border-top: 1px solid #eee; padding-top: 8px; }
+
+            /* 2. 預設隱藏手機版卡片容器 */
+            .mobile-view { display: none; }
+            /* 3. 預設顯示電腦版表格容器 */
+            .desktop-view { display: block; }
+
+            /* 4. 當螢幕寬度小於等於 768px 時 (手機/平板) */
+            @media screen and (max-width: 768px) {
+                .desktop-view { display: none !important; } /* 隱藏表格 */
+                .mobile-view { display: block !important; }  /* 顯示卡片 */
             }
         </style>
     """, unsafe_allow_html=True)
@@ -81,39 +76,33 @@ def show_search_barcode_page():
         if not results.empty:
             st.success(f"✅ 找到 {len(results)} 筆結果")
 
-            # --- 關鍵修正：使用多選按鈕或寬度偵測 ---
-            # 因為 Streamlit 難以百分之百準確抓取手機瀏覽器寬度
-            # 我們提供一個開關，或者直接並排顯示，但為了最穩定的體驗：
-            
-            # 建立兩個 Tab，一個是「表格檢視 (電腦)」，一個是「卡片檢視 (手機)」
-            # 這樣無論在哪種裝置，使用者都能選最適合的看，且不會出現代碼。
-            tab1, tab2 = st.tabs(["💻 電腦版表格", "📱 手機版卡片"])
+            # --- A. 電腦版顯示區域 (被包在 desktop-view div 中) ---
+            st.markdown('<div class="desktop-view">', unsafe_allow_html=True)
+            st.dataframe(
+                results[['ProductCode', 'Barcode', 'Name']], 
+                use_container_width=True,
+                column_config={
+                    "ProductCode": "SKU",
+                    "Barcode": "Barcode",
+                    "Name": "商品名稱"
+                },
+                hide_index=True
+            )
+            st.markdown('</div>', unsafe_allow_html=True)
 
-            with tab1:
-                st.dataframe(
-                    results[['ProductCode', 'Barcode', 'Name']], 
-                    use_container_width=True,
-                    column_config={
-                        "ProductCode": "SKU",
-                        "Barcode": "Barcode",
-                        "Name": "商品名稱"
-                    },
-                    hide_index=True
-                )
-
-            with tab2:
-                for _, row in results.iterrows():
-                    # 使用 st.container 確保 HTML 渲染正確
-                    with st.container():
-                        st.markdown(f"""
-                        <div class="result-card">
-                            <div class="card-label">SKU</div>
-                            <div class="card-value">{row['ProductCode']}</div>
-                            <div class="card-label">Barcode</div>
-                            <div class="card-value">{row['Barcode']}</div>
-                            <div class="card-name">{row['Name']}</div>
-                        </div>
-                        """, unsafe_allow_html=True)
+            # --- B. 手機版顯示區域 (被包在 mobile-view div 中) ---
+            st.markdown('<div class="mobile-view">', unsafe_allow_html=True)
+            for _, row in results.iterrows():
+                st.markdown(f"""
+                <div class="result-card">
+                    <div class="card-label">SKU</div>
+                    <div class="card-value">{row['ProductCode']}</div>
+                    <div class="card-label">Barcode</div>
+                    <div class="card-value">{row['Barcode']}</div>
+                    <div class="card-name">{row['Name']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
             
         else:
             st.warning("❌ 查無資料")
