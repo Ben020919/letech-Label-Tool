@@ -76,7 +76,6 @@ def show_anymall_page():
                 # 3. 組合資料 (在此處加入 "序號")
                 valid_rows.append({
                     "序號": len(valid_rows) + 1,  # 自動編號
-                    "原始頁碼": i + 1,
                     "Product No": p_no,
                     "Barcode": barcode,
                     "商品名稱": p_name,
@@ -137,11 +136,6 @@ def show_anymall_page():
                 use_container_width=False,
                 height=800,
                 column_config={
-                    "原始頁碼": st.column_config.NumberColumn(
-                        "頁碼", 
-                        width=40, 
-                        format="%d"
-                    ),
                     "序號": st.column_config.NumberColumn("No.", width=40, format="%d"),
                     "Product No": st.column_config.TextColumn("Product No", width=100),
                     "Barcode": st.column_config.TextColumn("Barcode", width=120),
