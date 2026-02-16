@@ -76,19 +76,7 @@ def show_search_barcode_page():
         if not results.empty:
             st.success(f"✅ 找到 {len(results)} 筆結果")
 
-            # --- A. 電腦版顯示區域 (被包在 desktop-view div 中) ---
-            st.markdown('<div class="desktop-view">', unsafe_allow_html=True)
-            st.dataframe(
-                results[['ProductCode', 'Barcode', 'Name']], 
-                use_container_width=True,
-                column_config={
-                    "ProductCode": "SKU",
-                    "Barcode": "Barcode",
-                    "Name": "商品名稱"
-                },
-                hide_index=True
-            )
-            st.markdown('</div>', unsafe_allow_html=True)
+            
 
             # --- B. 手機版顯示區域 (被包在 mobile-view div 中) ---
             st.markdown('<div class="mobile-view">', unsafe_allow_html=True)
