@@ -143,7 +143,7 @@ def show_anymall_page():
                     ),
                     "Product No": st.column_config.TextColumn("Product No", width=150),
                     "Barcode": st.column_config.TextColumn("Barcode", width=160),
-                    "商品名稱": st.column_config.TextColumn("商品名稱", width=1000),
+                    "商品名稱": st.column_config.TextColumn("商品名稱", width=900),
                     "數量": st.column_config.NumberColumn("數量", width=90, format="%d")
                 },
                 hide_index=True
