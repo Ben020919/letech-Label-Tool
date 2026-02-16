@@ -160,7 +160,7 @@ def main():
                 <span class="card-tag tag-anymall">ANYMALL 3PL</span>
                 <div class="card-icon">🛍️</div>
                 <div class="card-title">Anymall 倉儲系統</div>
-                <div class="card-desc">專屬物流功能模組 (已上線)</div>
+                <div class="card-desc">自動刪除空白頁，生成表格</div>
             </div>
             """, unsafe_allow_html=True)
             
