@@ -5,12 +5,14 @@ import base64
 try:
     from pdf_tool import show_pdf_page
     from excel_tool import show_excel_page
-    # 假設您剛才的新程式碼是存成 anymall_tool.py
     from anymall_tool import show_anymall_page
+    # 新增匯入 Search 工具
+    from search_tool import show_search_barcode_page
 except ImportError:
     def show_pdf_page(): st.error("找不到 pdf_tool.py")
     def show_excel_page(): st.error("找不到 excel_tool.py")
     def show_anymall_page(): st.error("找不到 anymall_tool.py")
+    def show_search_barcode_page(): st.error("找不到 search_tool.py")
 
 # ================= 預留的其他 3PL 功能 =================
 def show_hellobear_page():
@@ -21,11 +23,7 @@ def show_homey_page():
     st.title("🏠 Homey 3PL System")
     st.info("🚧 Homey 功能開發中...")
 
-def show_search_barcode_page():
-    st.title("🔍 Search Barcode")
-    st.info("💡 手機版提示：點擊下方相機可直接掃描")
-    st.text_input("🔢 手動輸入條碼", placeholder="請掃描或輸入...")
-    st.camera_input("點擊拍照")
+# 注意：原本這裡的 show_search_barcode_page 函式已經刪除，因為改從 search_tool.py 匯入了
 
 # ================= 頁面設定 =================
 st.set_page_config(
@@ -125,6 +123,7 @@ def render_main_header():
 def main():
     render_sidebar_logo()
     
+    # --- 左側欄位導航 ---
     st.sidebar.markdown("<div class='sidebar-header'>MAIN MENU</div>", unsafe_allow_html=True)
     
     category_selection = st.sidebar.radio(
@@ -139,6 +138,8 @@ def main():
         ],
         label_visibility="collapsed"
     )
+
+    # --- 右側內容顯示區 ---
 
     # 1. 首頁
     if category_selection == "🏠 首頁總覽":
@@ -188,6 +189,7 @@ def main():
 
         st.write("") 
 
+        # 第三排：Search Barcode (置中)
         c1, c2, c3 = st.columns([1, 2, 1])
         with c2:
              st.markdown("""
@@ -195,7 +197,7 @@ def main():
                 <span class="card-tag tag-tool">Mobile Tool</span>
                 <div class="card-icon">🔍</div>
                 <div class="card-title">Search Barcode</div>
-                <div class="card-desc">手機相機掃描與條碼查詢</div>
+                <div class="card-desc">SKU, Barcode 查詢</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -208,21 +210,11 @@ def main():
         if yummy_function == "📄 PDF 處理工具": show_pdf_page()
         elif yummy_function == "🖨️ Excel 標籤生成": show_excel_page()
 
-    # 3. Anymall (✅ 修改處：模仿 Yummy 結構)
+    # 3. Anymall
     elif category_selection == "🛍️ Anymall 3PL":
         st.sidebar.markdown("---")
-        # 改用 sidebar-header 統一樣式
-        st.sidebar.markdown("<div class='sidebar-header'>ANYMALL TOOLS</div>", unsafe_allow_html=True)
-        
-        # 新增子選單，預留擴充空間
-        anymall_function = st.sidebar.radio(
-            "Anymall Functions", 
-            ["🛍️ Anymall 訂單處理工具"], 
-            label_visibility="collapsed"
-        )
-        
-        if anymall_function == "🛍️ Anymall 訂單處理工具":
-            show_anymall_page()
+        st.sidebar.caption("ANYMALL 功能選擇")
+        show_anymall_page()
 
     # 4. Hello Bear
     elif category_selection == "🐻 Hello Bear 3PL":
@@ -236,12 +228,12 @@ def main():
         st.sidebar.caption("HOMEY 功能選擇")
         show_homey_page()
 
-    # 6. Search Barcode
+    # 6. Search Barcode (現在會呼叫真正的功能)
     elif category_selection == "🔍 Search Barcode":
         show_search_barcode_page()
 
     st.sidebar.markdown("---")
-    st.sidebar.markdown("<div style='text-align: center; color: #aaa; font-size: 12px;'>© 2024 Letech System v3.0</div>", unsafe_allow_html=True)
+    st.sidebar.markdown("<div style='text-align: center; color: #aaa; font-size: 12px;'>© 2024 Letech System v3.1</div>", unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
