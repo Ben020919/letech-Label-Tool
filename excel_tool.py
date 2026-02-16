@@ -64,7 +64,7 @@ def font_to_base64_css(font_bytes, file_name):
         """
     except Exception as e: return ""
 
-# ================= 3. HTML 標籤生成器 (現在改為即時生成) =================
+# ================= 3. HTML 標籤生成器 (即時生成) =================
 def create_label_html_on_the_fly(item, matched_data, font_css, qty):
     """
     這個函式會在按鈕被點擊時才執行，避免記憶體爆炸
@@ -150,6 +150,7 @@ def create_label_html_on_the_fly(item, matched_data, font_css, qty):
         
     return final_html
 
+# ================= 4. JS 列印腳本 (Windows/Mac 兼容修復版) =================
 def js_instant_print(full_html_content, item_id):
     b64_html = base64.b64encode(full_html_content.encode('utf-8')).decode('utf-8')
     js_code = f"""
@@ -159,15 +160,31 @@ def js_instant_print(full_html_content, item_id):
             const htmlContent = decodeURIComponent(escape(window.atob(b64)));
             const win = window.open('', '_blank', 'width=400,height=400');
             if (win) {{
-                win.document.write(htmlContent); win.document.close();
-                win.onload = function() {{ win.focus(); win.print(); win.onafterprint = function() {{ win.close(); }}; win.onfocus = function() {{ setTimeout(()=>{{ win.close(); }}, 500); }}; }};
-            }} else {{ alert("請允許彈出視窗！"); }}
+                win.document.write(htmlContent); 
+                win.document.close();
+                
+                win.onload = function() {{ 
+                    win.focus(); 
+                    
+                    // --- 關鍵修復：先註冊關閉事件，再執行列印 ---
+                    // 這行確保 Windows 即使阻塞也能收到關閉指令
+                    win.onafterprint = function() {{ win.close(); }}; 
+                    
+                    // 開始列印
+                    win.print(); 
+                    
+                    // Mac/Safari 的備用方案 (保留)
+                    win.onfocus = function() {{ setTimeout(()=>{{ win.close(); }}, 500); }}; 
+                }};
+            }} else {{ 
+                alert("請允許彈出視窗！"); 
+            }}
         }})();
     </script>
     """
     components.html(js_code, height=30)
 
-# ================= 4. 主頁面 =================
+# ================= 5. 主頁面 =================
 def show_excel_page():
     # 初始化
     if 'parsed_items' not in st.session_state: st.session_state['parsed_items'] = []
@@ -311,10 +328,7 @@ def show_excel_page():
                         matched_data = row.iloc[0].to_dict()
                         has_match = True
 
-                    # ✅ 記憶體優化重點：
-                    # 不要儲存生成的 HTML！只儲存原始數據 (dict)
-                    # HTML 在按下按鈕時再生成
-                    
+                    # ✅ 記憶體優化重點：只儲存原始數據，不存 HTML
                     temp_items.append({
                         "id": f"{p_no}_{i}", 
                         "Product No": p_no, 
@@ -368,11 +382,9 @@ def show_excel_page():
                     c5.markdown(f"<div class='grid-row'><span class='cell-qty'>{item['數量']}</span></div>", unsafe_allow_html=True)
                     
                     with c6:
-                        # 只有當找到 Excel 對應資料時才顯示按鈕
                         if item['has_match']:
                             if st.button("Print", key=f"btn_{item['id']}_{index}"):
-                                # 🔥 關鍵修改：按下去的瞬間才生成 HTML 🔥
-                                # 這樣不會佔用 session_state 記憶體
+                                # 🔥 按下按鈕瞬間生成 HTML 🔥
                                 final_html = create_label_html_on_the_fly(
                                     item, 
                                     item['matched_data'], 
