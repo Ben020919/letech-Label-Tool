@@ -38,33 +38,22 @@ def smart_auto_close_sidebar():
     """
     js_code = """
     <script>
-        // 1. 偵測螢幕寬度
         var width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
-        
-        // 2. 設定手機版的斷點 (通常是 768px)
         if (width <= 768) {
-            // 3. 取得側邊欄物件
             var sidebar = window.parent.document.querySelector('section[data-testid="stSidebar"]');
-            
             if (sidebar) {
-                // 4. 尋找側邊欄內的按鈕 (通常第一個按鈕就是關閉 X)
                 var buttons = sidebar.querySelectorAll('button');
-                
-                // 5. 執行點擊關閉
                 if (buttons.length > 0) {
-                    // 為了確保 UI 渲染完成，稍微延遲 100ms 再點擊 (可選)
                     setTimeout(function() {
                         buttons[0].click();
                     }, 100);
                 }
             }
         } else {
-            // 電腦版 (寬度 > 768px) -> 什麼都不做，保持開啟
             console.log("Desktop mode: Sidebar remains open.");
         }
     </script>
     """
-    # 執行 JS，height=0 隱藏元件
     components.html(js_code, height=0)
 
 # ================= CSS 美化 =================
@@ -181,7 +170,6 @@ def main():
 
     if st.session_state.last_selection != category_selection:
         st.session_state.last_selection = category_selection
-        # 【關鍵】呼叫智慧收合函式 (內含螢幕寬度判斷)
         smart_auto_close_sidebar()
 
     # --- 右側內容顯示區 ---
@@ -221,19 +209,31 @@ def main():
         with c2:
              st.markdown("""<div class="home-card"><span class="card-tag tag-tool">Mobile Tool</span><div class="card-icon">🔍</div><div class="card-title">Search Barcode</div><div class="card-desc">SKU, Barcode 查詢</div></div>""", unsafe_allow_html=True)
 
-    # 2. Yummy 3PL
+    # 2. Yummy 3PL (邏輯：有 2 個功能 -> 顯示選單)
     elif category_selection == "🍔 Yummy 3PL":
         st.sidebar.markdown("---")
-        st.sidebar.markdown("<div class='sidebar-header'>YUMMY TOOLS</div>", unsafe_allow_html=True)
-        yummy_function = st.sidebar.radio("Yummy Functions", ["📄 PDF 處理工具", "🖨️ Excel 標籤生成"], label_visibility="collapsed")
         
+        # 定義功能列表
+        yummy_ops = ["📄 PDF 處理工具", "🖨️ Excel 標籤生成"]
+        
+        # 自動判斷：功能大於1個才顯示選單
+        if len(yummy_ops) > 1:
+            st.sidebar.markdown("<div class='sidebar-header'>YUMMY TOOLS</div>", unsafe_allow_html=True)
+            yummy_function = st.sidebar.radio("Yummy Functions", yummy_ops, label_visibility="collapsed")
+        else:
+            # 只有一個功能時，直接選中第一個
+            yummy_function = yummy_ops[0]
+
+        # 執行功能
         if yummy_function == "📄 PDF 處理工具": show_pdf_page()
         elif yummy_function == "🖨️ Excel 標籤生成": show_excel_page()
 
-    # 3. Anymall
+    # 3. Anymall 3PL (邏輯：只有 1 個功能 -> 隱藏選單與 Caption)
     elif category_selection == "🛍️ Anymall 3PL":
         st.sidebar.markdown("---")
-        st.sidebar.caption("ANYMALL 功能選擇")
+        
+        # 移除了 "ANYMALL 功能選擇" 的 Caption
+        # 因為只有一個功能，所以不呼叫 st.sidebar.radio，直接執行頁面
         show_anymall_page()
 
     # 4. Hello Bear
