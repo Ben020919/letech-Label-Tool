@@ -146,7 +146,7 @@ def main():
     # 1. 大分類導航
     category_selection = st.sidebar.radio(
         "Main Category", 
-        ["🏠 首頁總覽", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🔍 Search Barcode"],
+        ["🏠 Home Page", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🔍 Search Barcode"],
         label_visibility="collapsed",
         key="main_nav"
     )
@@ -155,7 +155,7 @@ def main():
     current_sub_func = ""
 
     # --- 右側內容顯示區 ---
-    if category_selection == "🏠 首頁總覽":
+    if category_selection == "🏠 Home Page":
         render_main_header()
         col1, col2 = st.columns(2)
         with col1:
