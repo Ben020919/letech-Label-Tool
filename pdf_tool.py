@@ -21,7 +21,7 @@ def show_pdf_page():
         </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("### 🍔       Yummy 3PL System")
+    st.markdown("### 🍔 Yummy 3PL System")
 
     uploaded_file = st.file_uploader("Please Upload PDF File", type=["pdf"])
 
