@@ -21,6 +21,8 @@ def show_pdf_page():
         </div>
     """, unsafe_allow_html=True)
 
+    st.markdown("### 🛍️ Anymall 3PL System")
+
     uploaded_file = st.file_uploader("Please Upload PDF File", type=["pdf"])
 
     if uploaded_file is not None:
