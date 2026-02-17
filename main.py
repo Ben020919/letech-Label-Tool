@@ -1,20 +1,16 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# ================= 1. 匯入功能模組 (含詳細錯誤偵測) =================
+# ================= 1. 匯入功能模組 =================
 try:
     from pdf_tool import show_pdf_page
 except ImportError as e:
-    def show_pdf_page(): 
-        st.error(f"❌ 無法載入 PDF 工具: {e}")
-        st.info("💡 提示: 請確認是否已安裝 pypdf (pip install pypdf)")
+    def show_pdf_page(): st.error(f"❌ 無法載入 PDF 工具: {e}")
 
 try:
     from excel_tool import show_excel_page
 except ImportError as e:
-    def show_excel_page(): 
-        st.error(f"❌ 無法載入 Excel 工具: {e}")
-        st.info("💡 提示: 請確認資料夾內是否有 Lable.py 和 Cautions.py")
+    def show_excel_page(): st.error(f"❌ 無法載入 Excel 工具: {e}")
 
 try:
     from anymall_tool import show_anymall_page
@@ -31,12 +27,10 @@ try:
 except ImportError as e:
     def show_homey_page(): st.error(f"❌ 無法載入 Homey 工具: {e}")
 
-# --- 匯入 Hello Bear 功能 ---
 try:
     from hello_tool import show_homey_page as show_hellobear_page
 except ImportError as e:
-    def show_hellobear_page():
-        st.error(f"❌ 無法載入 Hello Bear 工具: {e}")
+    def show_hellobear_page(): st.error(f"❌ 無法載入 Hello Bear 工具: {e}")
 
 # ================= 2. 頁面設定 =================
 st.set_page_config(
@@ -46,7 +40,7 @@ st.set_page_config(
     initial_sidebar_state="auto"
 )
 
-# ================= 3. 核心功能：智慧自動關閉側邊欄 (僅手機) =================
+# ================= 3. 智慧自動關閉側邊欄 (JS) =================
 def smart_auto_close_sidebar():
     js_code = """
     <script>
@@ -118,24 +112,15 @@ def render_sidebar_logo():
 def render_main_header():
     col_logo, col_text = st.columns([0.08, 0.92])
     with col_logo:
-        st.markdown("""
-        <svg width="55" height="55" viewBox="0 0 24 24" fill="none" stroke="#007bff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-            <line x1="12" y1="22.08" x2="12" y2="12"></line>
-        </svg>
-        """, unsafe_allow_html=True)
+        st.markdown("""<svg width="55" height="55" viewBox="0 0 24 24" fill="none" stroke="#007bff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>""", unsafe_allow_html=True)
     with col_text:
-        st.markdown("""
-        <div style="font-family: 'Helvetica Neue', sans-serif; font-size: 42px; font-weight: 800; color: #2c3e50; line-height: 1.1; margin-top: 5px;">
-            Letech<span style="color:#007bff">.</span> 3PL
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown("""<div style="font-family: 'Helvetica Neue', sans-serif; font-size: 42px; font-weight: 800; color: #2c3e50; line-height: 1.1; margin-top: 5px;">Letech<span style="color:#007bff">.</span> 3PL</div>""", unsafe_allow_html=True)
     st.markdown("<br><div style='color: #888;'>Intelligent Logistics System & Label Solution</div><br>", unsafe_allow_html=True)
     st.divider()
 
-# ================= 7. 主程式邏輯 =================
+# ================= 7. 主程式邏輯 (修正版) =================
 def main():
+    # --- A. 側邊欄渲染 (優先執行) ---
     render_sidebar_logo()
     st.sidebar.markdown("<div class='sidebar-header'>MAIN MENU</div>", unsafe_allow_html=True)
     
@@ -149,68 +134,73 @@ def main():
 
     current_sub_func = ""
 
-    # --- 右側內容顯示區 ---
+    # 2. 如果選擇了 Yummy，提前顯示子選單 (為了取得完整的狀態字串)
+    if category_selection == "🍔 Yummy 3PL":
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("<div class='sidebar-header'>YUMMY TOOLS</div>", unsafe_allow_html=True)
+        current_sub_func = st.sidebar.radio(
+            "Yummy Functions", 
+            ["📄 PDF Processing Tools", "🖨️ Food Lable Generation"], 
+            label_visibility="collapsed", 
+            key="yummy_nav"
+        )
+    
+    # 其他分類的側邊欄裝飾 (這裡只做顯示，不執行邏輯)
+    elif category_selection in ["🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL"]:
+        st.sidebar.markdown("---")
+
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("<div style='text-align: center; color: #aaa; font-size: 12px;'>© 2026 Letech System v3.2</div>", unsafe_allow_html=True)
+
+    # --- B. 智慧收合邏輯 (關鍵：在顯示內容前執行) ---
+    # 建立狀態字串
+    combined_state = f"{category_selection}_{current_sub_func}"
+
+    # 初始化狀態
+    if 'page_state' not in st.session_state:
+        st.session_state.page_state = combined_state
+
+    # 檢測狀態是否改變 -> 改變則注入 JS 關閉側邊欄
+    if st.session_state.page_state != combined_state:
+        st.session_state.page_state = combined_state
+        smart_auto_close_sidebar()
+
+    # --- C. 右側內容顯示區 (最後執行) ---
+    
     if category_selection == "🏠 Home Page":
         render_main_header()
-        
-        # 第一排：Yummy & Anymall
         col1, col2 = st.columns(2)
         with col1:
             st.markdown("""<div class="home-card"><span class="card-tag tag-yummy">Yummy 3PL</span><div class="card-icon">🍔</div><div class="card-title">Yummy System</div><div class="card-desc">Includes PDF Processing and Label<br> Printing Functions.</div></div>""", unsafe_allow_html=True)
         with col2:
             st.markdown("""<div class="home-card"><span class="card-tag tag-anymall">Anymall 3PL</span><div class="card-icon">🛍️</div><div class="card-title">Anymall System</div><div class="card-desc">Automatic handling of Blank Pages and <br>Table Generation.</div></div>""", unsafe_allow_html=True)
-        
         st.write("")
-        
-        # 第二排：Hello Bear & Homey
         col3, col4 = st.columns(2)
         with col3:
             st.markdown("""<div class="home-card"><span class="card-tag tag-bear">Hello Bear 3PL</span><div class="card-icon">🐻</div><div class="card-title">Hello Bear System</div><div class="card-desc">Automatic detection of SKU, Label and Repack.</div></div>""", unsafe_allow_html=True)
         with col4:
             st.markdown("""<div class="home-card"><span class="card-tag tag-homey">Homey 3PL</span><div class="card-icon">🏠</div><div class="card-title">Homey System</div><div class="card-desc">Automatic detection of SKU and Repack.</div></div>""", unsafe_allow_html=True)
-            
         st.write("")
-        
-        # 第三排：Search Barcode (補回此部分)
         c1, c2, c3 = st.columns([1, 2, 1])
         with c2:
              st.markdown("""<div class="home-card"><span class="card-tag tag-tool">Barcode Tool</span><div class="card-icon">🔍</div><div class="card-title">Search Barcode System</div><div class="card-desc">Quickly Search for SKU and Barcode Information.</div></div>""", unsafe_allow_html=True)
 
     elif category_selection == "🍔 Yummy 3PL":
-        st.sidebar.markdown("---")
-        st.sidebar.markdown("<div class='sidebar-header'>YUMMY TOOLS</div>", unsafe_allow_html=True)
-        yummy_function = st.sidebar.radio("Yummy Functions", ["📄 PDF Processing Tools", "🖨️ Food Lable Generation"], label_visibility="collapsed", key="yummy_nav")
-        current_sub_func = yummy_function
-        if yummy_function == "📄 PDF Processing Tools": show_pdf_page()
-        elif yummy_function == "🖨️ Food Lable Generation": show_excel_page()
+        # 這裡只負責執行功能，側邊欄 UI 已經在上方 B 階段處理過了
+        if current_sub_func == "📄 PDF Processing Tools": show_pdf_page()
+        elif current_sub_func == "🖨️ Food Lable Generation": show_excel_page()
 
     elif category_selection == "🛍️ Anymall 3PL":
-        st.sidebar.markdown("---")
         show_anymall_page()
 
     elif category_selection == "🐻 Hello Bear 3PL":
-        st.sidebar.markdown("---")
         show_hellobear_page()
 
     elif category_selection == "🏠 Homey 3PL":
-        st.sidebar.markdown("---")
         show_homey_page()
 
     elif category_selection == "🔍 Search Barcode":
         show_search_barcode_page()
-
-    # ================= 核心修正邏輯 =================
-    combined_state = f"{category_selection}_{current_sub_func}"
-
-    if 'page_state' not in st.session_state:
-        st.session_state.page_state = combined_state
-
-    if st.session_state.page_state != combined_state:
-        st.session_state.page_state = combined_state
-        smart_auto_close_sidebar()
-
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("<div style='text-align: center; color: #aaa; font-size: 12px;'>© 2026 Letech System v3.2</div>", unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
