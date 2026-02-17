@@ -291,10 +291,10 @@ def show_excel_page():
 
     with col_up1:
         if bridge_pdf:
-            st.success(f"📂 PDF Tool 傳送: **{bridge_name}**")
+            st.success(f"📂 PDF Tool Transfer: **{bridge_name}**")
             uploaded_pdf = io.BytesIO(bridge_pdf)
             uploaded_pdf.name = bridge_name 
-            if st.button("❌ 清除 / 上傳新 PDF", key="clr_pdf"):
+            if st.button("❌ Delete / Upload New PDF", key="clr_pdf"):
                 del st.session_state['bridge_pdf_data']
                 del st.session_state['bridge_pdf_name']
                 st.rerun()
@@ -314,7 +314,7 @@ def show_excel_page():
         elif os.path.exists(DEFAULT_EXCEL_PATH):
             try:
                 df_master = load_local_excel(DEFAULT_EXCEL_PATH)
-                st.info(f"✅ 使用資料庫: {DEFAULT_EXCEL_PATH}")
+                st.info(f"✅ Database: {DEFAULT_EXCEL_PATH}")
                 current_excel_name = DEFAULT_EXCEL_PATH
             except Exception as e:
                 st.error(f"預設資料庫讀取失敗: {e}")
@@ -322,7 +322,7 @@ def show_excel_page():
         if df_master is not None:
             df_master.columns = df_master.columns.str.strip()
 
-    uploaded_font_file = st.sidebar.file_uploader("上傳粗體字型 (.ttf/.otf)", type=["ttf", "otf", "woff"])
+    uploaded_font_file = st.sidebar.file_uploader("Upload bold font (.ttf/.otf)", type=["ttf", "otf", "woff"])
     font_bytes = None
     font_filename = ""
     
@@ -333,7 +333,7 @@ def show_excel_page():
         try:
             font_bytes = load_local_font_bytes(DEFAULT_FONT_PATH)
             font_filename = DEFAULT_FONT_PATH
-            st.sidebar.info(f"✅ 使用預設字型: {DEFAULT_FONT_PATH}")
+            st.sidebar.info(f"✅ Use Default font: {DEFAULT_FONT_PATH}")
         except: pass
 
     # ================= 處理邏輯 =================
