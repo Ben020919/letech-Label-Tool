@@ -159,10 +159,10 @@ def show_homey_page():
                     height=900,
                     column_config={
                         "Product No": st.column_config.TextColumn("Product No", width=110),
-                        "Barcode": st.column_config.TextColumn("Barcode", width=115),
+                        "Barcode": st.column_config.TextColumn("Barcode", width=120),
                         "商品名稱": st.column_config.TextColumn("商品名稱", width=650),
                         "數量": st.column_config.NumberColumn("數量", width=40, format="%d"),
-                        "Label Type": st.column_config.TextColumn("Label Type (自動偵測)", width=220)
+                        "Label Type": st.column_config.TextColumn("Label Type (自動偵測)", width=225)
                     }
                 )
                 
