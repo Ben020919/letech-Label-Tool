@@ -146,7 +146,6 @@ def show_homey_page():
                 duplicated_pnos = df_result[df_result.duplicated('Product No', keep=False)]['Product No'].unique().tolist()
                 duplicate_count = len(duplicated_pnos)
 
-                st.write("#### 📊 處理統計")
                 c1, c2, c3, c4 = st.columns(4)
                 c1.metric("📄 原始頁數", total_pages)
                 c2.metric("✅ 有效頁數", valid_page_count)
