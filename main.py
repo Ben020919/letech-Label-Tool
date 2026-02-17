@@ -1,6 +1,5 @@
 import streamlit as st
 import streamlit.components.v1 as components
-import time
 
 # ================= 1. 匯入功能模組 =================
 try:
@@ -41,31 +40,43 @@ st.set_page_config(
     initial_sidebar_state="auto"
 )
 
-# ================= 3. 核心：強制關閉側邊欄 JS =================
+# ================= 3. 強制關閉側邊欄邏輯 (終極版) =================
+# 定義一個回調函數，只要選單被點擊，就讓計數器 +1
+def close_sidebar_callback():
+    if 'sidebar_trigger_count' not in st.session_state:
+        st.session_state.sidebar_trigger_count = 0
+    st.session_state.sidebar_trigger_count += 1
+
 def inject_mobile_sidebar_closer():
     """
-    這段 JS 會在頁面載入時強制尋找側邊欄的關閉按鈕並點擊。
-    只在螢幕寬度小於 768px (手機) 時執行。
+    這段程式碼會根據計數器產生一個全新的 div。
+    因為 key 每次都不同，瀏覽器會強制重新執行這段 JS，確保側邊欄關閉。
     """
-    js = """
+    if 'sidebar_trigger_count' not in st.session_state:
+        st.session_state.sidebar_trigger_count = 0
+
+    # JS 腳本：尋找並點擊關閉按鈕
+    js_code = """
     <script>
         var width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
         if (width <= 768) {
-            // 延遲執行，確保 DOM 元素已經生成
             setTimeout(function() {
                 var sidebar = window.parent.document.querySelector('section[data-testid="stSidebar"]');
                 if (sidebar) {
-                    // 尋找側邊欄內的按鈕 (通常是 X 按鈕)
                     var buttons = sidebar.querySelectorAll('button');
+                    // 通常第一個按鈕就是關閉 (X)
                     if (buttons.length > 0) {
                         buttons[0].click();
                     }
                 }
-            }, 100); 
+            }, 300); // 延遲 300ms 確保頁面載入後執行
         }
     </script>
     """
-    components.html(js, height=0)
+    
+    # 關鍵：將計數器放入 key 中
+    # 每次 key 改變 (0, 1, 2...)，Streamlit 就會把這段 HTML 當作新的東西重新插入，強制執行 JS
+    components.html(js_code, height=0, key=f"force_close_{st.session_state.sidebar_trigger_count}")
 
 # ================= 4. CSS 美化 =================
 st.markdown("""
@@ -126,22 +137,28 @@ def render_main_header():
     st.divider()
 
 # ================= 7. 主程式邏輯 =================
+
 def main():
     render_sidebar_logo()
     st.sidebar.markdown("<div class='sidebar-header'>MAIN MENU</div>", unsafe_allow_html=True)
     
-    # 1. 取得主分類
+    # 初始化計數器 (如果還沒有)
+    if 'sidebar_trigger_count' not in st.session_state:
+        st.session_state.sidebar_trigger_count = 0
+
+    # 1. 大分類導航 (綁定 on_change 回調)
+    # 只要點選這裡，close_sidebar_callback 就會執行，計數器+1，導致 JS 重新執行
     category_selection = st.sidebar.radio(
         "Main Category", 
         ["🏠 Home Page", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🔍 Search Barcode"],
         label_visibility="collapsed",
-        key="main_nav"
+        key="main_nav",
+        on_change=close_sidebar_callback  # 🔥 關鍵綁定
     )
 
-    # 2. 取得子分類 (預設為空)
     current_sub_func = ""
-    
-    # 如果是 Yummy，立刻顯示子選單
+
+    # 2. Yummy 子選單 (綁定 on_change 回調)
     if category_selection == "🍔 Yummy 3PL":
         st.sidebar.markdown("---")
         st.sidebar.markdown("<div class='sidebar-header'>YUMMY TOOLS</div>", unsafe_allow_html=True)
@@ -149,7 +166,8 @@ def main():
             "Yummy Functions", 
             ["📄 PDF Processing Tools", "🖨️ Food Lable Generation"], 
             label_visibility="collapsed", 
-            key="yummy_nav"
+            key="yummy_nav",
+            on_change=close_sidebar_callback # 🔥 關鍵綁定
         )
     
     # 裝飾用
@@ -159,21 +177,9 @@ def main():
     st.sidebar.markdown("---")
     st.sidebar.markdown("<div style='text-align: center; color: #aaa; font-size: 12px;'>© 2026 Letech System v3.2</div>", unsafe_allow_html=True)
 
-    # ================= 🔵 關鍵：自動關閉判斷邏輯 🔵 =================
-    
-    # 1. 組合出當前的「完整頁面狀態」字串
-    current_state_signature = f"{category_selection} | {current_sub_func}"
-    
-    # 2. 如果 session_state 還沒有紀錄，先初始化
-    if 'last_page_state' not in st.session_state:
-        st.session_state.last_page_state = current_state_signature
-
-    # 3. 比對：如果「現在的狀態」跟「上一次紀錄的」不一樣 -> 代表使用者剛點了選單
-    if current_state_signature != st.session_state.last_page_state:
-        # 更新紀錄
-        st.session_state.last_page_state = current_state_signature
-        # 🔥 立刻發送關閉側邊欄的 JS 指令
-        inject_mobile_sidebar_closer()
+    # ================= 執行 JS 注入 =================
+    # 無論選擇了什麼，只要回調函數被觸發過，這裡的 key 就會改變，進而執行關閉動作
+    inject_mobile_sidebar_closer()
 
     # ================= 右側內容顯示區 =================
     
