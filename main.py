@@ -161,14 +161,14 @@ def main():
         with col1:
             st.markdown("""<div class="home-card"><span class="card-tag tag-yummy">Yummy 3PL</span><div class="card-icon">🍔</div><div class="card-title">Yummy System</div><div class="card-desc">Includes PDF Processing and Label<br> Printing Functions.</div></div>""", unsafe_allow_html=True)
         with col2:
-            st.markdown("""<div class="home-card"><span class="card-tag tag-anymall">Anymall 3PL</span><div class="card-icon">🛍️</div><div class="card-title">Anymall System</div><div class="card-desc">自動處理空白頁與表格生成</div></div>""", unsafe_allow_html=True)
+            st.markdown("""<div class="home-card"><span class="card-tag tag-anymall">Anymall 3PL</span><div class="card-icon">🛍️</div><div class="card-title">Anymall System</div><div class="card-desc">Automatic handling of Blank Pages and <br>Table Generation</div></div>""", unsafe_allow_html=True)
         st.write("")
         col3, col4 = st.columns(2)
         with col3:
             # 描述更新為您新寫的功能
-            st.markdown("""<div class="home-card"><span class="card-tag tag-bear">Hello Bear 3PL</span><div class="card-icon">🐻</div><div class="card-title">Hello Bear System</div><div class="card-desc">自動偵測 SKU/Repack 並高亮特殊標籤</div></div>""", unsafe_allow_html=True)
+            st.markdown("""<div class="home-card"><span class="card-tag tag-bear">Hello Bear 3PL</span><div class="card-icon">🐻</div><div class="card-title">Hello Bear System</div><div class="card-desc">Automatic detection of SKU, Label and Repack</div></div>""", unsafe_allow_html=True)
         with col4:
-            st.markdown("""<div class="home-card"><span class="card-tag tag-homey">Homey 3PL</span><div class="card-icon">🏠</div><div class="card-title">Homey System</div><div class="card-desc">去除空白頁與資料整合功能</div></div>""", unsafe_allow_html=True)
+            st.markdown("""<div class="home-card"><span class="card-tag tag-homey">Homey 3PL</span><div class="card-icon">🏠</div><div class="card-title">Homey System</div><div class="card-desc">Automatic detection of SKU and Repack</div></div>""", unsafe_allow_html=True)
 
     elif category_selection == "🍔 Yummy 3PL":
         st.sidebar.markdown("---")
