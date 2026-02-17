@@ -24,17 +24,20 @@ except ImportError as e:
 try:
     from search_tool import show_search_barcode_page
 except ImportError as e:
-    def show_search_barcode_page(): st.error(f"❌ 無法載入 Search 工具: {e}")
+    def show_search_barcode_page(): st.error(f"❌ 無會載入 Search 工具: {e}")
 
 try:
     from homey_tool import show_homey_page
 except ImportError as e:
     def show_homey_page(): st.error(f"❌ 無法載入 Homey 工具: {e}")
 
-# ================= 預留的其他 3PL 功能 =================
-def show_hellobear_page():
-    st.title("🐻 Hello Bear 3PL System")
-    st.info("🚧 Hello Bear 功能開發中...")
+# --- 重點更新：匯入您新開發的 Hello Bear 功能 ---
+try:
+    from hello_tool import show_homey_page as show_hellobear_page
+except ImportError as e:
+    def show_hellobear_page():
+        st.error(f"❌ 無法載入 Hello Bear 工具: {e}")
+        st.info("💡 提示: 請確認目錄下是否有 hello_tool.py")
 
 # ================= 2. 頁面設定 =================
 st.set_page_config(
@@ -156,20 +159,20 @@ def main():
         render_main_header()
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown("""<div class="home-card"><span class="card-tag tag-yummy">Yummy 3PL</span><div class="card-icon">🍔</div><div class="card-title">Yummy System</div><div class="card-desc">包含 PDF 處理與標籤列印</div></div>""", unsafe_allow_html=True)
+            st.markdown("""<div class="home-card"><span class="card-tag tag-yummy">Yummy 3PL</span><div class="card-icon">🍔</div><div class="card-title">Yummy System</div><div class="card-desc">包含 PDF 處理與標籤列印功能</div></div>""", unsafe_allow_html=True)
         with col2:
-            st.markdown("""<div class="home-card"><span class="card-tag tag-anymall">Anymall 3PL</span><div class="card-icon">🛍️</div><div class="card-title">Anymall System</div><div class="card-desc">自動處理空白頁與表格</div></div>""", unsafe_allow_html=True)
+            st.markdown("""<div class="home-card"><span class="card-tag tag-anymall">Anymall 3PL</span><div class="card-icon">🛍️</div><div class="card-title">Anymall System</div><div class="card-desc">自動處理空白頁與表格生成</div></div>""", unsafe_allow_html=True)
         st.write("")
         col3, col4 = st.columns(2)
         with col3:
-            st.markdown("""<div class="home-card"><span class="card-tag tag-bear">Hello Bear 3PL</span><div class="card-icon">🐻</div><div class="card-title">Hello Bear System</div><div class="card-desc">物流功能 (Coming Soon)</div></div>""", unsafe_allow_html=True)
+            # 描述更新為您新寫的功能
+            st.markdown("""<div class="home-card"><span class="card-tag tag-bear">Hello Bear 3PL</span><div class="card-icon">🐻</div><div class="card-title">Hello Bear System</div><div class="card-desc">自動偵測 SKU/Repack 並高亮特殊標籤</div></div>""", unsafe_allow_html=True)
         with col4:
-            st.markdown("""<div class="home-card"><span class="card-tag tag-homey">Homey 3PL</span><div class="card-icon">🏠</div><div class="card-title">Homey System</div><div class="card-desc">去除空白頁與資料整合</div></div>""", unsafe_allow_html=True)
+            st.markdown("""<div class="home-card"><span class="card-tag tag-homey">Homey 3PL</span><div class="card-icon">🏠</div><div class="card-title">Homey System</div><div class="card-desc">去除空白頁與資料整合功能</div></div>""", unsafe_allow_html=True)
 
     elif category_selection == "🍔 Yummy 3PL":
         st.sidebar.markdown("---")
         st.sidebar.markdown("<div class='sidebar-header'>YUMMY TOOLS</div>", unsafe_allow_html=True)
-        # 關鍵：加入 key 監控子選單切換
         yummy_function = st.sidebar.radio("Yummy Functions", ["📄 PDF 處理工具", "🖨️ Excel 標籤生成"], label_visibility="collapsed", key="yummy_nav")
         current_sub_func = yummy_function
         if yummy_function == "📄 PDF 處理工具": show_pdf_page()
@@ -181,6 +184,7 @@ def main():
 
     elif category_selection == "🐻 Hello Bear 3PL":
         st.sidebar.markdown("---")
+        # 直接執行匯入後的 Hello Bear 工具
         show_hellobear_page()
 
     elif category_selection == "🏠 Homey 3PL":
@@ -197,7 +201,7 @@ def main():
     if 'page_state' not in st.session_state:
         st.session_state.page_state = combined_state
 
-    # 只要狀態有任何變動 (無論是大分類還是子功能)，在手機版就觸發自動關閉
+    # 只要狀態有任何變動，在手機版就觸發自動收合側邊欄
     if st.session_state.page_state != combined_state:
         st.session_state.page_state = combined_state
         smart_auto_close_sidebar()
