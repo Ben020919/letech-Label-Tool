@@ -104,9 +104,9 @@ def show_anymall_page():
             # 4. 顯示統計
             st.divider()
             c1, c2, c3 = st.columns(3)
-            c1.metric("📄 原本頁數", total_pages)
-            c2.metric("✅ 有效頁數", kept_pages)
-            c3.metric("🗑️ 移除空白", total_pages - kept_pages)
+            c1.metric("📄 Original Page Number", total_pages)
+            c2.metric("✅ Valid Pages", kept_pages)
+            c3.metric("🗑️ Remove Blanks", total_pages - kept_pages)
 
             if not valid_rows:
                 st.warning("沒有提取到有效資料。")
@@ -122,12 +122,12 @@ def show_anymall_page():
             if dup_count > 0:
                 st.error(f"⚠️ 注意：發現 {dup_count} 款商品編號重複！(已用黃色標示)")
             else:
-                st.success("✅ 檢查通過：沒有重複的商品編號。")
+                st.success("✅ Check Passed: No Duplicate Product Numbers Found.")
 
             # --- 搜尋功能 (使用內建元件以確保穩定) ---
-            st.markdown("### 🔍 搜尋與檢查")
+            st.markdown("### 🔍 Search and Inspection")
             search_query = st.text_input(
-                "在此輸入關鍵字 (輸入後請按 Enter 搜尋)", 
+                "Enter Keywords Here (Press Enter to Search).", 
                 placeholder="Type to search..."
             )
 
