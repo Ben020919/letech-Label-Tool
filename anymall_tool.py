@@ -7,7 +7,7 @@ import io
 def show_anymall_page():
     st.markdown("### 🛍️ Anymall 3PL System")
 
-    uploaded_file = st.file_uploader("請上傳 PDF 檔案", type=["pdf"], key="anymall_pdf")
+    uploaded_file = st.file_uploader("請上傳 3PL PDF 檔案", type=["pdf"], key="anymall_pdf")
 
     if uploaded_file:
         try:
