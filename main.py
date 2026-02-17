@@ -40,8 +40,8 @@ st.set_page_config(
     initial_sidebar_state="auto"
 )
 
-# ================= 3. 強制關閉側邊欄邏輯 (終極版) =================
-# 定義一個回調函數，只要選單被點擊，就讓計數器 +1
+# ================= 3. 強制關閉側邊欄邏輯 (修正版) =================
+# 回調函數：選單點擊時計數器 +1
 def close_sidebar_callback():
     if 'sidebar_trigger_count' not in st.session_state:
         st.session_state.sidebar_trigger_count = 0
@@ -49,34 +49,38 @@ def close_sidebar_callback():
 
 def inject_mobile_sidebar_closer():
     """
-    這段程式碼會根據計數器產生一個全新的 div。
-    因為 key 每次都不同，瀏覽器會強制重新執行這段 JS，確保側邊欄關閉。
+    修正版：不使用 key 參數，而是將 trigger count 寫入 HTML 內容中。
+    當內容改變，Streamlit 會自動重新執行 JS。
     """
     if 'sidebar_trigger_count' not in st.session_state:
         st.session_state.sidebar_trigger_count = 0
-
-    # JS 腳本：尋找並點擊關閉按鈕
-    js_code = """
+    
+    # 將計數器嵌入到 console.log 中，讓每次的 HTML 字串都不一樣
+    # 注意：f-string 中，JS 的大括號 {} 需要寫成 {{ }} 來跳脫
+    count = st.session_state.sidebar_trigger_count
+    
+    js_code = f"""
     <script>
+        console.log("Sidebar toggle trigger count: {count}");
+        
         var width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
-        if (width <= 768) {
-            setTimeout(function() {
+        if (width <= 768) {{
+            setTimeout(function() {{
                 var sidebar = window.parent.document.querySelector('section[data-testid="stSidebar"]');
-                if (sidebar) {
+                if (sidebar) {{
                     var buttons = sidebar.querySelectorAll('button');
                     // 通常第一個按鈕就是關閉 (X)
-                    if (buttons.length > 0) {
+                    if (buttons.length > 0) {{
                         buttons[0].click();
-                    }
-                }
-            }, 300); // 延遲 300ms 確保頁面載入後執行
-        }
+                    }}
+                }}
+            }}, 300);
+        }}
     </script>
     """
     
-    # 關鍵：將計數器放入 key 中
-    # 每次 key 改變 (0, 1, 2...)，Streamlit 就會把這段 HTML 當作新的東西重新插入，強制執行 JS
-    components.html(js_code, height=0, key=f"force_close_{st.session_state.sidebar_trigger_count}")
+    # 這裡移除了 key 參數，避免 TypeError
+    components.html(js_code, height=0)
 
 # ================= 4. CSS 美化 =================
 st.markdown("""
@@ -146,19 +150,18 @@ def main():
     if 'sidebar_trigger_count' not in st.session_state:
         st.session_state.sidebar_trigger_count = 0
 
-    # 1. 大分類導航 (綁定 on_change 回調)
-    # 只要點選這裡，close_sidebar_callback 就會執行，計數器+1，導致 JS 重新執行
+    # 1. 大分類導航 (綁定 on_change)
     category_selection = st.sidebar.radio(
         "Main Category", 
         ["🏠 Home Page", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🔍 Search Barcode"],
         label_visibility="collapsed",
         key="main_nav",
-        on_change=close_sidebar_callback  # 🔥 關鍵綁定
+        on_change=close_sidebar_callback  # 🔥 綁定回調
     )
 
     current_sub_func = ""
 
-    # 2. Yummy 子選單 (綁定 on_change 回調)
+    # 2. Yummy 子選單 (綁定 on_change)
     if category_selection == "🍔 Yummy 3PL":
         st.sidebar.markdown("---")
         st.sidebar.markdown("<div class='sidebar-header'>YUMMY TOOLS</div>", unsafe_allow_html=True)
@@ -167,7 +170,7 @@ def main():
             ["📄 PDF Processing Tools", "🖨️ Food Lable Generation"], 
             label_visibility="collapsed", 
             key="yummy_nav",
-            on_change=close_sidebar_callback # 🔥 關鍵綁定
+            on_change=close_sidebar_callback # 🔥 綁定回調
         )
     
     # 裝飾用
@@ -177,8 +180,8 @@ def main():
     st.sidebar.markdown("---")
     st.sidebar.markdown("<div style='text-align: center; color: #aaa; font-size: 12px;'>© 2026 Letech System v3.2</div>", unsafe_allow_html=True)
 
-    # ================= 執行 JS 注入 =================
-    # 無論選擇了什麼，只要回調函數被觸發過，這裡的 key 就會改變，進而執行關閉動作
+    # ================= 執行 JS 注入 (放在這裡優先執行) =================
+    # 因為 HTML 內容包含變動的 count，所以每次點擊選單，HTML 都會重整，觸發 JS
     inject_mobile_sidebar_closer()
 
     # ================= 右側內容顯示區 =================
