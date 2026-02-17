@@ -1,5 +1,5 @@
 import streamlit as st
-import streamlit.components.v1 as components # 必須匯入這個才能執行自動收合
+import streamlit.components.v1 as components
 
 # ================= 匯入功能模組 =================
 try:
@@ -27,29 +27,44 @@ st.set_page_config(
     page_title="Letech 3PL",
     page_icon="📦",
     layout="wide",
-    initial_sidebar_state="auto" # 設定為 auto
+    initial_sidebar_state="auto"
 )
 
-# ================= 核心功能：自動關閉側邊欄函式 =================
-def auto_close_sidebar_on_mobile():
+# ================= 核心功能：智慧自動關閉側邊欄 (僅手機) =================
+def smart_auto_close_sidebar():
     """
-    當切換頁面時，注入一段 JS 來自動點擊側邊欄的關閉按鈕。
+    注入 JS，判斷如果是手機版 (寬度 <= 768px) 就自動關閉側邊欄，
+    電腦版則保持原狀。
     """
-    # 這段 JS 會去尋找側邊欄的關閉按鈕 (X) 並點擊它
     js_code = """
     <script>
-        var sidebar = window.parent.document.querySelector('section[data-testid="stSidebar"]');
-        if (sidebar) {
-            // 嘗試尋找側邊欄內的按鈕 (通常第一個按鈕就是關閉 X)
-            var buttons = sidebar.querySelectorAll('button');
-            if (buttons.length > 0) {
-                // 模擬點擊
-                buttons[0].click();
+        // 1. 偵測螢幕寬度
+        var width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+        
+        // 2. 設定手機版的斷點 (通常是 768px)
+        if (width <= 768) {
+            // 3. 取得側邊欄物件
+            var sidebar = window.parent.document.querySelector('section[data-testid="stSidebar"]');
+            
+            if (sidebar) {
+                // 4. 尋找側邊欄內的按鈕 (通常第一個按鈕就是關閉 X)
+                var buttons = sidebar.querySelectorAll('button');
+                
+                // 5. 執行點擊關閉
+                if (buttons.length > 0) {
+                    // 為了確保 UI 渲染完成，稍微延遲 100ms 再點擊 (可選)
+                    setTimeout(function() {
+                        buttons[0].click();
+                    }, 100);
+                }
             }
+        } else {
+            // 電腦版 (寬度 > 768px) -> 什麼都不做，保持開啟
+            console.log("Desktop mode: Sidebar remains open.");
         }
     </script>
     """
-    # 執行 JS，height=0 讓它不佔空間
+    # 執行 JS，height=0 隱藏元件
     components.html(js_code, height=0)
 
 # ================= CSS 美化 =================
@@ -60,14 +75,14 @@ st.markdown("""
     /* 側邊欄優化 */
     section[data-testid="stSidebar"] { background-color: #f7f9fc; border-right: 1px solid #e3e6f0; }
     
-    /* 側邊欄按鈕美化 (強制深色字體，解決手機白字問題) */
+    /* 側邊欄按鈕美化 (手機白字修復) */
     section[data-testid="stSidebar"] .stRadio > div[role="radiogroup"] > label {
         background-color: #ffffff !important; border: 1px solid #e0e0e0 !important; 
         padding: 12px 15px !important; margin-bottom: 8px !important;
         border-radius: 8px !important; transition: all 0.2s; cursor: pointer; 
         display: flex; align-items: center;
         box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-        color: #333333 !important; /* 強制深灰字 */
+        color: #333333 !important; /* 強制深色字 */
     }
     section[data-testid="stSidebar"] .stRadio > div[role="radiogroup"] > label:hover {
         background-color: #eef2f7 !important; border-color: #007bff !important; 
@@ -143,10 +158,9 @@ def render_main_header():
 def main():
     render_sidebar_logo()
     
-    # --- 左側欄位導航 ---
     st.sidebar.markdown("<div class='sidebar-header'>MAIN MENU</div>", unsafe_allow_html=True)
     
-    # 1. 取得使用者的選擇
+    # 1. 取得使用者選擇
     category_selection = st.sidebar.radio(
         "Main Category", 
         [
@@ -157,19 +171,18 @@ def main():
             "🏠 Homey 3PL",
             "🔍 Search Barcode"
         ],
-        label_visibility="collapsed"
+        label_visibility="collapsed",
+        key="main_nav"
     )
 
-    # 2. 【核心修改】檢查選項是否改變
-    # 我們使用 session_state 來紀錄上一次的選擇
+    # 2. 判斷是否需要收合 (僅當選項改變時)
     if 'last_selection' not in st.session_state:
         st.session_state.last_selection = category_selection
 
-    # 3. 如果現在選的 跟 上次選的 不一樣 --> 代表使用者剛按了按鈕
     if st.session_state.last_selection != category_selection:
-        st.session_state.last_selection = category_selection # 更新紀錄
-        # 4. 執行自動關閉函式
-        auto_close_sidebar_on_mobile()
+        st.session_state.last_selection = category_selection
+        # 【關鍵】呼叫智慧收合函式 (內含螢幕寬度判斷)
+        smart_auto_close_sidebar()
 
     # --- 右側內容顯示區 ---
 
@@ -196,11 +209,11 @@ def main():
                 <div class="card-desc">自動刪除空白頁，生成表格</div>
             </div>
             """, unsafe_allow_html=True)
-        # (略過首頁其他卡片代碼，保持不變即可...)
+        # 其他卡片
         st.write("") 
         col3, col4 = st.columns(2)
         with col3:
-            st.markdown("""<div class="home-card"><span class="card-tag tag-bear">HELLO BEAR</span><div class="card-icon">🐻</div><div class="card-title">Hello Bear 3PL</div><div class="card-desc">Hello Bear 專屬物流功能 (Coming Soon)</div></div>""", unsafe_allow_html=True)
+             st.markdown("""<div class="home-card"><span class="card-tag tag-bear">HELLO BEAR</span><div class="card-icon">🐻</div><div class="card-title">Hello Bear 3PL</div><div class="card-desc">Hello Bear 專屬物流功能 (Coming Soon)</div></div>""", unsafe_allow_html=True)
         with col4:
             st.markdown("""<div class="home-card"><span class="card-tag tag-homey">HOMEY</span><div class="card-icon">🏠</div><div class="card-title">Homey 3PL</div><div class="card-desc">Homey 專屬物流功能 (Coming Soon)</div></div>""", unsafe_allow_html=True)
         st.write("") 
@@ -235,7 +248,7 @@ def main():
         st.sidebar.caption("HOMEY 功能選擇")
         show_homey_page()
 
-    # 6. Search Barcode (現在會呼叫真正的功能)
+    # 6. Search Barcode
     elif category_selection == "🔍 Search Barcode":
         show_search_barcode_page()
 
