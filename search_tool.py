@@ -74,9 +74,9 @@ def show_search_barcode_page():
         st.error(f"❌ 找不到資料庫 `{DEFAULT_DB_FILE}`")
         return
 
-    st.caption(f"📚 庫存就緒：共 {len(df)} 筆")
+    st.caption(f"📚 Inventory Ready：Total {len(df)} Data")
     
-    user_input = st.text_input("請輸入關鍵字 (SKU / Barcode / 名稱):", placeholder="輸入搜尋內容...")
+    user_input = st.text_input("Please Enter Keywords. (SKU / Barcode / Name):", placeholder="Enter Search Terms...")
 
     if user_input:
         query = user_input.strip()
@@ -88,7 +88,7 @@ def show_search_barcode_page():
         results = df[mask]
 
         if not results.empty:
-            st.success(f"✅ 找到 {len(results)} 筆結果")
+            st.success(f"✅ Found {len(results)} Data")
 
 
             # --- B. 手機版顯示區域 (被包在 mobile-view div 中) ---
@@ -106,4 +106,4 @@ def show_search_barcode_page():
             st.markdown('</div>', unsafe_allow_html=True)
             
         else:
-            st.warning("❌ 查無資料")
+            st.warning("❌ No Data")
