@@ -34,14 +34,13 @@ def show_anymall_page():
             valid_rows = []
             kept_pages = 0
             
-            # 用來進度顯示
+            # 進度顯示
             prog_bar = st.progress(0)
             status_text = st.empty()
 
             for i, page in enumerate(reader.pages):
-                # 更新進度
                 prog_bar.progress((i + 1) / total_pages)
-                status_text.text(f"正在掃描第 {i+1}/{total_pages} 頁...")
+                status_text.text(f"正在分析第 {i+1}/{total_pages} 頁...")
 
                 text = page.extract_text()
                 
@@ -57,11 +56,9 @@ def show_anymall_page():
                 # (A) Product No
                 p_no = lines[0] if lines else "Unknown"
                 
-                # 尋找「數量」所在的行數索引
+                # (B) Quantity & 定位
                 qty_line_index = -1
                 qty = 1
-                
-                # (B) Quantity & 定位
                 for idx, line in enumerate(lines):
                     if ".0000" in line:
                         qty_line_index = idx
@@ -89,9 +86,7 @@ def show_anymall_page():
                     raw_bc_text = "".join(cleaned_bc_lines)
                     barcode = re.sub(r'[\s\*]', '', raw_bc_text)
 
-                # 3. 組合資料 (在此處加入 "序號")
                 valid_rows.append({
-                    "序號": len(valid_rows) + 1,  # 自動編號
                     "Product No": p_no,
                     "Barcode": barcode,
                     "商品名稱": p_name,
@@ -101,65 +96,74 @@ def show_anymall_page():
             prog_bar.empty()
             status_text.empty()
 
-            # 4. 顯示統計
-            st.divider()
-            c1, c2, c3 = st.columns(3)
-            c1.metric("📄 Original Page Number", total_pages)
-            c2.metric("✅ Valid Pages", kept_pages)
-            c3.metric("🗑️ Remove Blanks", total_pages - kept_pages)
-
             if not valid_rows:
                 st.warning("沒有提取到有效資料。")
                 return
 
-            # 5. 建立原始 DataFrame
+            # 建立 DataFrame
             df = pd.DataFrame(valid_rows)
-            
-            # 計算重複
-            duplicates_mask = df.duplicated(subset=['Product No'], keep=False)
-            dup_count = df[duplicates_mask]['Product No'].nunique()
-            
-            if dup_count > 0:
-                st.error(f"⚠️ 注意：發現 {dup_count} 款商品編號重複！(已用黃色標示)")
+
+            # --- 重複檢查邏輯 (Hello Bear Style) ---
+            duplicated_mask = df.duplicated(subset=['Product No'], keep=False)
+            duplicated_pnos = df[duplicated_mask]['Product No'].unique().tolist()
+            duplicate_count = len(duplicated_pnos)
+
+            # 4. 顯示統計 (改為四欄位)
+            st.divider()
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("📄 Original Pages", total_pages)
+            c2.metric("✅ Valid Pages", kept_pages)
+            c3.metric("🗑️ Blank Removed", total_pages - kept_pages)
+            c4.metric("⚠️ Duplicate SKU", duplicate_count, delta=None, delta_color="inverse")
+
+            if duplicate_count > 0:
+                st.warning(f"⚠️ 發現 {duplicate_count} 款商品編號重複：{', '.join(duplicated_pnos)}")
             else:
                 st.success("✅ Check Passed: No Duplicate Product Numbers Found.")
 
-            # --- 搜尋功能 (使用內建元件以確保穩定) ---
+            # --- 搜尋功能 ---
             st.markdown("### 🔍 Search and Inspection")
             search_query = st.text_input(
                 "Enter Keywords Here (Press Enter to Search).", 
                 placeholder="Type to search..."
             )
 
-            # 過濾邏輯
             filtered_df = df.copy()
             if search_query:
                 mask = filtered_df.astype(str).apply(lambda x: x.str.contains(search_query, case=False)).any(axis=1)
                 filtered_df = filtered_df[mask]
 
-            # 定義樣式
-            def highlight_row(row):
-                if row.name in duplicates_mask.index and duplicates_mask[row.name]:
-                    return ['background-color: #fff3cd; color: #856404; font-weight: bold'] * len(row)
-                return [''] * len(row)
+            # --- 樣式設定 (Hello Bear Style: 僅高亮編號儲存格) ---
+            def highlight_duplicates(row):
+                # 建立與行長度相同的樣式列表
+                styles = [''] * len(row)
+                p_no = str(row['Product No'])
+                
+                # 如果該 Product No 在重複名單中，將該欄位標記為橙色
+                if p_no in duplicated_pnos:
+                    pno_idx = row.index.get_loc('Product No')
+                    styles[pno_idx] = 'background-color: #FFCC88; color: #CC5500; font-weight: bold; border: 1px solid #FFAA44;'
+                return styles
 
-            # 套用樣式
-            styled_df = filtered_df.style.apply(highlight_row, axis=1)
+            # 設定序號從 1 開始
+            filtered_df.index = range(1, len(filtered_df) + 1)
+            filtered_df.index.name = "No."
 
-            # 6. 顯示表格 (設定欄位)
+            # 6. 顯示表格
             st.dataframe(
-                styled_df,
+                filtered_df.style.apply(highlight_duplicates, axis=1),
                 use_container_width=False,
                 height=800,
                 column_config={
-                    "序號": st.column_config.NumberColumn("No.", width=40, format="%d"),
-                    "Product No": st.column_config.TextColumn("Product No", width=100),
+                    "Product No": st.column_config.TextColumn("Product No", width=120, help="橙色背景表示此編號在 PDF 中重複出現"),
                     "Barcode": st.column_config.TextColumn("Barcode", width=120),
-                    "商品名稱": st.column_config.TextColumn("商品名稱", width=900),
+                    "商品名稱": st.column_config.TextColumn("商品名稱", width=850),
                     "數量": st.column_config.NumberColumn("數量", width=50, format="%d")
-                },
-                hide_index=True
+                }
             )
 
         except Exception as e:
             st.error(f"處理失敗: {e}")
+
+if __name__ == "__main__":
+    show_anymall_page()
