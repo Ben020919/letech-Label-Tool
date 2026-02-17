@@ -42,22 +42,29 @@ st.set_page_config(
 
 # ================= 3. 智慧自動關閉側邊欄 (JS) =================
 def smart_auto_close_sidebar():
+    """
+    透過 JavaScript 強制點擊側邊欄的關閉按鈕 (僅在手機寬度下觸發)
+    """
     js_code = """
     <script>
         var width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
         if (width <= 768) {
+            // 嘗試選取側邊欄
             var sidebar = window.parent.document.querySelector('section[data-testid="stSidebar"]');
             if (sidebar) {
+                // 尋找側邊欄內的按鈕 (通常第一個就是關閉 X 按鈕)
                 var buttons = sidebar.querySelectorAll('button');
                 if (buttons.length > 0) {
+                    // 稍微延遲一下，確保 DOM 已載入
                     setTimeout(function() {
                         buttons[0].click();
-                    }, 100);
+                    }, 150);
                 }
             }
         }
     </script>
     """
+    # 這裡的高度設為 0，並插入到底部確保執行
     components.html(js_code, height=0)
 
 # ================= 4. CSS 美化 =================
@@ -118,23 +125,29 @@ def render_main_header():
     st.markdown("<br><div style='color: #888;'>Intelligent Logistics System & Label Solution</div><br>", unsafe_allow_html=True)
     st.divider()
 
-# ================= 7. 主程式邏輯 (修正版) =================
+# ================= 7. 主程式邏輯 =================
+
+# 🔴 關鍵修正：定義一個 Callback 函式
+# 這個函式會在「使用者點選選單」的瞬間被觸發，標記需要關閉側邊欄
+def trigger_close_sidebar():
+    st.session_state.need_close_sidebar = True
+
 def main():
-    # --- A. 側邊欄渲染 (優先執行) ---
     render_sidebar_logo()
     st.sidebar.markdown("<div class='sidebar-header'>MAIN MENU</div>", unsafe_allow_html=True)
     
-    # 1. 大分類導航
+    # 1. 大分類導航 (加入 on_change)
     category_selection = st.sidebar.radio(
         "Main Category", 
         ["🏠 Home Page", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🔍 Search Barcode"],
         label_visibility="collapsed",
-        key="main_nav"
+        key="main_nav",
+        on_change=trigger_close_sidebar # 🟢 只要這裡改變，就觸發關閉
     )
 
     current_sub_func = ""
 
-    # 2. 如果選擇了 Yummy，提前顯示子選單 (為了取得完整的狀態字串)
+    # 2. Yummy 子選單 (加入 on_change)
     if category_selection == "🍔 Yummy 3PL":
         st.sidebar.markdown("---")
         st.sidebar.markdown("<div class='sidebar-header'>YUMMY TOOLS</div>", unsafe_allow_html=True)
@@ -142,30 +155,18 @@ def main():
             "Yummy Functions", 
             ["📄 PDF Processing Tools", "🖨️ Food Lable Generation"], 
             label_visibility="collapsed", 
-            key="yummy_nav"
+            key="yummy_nav",
+            on_change=trigger_close_sidebar # 🟢 只要這裡改變，就觸發關閉
         )
     
-    # 其他分類的側邊欄裝飾 (這裡只做顯示，不執行邏輯)
+    # 其他頁面的裝飾
     elif category_selection in ["🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL"]:
         st.sidebar.markdown("---")
 
     st.sidebar.markdown("---")
     st.sidebar.markdown("<div style='text-align: center; color: #aaa; font-size: 12px;'>© 2026 Letech System v3.2</div>", unsafe_allow_html=True)
 
-    # --- B. 智慧收合邏輯 (關鍵：在顯示內容前執行) ---
-    # 建立狀態字串
-    combined_state = f"{category_selection}_{current_sub_func}"
-
-    # 初始化狀態
-    if 'page_state' not in st.session_state:
-        st.session_state.page_state = combined_state
-
-    # 檢測狀態是否改變 -> 改變則注入 JS 關閉側邊欄
-    if st.session_state.page_state != combined_state:
-        st.session_state.page_state = combined_state
-        smart_auto_close_sidebar()
-
-    # --- C. 右側內容顯示區 (最後執行) ---
+    # --- 右側內容顯示區 ---
     
     if category_selection == "🏠 Home Page":
         render_main_header()
@@ -186,7 +187,6 @@ def main():
              st.markdown("""<div class="home-card"><span class="card-tag tag-tool">Barcode Tool</span><div class="card-icon">🔍</div><div class="card-title">Search Barcode System</div><div class="card-desc">Quickly Search for SKU and Barcode Information.</div></div>""", unsafe_allow_html=True)
 
     elif category_selection == "🍔 Yummy 3PL":
-        # 這裡只負責執行功能，側邊欄 UI 已經在上方 B 階段處理過了
         if current_sub_func == "📄 PDF Processing Tools": show_pdf_page()
         elif current_sub_func == "🖨️ Food Lable Generation": show_excel_page()
 
@@ -201,6 +201,12 @@ def main():
 
     elif category_selection == "🔍 Search Barcode":
         show_search_barcode_page()
+
+    # --- 🔵 最終檢查：是否需要執行 JS 關閉側邊欄 ---
+    # 這個邏輯放在最後面最安全，因為此時頁面內容已載入，不會跟 JS 搶資源
+    if st.session_state.get("need_close_sidebar", False):
+        smart_auto_close_sidebar()
+        st.session_state.need_close_sidebar = False  # 執行完後歸零
 
 if __name__ == "__main__":
     main()
