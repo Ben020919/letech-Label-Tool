@@ -2,7 +2,6 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 # ================= 1. 匯入功能模組 (含詳細錯誤偵測) =================
-# 這裡改用詳細錯誤顯示，不再只顯示"找不到檔案"，方便您除錯
 try:
     from pdf_tool import show_pdf_page
 except ImportError as e:
@@ -15,7 +14,7 @@ try:
 except ImportError as e:
     def show_excel_page(): 
         st.error(f"❌ 無法載入 Excel 工具: {e}")
-        st.info("💡 提示: 請確認資料夾內是否有 Lable.py 和 Cautions.py (注意大小寫)")
+        st.info("💡 提示: 請確認資料夾內是否有 Lable.py 和 Cautions.py")
 
 try:
     from anymall_tool import show_anymall_page
@@ -48,8 +47,7 @@ st.set_page_config(
 # ================= 3. 核心功能：智慧自動關閉側邊欄 (僅手機) =================
 def smart_auto_close_sidebar():
     """
-    注入 JS，判斷如果是手機版 (寬度 <= 768px) 就自動關閉側邊欄，
-    電腦版則保持原狀。
+    注入 JS，判斷如果是手機版 (寬度 <= 768px) 就自動關閉側邊欄。
     """
     js_code = """
     <script>
@@ -64,8 +62,6 @@ def smart_auto_close_sidebar():
                     }, 100);
                 }
             }
-        } else {
-            console.log("Desktop mode: Sidebar remains open.");
         }
     </script>
     """
@@ -75,32 +71,19 @@ def smart_auto_close_sidebar():
 st.markdown("""
     <style>
     html, body, [class*="css"] { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-    
-    /* 側邊欄優化 */
     section[data-testid="stSidebar"] { background-color: #f7f9fc; border-right: 1px solid #e3e6f0; }
-    
-    /* 側邊欄按鈕美化 (手機白字修復) */
     section[data-testid="stSidebar"] .stRadio > div[role="radiogroup"] > label {
         background-color: #ffffff !important; border: 1px solid #e0e0e0 !important; 
         padding: 12px 15px !important; margin-bottom: 8px !important;
         border-radius: 8px !important; transition: all 0.2s; cursor: pointer; 
-        display: flex; align-items: center;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-        color: #333333 !important; /* 強制深色字 */
-    }
-    section[data-testid="stSidebar"] .stRadio > div[role="radiogroup"] > label:hover {
-        background-color: #eef2f7 !important; border-color: #007bff !important; 
-        color: #007bff !important;
+        display: flex; align-items: center; color: #333333 !important;
     }
     section[data-testid="stSidebar"] .stRadio > div[role="radiogroup"] > label[data-checked="true"] {
         background-color: #007bff !important; border-color: #007bff !important; 
         color: white !important; font-weight: 600 !important;
-        box-shadow: 0 4px 6px rgba(0,123,255,0.25);
     }
     section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label > div:first-child { display: none !important; }
     .sidebar-header { font-size: 12px; font-weight: bold; color: #888; margin-top: 20px; margin-bottom: 5px; padding-left: 5px; letter-spacing: 1px; }
-
-    /* 首頁卡片 */
     .home-card {
         background-color: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 25px;
         text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: transform 0.2s; height: 100%;
@@ -118,7 +101,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# ================= 5. 側邊欄 LOGO =================
 def render_sidebar_logo():
     st.sidebar.markdown("""
     <div style="display: flex; align-items: center; padding: 10px 5px 20px 5px; border-bottom: 1px solid #ddd; margin-bottom: 10px;">
@@ -134,7 +116,6 @@ def render_sidebar_logo():
     </div>
     """, unsafe_allow_html=True)
 
-# ================= 6. 首頁主視覺 =================
 def render_main_header():
     col_logo, col_text = st.columns([0.08, 0.92])
     with col_logo:
@@ -151,106 +132,78 @@ def render_main_header():
             Letech<span style="color:#007bff">.</span> 3PL
         </div>
         """, unsafe_allow_html=True)
-    st.markdown("""
-    <div style="font-size: 16px; color: #888; margin-top: -10px; margin-bottom: 20px; letter-spacing: 0.5px;">
-        <br><br>Intelligent Logistics System & Label Solution
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown("<br><div style='color: #888;'>Intelligent Logistics System & Label Solution</div><br>", unsafe_allow_html=True)
     st.divider()
 
-# ================= 7. 主程式邏輯 =================
+# ================= 7. 主程式邏輯 (修正智慧收合) =================
 def main():
     render_sidebar_logo()
-    
     st.sidebar.markdown("<div class='sidebar-header'>MAIN MENU</div>", unsafe_allow_html=True)
     
-    # 1. 取得使用者選擇
+    # 1. 大分類導航
     category_selection = st.sidebar.radio(
         "Main Category", 
-        [
-            "🏠 首頁總覽",
-            "🍔 Yummy 3PL",
-            "🛍️ Anymall 3PL",
-            "🐻 Hello Bear 3PL",
-            "🏠 Homey 3PL",
-            "🔍 Search Barcode"
-        ],
+        ["🏠 首頁總覽", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🔍 Search Barcode"],
         label_visibility="collapsed",
         key="main_nav"
     )
 
-    # 2. 判斷是否需要收合 (僅當選項改變時)
-    if 'last_selection' not in st.session_state:
-        st.session_state.last_selection = category_selection
-
-    if st.session_state.last_selection != category_selection:
-        st.session_state.last_selection = category_selection
-        # 【關鍵】呼叫智慧收合函式 (內含螢幕寬度判斷)
-        smart_auto_close_sidebar()
+    # 預設子功能變數
+    current_sub_func = ""
 
     # --- 右側內容顯示區 ---
-
-    # 1. 首頁
     if category_selection == "🏠 首頁總覽":
         render_main_header()
-        
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown("""<div class="home-card"><span class="card-tag tag-yummy">Yummy 3PL</span><div class="card-icon">🍔</div><div class="card-title">Yummy System</div><div class="card-desc">包含 PDF 訂單處理與標籤列印功能</div></div>""", unsafe_allow_html=True)
+            st.markdown("""<div class="home-card"><span class="card-tag tag-yummy">Yummy 3PL</span><div class="card-icon">🍔</div><div class="card-title">Yummy System</div><div class="card-desc">包含 PDF 處理與標籤列印</div></div>""", unsafe_allow_html=True)
         with col2:
-            st.markdown("""<div class="home-card"><span class="card-tag tag-anymall">Anymall 3PL</span><div class="card-icon">🛍️</div><div class="card-title">Anymall System</div><div class="card-desc">自動刪除空白頁，生成表格</div></div>""", unsafe_allow_html=True)
-        # 其他卡片
-        st.write("") 
+            st.markdown("""<div class="home-card"><span class="card-tag tag-anymall">Anymall 3PL</span><div class="card-icon">🛍️</div><div class="card-title">Anymall System</div><div class="card-desc">自動處理空白頁與表格</div></div>""", unsafe_allow_html=True)
+        st.write("")
         col3, col4 = st.columns(2)
         with col3:
-             st.markdown("""<div class="home-card"><span class="card-tag tag-bear">Hello Bear 3PL</span><div class="card-icon">🐻</div><div class="card-title">Hello Bear System</div><div class="card-desc">Hello Bear 專屬物流功能 (Coming Soon)</div></div>""", unsafe_allow_html=True)
+            st.markdown("""<div class="home-card"><span class="card-tag tag-bear">Hello Bear 3PL</span><div class="card-icon">🐻</div><div class="card-title">Hello Bear System</div><div class="card-desc">物流功能 (Coming Soon)</div></div>""", unsafe_allow_html=True)
         with col4:
             st.markdown("""<div class="home-card"><span class="card-tag tag-homey">Homey 3PL</span><div class="card-icon">🏠</div><div class="card-title">Homey System</div><div class="card-desc">去除空白頁與資料整合</div></div>""", unsafe_allow_html=True)
-        st.write("") 
-        c1, c2, c3 = st.columns([1, 2, 1])
-        with c2:
-             st.markdown("""<div class="home-card"><span class="card-tag tag-tool">Mobile Tool</span><div class="card-icon">🔍</div><div class="card-title">Search Barcode</div><div class="card-desc">SKU, Barcode 查詢</div></div>""", unsafe_allow_html=True)
 
-    # 2. Yummy 3PL (邏輯：有 2 個功能 -> 顯示選單)
     elif category_selection == "🍔 Yummy 3PL":
         st.sidebar.markdown("---")
-        
-        yummy_ops = ["📄 PDF 處理工具", "🖨️ Excel 標籤生成"]
-        
-        # 自動判斷：功能大於1個才顯示選單
-        if len(yummy_ops) > 1:
-            st.sidebar.markdown("<div class='sidebar-header'>YUMMY TOOLS</div>", unsafe_allow_html=True)
-            yummy_function = st.sidebar.radio("Yummy Functions", yummy_ops, label_visibility="collapsed")
-        else:
-            yummy_function = yummy_ops[0]
-
-        # 執行功能
+        st.sidebar.markdown("<div class='sidebar-header'>YUMMY TOOLS</div>", unsafe_allow_html=True)
+        # 關鍵：加入 key 監控子選單切換
+        yummy_function = st.sidebar.radio("Yummy Functions", ["📄 PDF 處理工具", "🖨️ Excel 標籤生成"], label_visibility="collapsed", key="yummy_nav")
+        current_sub_func = yummy_function
         if yummy_function == "📄 PDF 處理工具": show_pdf_page()
         elif yummy_function == "🖨️ Excel 標籤生成": show_excel_page()
 
-    # 3. Anymall 3PL (邏輯：只有 1 個功能 -> 隱藏選單)
     elif category_selection == "🛍️ Anymall 3PL":
         st.sidebar.markdown("---")
         show_anymall_page()
 
-    # 4. Hello Bear
     elif category_selection == "🐻 Hello Bear 3PL":
         st.sidebar.markdown("---")
-        st.sidebar.caption("HELLO BEAR 功能選擇")
         show_hellobear_page()
 
-    # 5. Homey 3PL
     elif category_selection == "🏠 Homey 3PL":
         st.sidebar.markdown("---")
-        # 直接執行 Homey 頁面
         show_homey_page()
 
-    # 6. Search Barcode
     elif category_selection == "🔍 Search Barcode":
         show_search_barcode_page()
 
+    # ================= 核心修正邏輯 =================
+    # 建立一個包含大分類與子功能的「完整狀態字串」
+    combined_state = f"{category_selection}_{current_sub_func}"
+
+    if 'page_state' not in st.session_state:
+        st.session_state.page_state = combined_state
+
+    # 只要狀態有任何變動 (無論是大分類還是子功能)，在手機版就觸發自動關閉
+    if st.session_state.page_state != combined_state:
+        st.session_state.page_state = combined_state
+        smart_auto_close_sidebar()
+
     st.sidebar.markdown("---")
-    st.sidebar.markdown("<div style='text-align: center; color: #aaa; font-size: 12px;'>© 2024 Letech System v3.2</div>", unsafe_allow_html=True)
+    st.sidebar.markdown("<div style='text-align: center; color: #aaa; font-size: 12px;'>© 2026 Letech System v3.2</div>", unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
