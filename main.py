@@ -24,20 +24,19 @@ except ImportError as e:
 try:
     from search_tool import show_search_barcode_page
 except ImportError as e:
-    def show_search_barcode_page(): st.error(f"❌ 無會載入 Search 工具: {e}")
+    def show_search_barcode_page(): st.error(f"❌ 無法載入 Search 工具: {e}")
 
 try:
     from homey_tool import show_homey_page
 except ImportError as e:
     def show_homey_page(): st.error(f"❌ 無法載入 Homey 工具: {e}")
 
-# --- 重點更新：匯入您新開發的 Hello Bear 功能 ---
+# --- 匯入 Hello Bear 功能 ---
 try:
     from hello_tool import show_homey_page as show_hellobear_page
 except ImportError as e:
     def show_hellobear_page():
         st.error(f"❌ 無法載入 Hello Bear 工具: {e}")
-        st.info("💡 提示: 請確認目錄下是否有 hello_tool.py")
 
 # ================= 2. 頁面設定 =================
 st.set_page_config(
@@ -49,9 +48,6 @@ st.set_page_config(
 
 # ================= 3. 核心功能：智慧自動關閉側邊欄 (僅手機) =================
 def smart_auto_close_sidebar():
-    """
-    注入 JS，判斷如果是手機版 (寬度 <= 768px) 就自動關閉側邊欄。
-    """
     js_code = """
     <script>
         var width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
@@ -138,7 +134,7 @@ def render_main_header():
     st.markdown("<br><div style='color: #888;'>Intelligent Logistics System & Label Solution</div><br>", unsafe_allow_html=True)
     st.divider()
 
-# ================= 7. 主程式邏輯 (修正智慧收合) =================
+# ================= 7. 主程式邏輯 =================
 def main():
     render_sidebar_logo()
     st.sidebar.markdown("<div class='sidebar-header'>MAIN MENU</div>", unsafe_allow_html=True)
@@ -151,24 +147,34 @@ def main():
         key="main_nav"
     )
 
-    # 預設子功能變數
     current_sub_func = ""
 
     # --- 右側內容顯示區 ---
     if category_selection == "🏠 Home Page":
         render_main_header()
+        
+        # 第一排：Yummy & Anymall
         col1, col2 = st.columns(2)
         with col1:
             st.markdown("""<div class="home-card"><span class="card-tag tag-yummy">Yummy 3PL</span><div class="card-icon">🍔</div><div class="card-title">Yummy System</div><div class="card-desc">Includes PDF Processing and Label<br> Printing Functions.</div></div>""", unsafe_allow_html=True)
         with col2:
-            st.markdown("""<div class="home-card"><span class="card-tag tag-anymall">Anymall 3PL</span><div class="card-icon">🛍️</div><div class="card-title">Anymall System</div><div class="card-desc">Automatic handling of Blank Pages and <br>Table Generation</div></div>""", unsafe_allow_html=True)
+            st.markdown("""<div class="home-card"><span class="card-tag tag-anymall">Anymall 3PL</span><div class="card-icon">🛍️</div><div class="card-title">Anymall System</div><div class="card-desc">Automatic handling of Blank Pages and <br>Table Generation.</div></div>""", unsafe_allow_html=True)
+        
         st.write("")
+        
+        # 第二排：Hello Bear & Homey
         col3, col4 = st.columns(2)
         with col3:
-            # 描述更新為您新寫的功能
-            st.markdown("""<div class="home-card"><span class="card-tag tag-bear">Hello Bear 3PL</span><div class="card-icon">🐻</div><div class="card-title">Hello Bear System</div><div class="card-desc">Automatic detection of SKU, Label and Repack</div></div>""", unsafe_allow_html=True)
+            st.markdown("""<div class="home-card"><span class="card-tag tag-bear">Hello Bear 3PL</span><div class="card-icon">🐻</div><div class="card-title">Hello Bear System</div><div class="card-desc">Automatic detection of SKU, Label and Repack.</div></div>""", unsafe_allow_html=True)
         with col4:
-            st.markdown("""<div class="home-card"><span class="card-tag tag-homey">Homey 3PL</span><div class="card-icon">🏠</div><div class="card-title">Homey System</div><div class="card-desc">Automatic detection of SKU and Repack</div></div>""", unsafe_allow_html=True)
+            st.markdown("""<div class="home-card"><span class="card-tag tag-homey">Homey 3PL</span><div class="card-icon">🏠</div><div class="card-title">Homey System</div><div class="card-desc">Automatic detection of SKU and Repack.</div></div>""", unsafe_allow_html=True)
+            
+        st.write("")
+        
+        # 第三排：Search Barcode (補回此部分)
+        c1, c2, c3 = st.columns([1, 2, 1])
+        with c2:
+             st.markdown("""<div class="home-card"><span class="card-tag tag-tool">Mobile Tool</span><div class="card-icon">🔍</div><div class="card-title">Search Barcode</div><div class="card-desc">Quickly Search for SKU and Barcode Information.</div></div>""", unsafe_allow_html=True)
 
     elif category_selection == "🍔 Yummy 3PL":
         st.sidebar.markdown("---")
@@ -184,7 +190,6 @@ def main():
 
     elif category_selection == "🐻 Hello Bear 3PL":
         st.sidebar.markdown("---")
-        # 直接執行匯入後的 Hello Bear 工具
         show_hellobear_page()
 
     elif category_selection == "🏠 Homey 3PL":
@@ -195,13 +200,11 @@ def main():
         show_search_barcode_page()
 
     # ================= 核心修正邏輯 =================
-    # 建立一個包含大分類與子功能的「完整狀態字串」
     combined_state = f"{category_selection}_{current_sub_func}"
 
     if 'page_state' not in st.session_state:
         st.session_state.page_state = combined_state
 
-    # 只要狀態有任何變動，在手機版就觸發自動收合側邊欄
     if st.session_state.page_state != combined_state:
         st.session_state.page_state = combined_state
         smart_auto_close_sidebar()
