@@ -174,7 +174,7 @@ def main():
         # 第三排：Search Barcode (補回此部分)
         c1, c2, c3 = st.columns([1, 2, 1])
         with c2:
-             st.markdown("""<div class="home-card"><span class="card-tag tag-tool">Mobile Tool</span><div class="card-icon">🔍</div><div class="card-title">Search Barcode</div><div class="card-desc">Quickly Search for SKU and Barcode Information.</div></div>""", unsafe_allow_html=True)
+             st.markdown("""<div class="home-card"><span class="card-tag tag-tool">Barcode Tool</span><div class="card-icon">🔍</div><div class="card-title">Search Barcode System</div><div class="card-desc">Quickly Search for SKU and Barcode Information.</div></div>""", unsafe_allow_html=True)
 
     elif category_selection == "🍔 Yummy 3PL":
         st.sidebar.markdown("---")
