@@ -147,10 +147,10 @@ def show_homey_page():
                 duplicate_count = len(duplicated_pnos)
 
                 c1, c2, c3, c4 = st.columns(4)
-                c1.metric("📄 原始頁數", total_pages)
-                c2.metric("✅ 有效頁數", valid_page_count)
-                c3.metric("🗑️ 移除空白", total_pages - valid_page_count)
-                c4.metric("⚠️ 重複 SKU 數", duplicate_count, delta=None, delta_color="inverse")
+                c1.metric("📄 Original Page Number", total_pages)
+                c2.metric("✅ Valid Pages", valid_page_count)
+                c3.metric("🗑️ Remove Blanks", total_pages - valid_page_count)
+                c4.metric("⚠️ Duplicate SKU", duplicate_count, delta=None, delta_color="inverse")
 
                 if duplicate_count > 0:
                     st.warning(f"偵測到以下 Product No 有重複出現：{', '.join(duplicated_pnos)}")
@@ -179,7 +179,7 @@ def show_homey_page():
                 df_result.index = range(1, len(df_result) + 1)
                 df_result.index.name = "No."
                 
-                st.write("#### 📋 訂單明細")
+                st.write("#### 📋 PDF Details")
                 
                 st.dataframe(
                     df_result.style.apply(highlight_row_and_duplicates, axis=1),
@@ -190,7 +190,7 @@ def show_homey_page():
                         "Barcode": st.column_config.TextColumn("Barcode", width=115),
                         "商品名稱": st.column_config.TextColumn("商品名稱", width=650),
                         "數量": st.column_config.NumberColumn("數量", width=40, format="%d"),
-                        "Label Type": st.column_config.TextColumn("Label Type (自動偵測)", width=220)
+                        "Label Type": st.column_config.TextColumn("Label Type", width=220)
                     }
                 )
                 
