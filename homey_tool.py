@@ -35,8 +35,7 @@ def load_master_data():
         return None
 
 def show_homey_page():
-    st.markdown("### 🏠 Homey 3PL 訂單處理系統")
-    st.caption("功能：特殊 Label 全提高亮 + 序號從 1 開始 + 自定義寬度")
+    st.markdown("### 🏠 Homey 3PL System")
 
     master_df = load_master_data()
     if master_df is not None:
@@ -46,7 +45,7 @@ def show_homey_page():
 
     st.divider()
 
-    uploaded_file = st.file_uploader("請上傳 Homey 訂單 (PDF)", type=["pdf"], key="homey_pdf")
+    uploaded_file = st.file_uploader("請上傳 Homey 3PL (PDF)", type=["pdf"], key="homey_pdf")
 
     if uploaded_file:
         try:
