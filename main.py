@@ -213,9 +213,9 @@ def main():
         st.write("") 
         col3, col4 = st.columns(2)
         with col3:
-             st.markdown("""<div class="home-card"><span class="card-tag tag-bear">Hello Bear System</span><div class="card-icon">🐻</div><div class="card-title">Hello Bear 3PL</div><div class="card-desc">Hello Bear 專屬物流功能 (Coming Soon)</div></div>""", unsafe_allow_html=True)
+             st.markdown("""<div class="home-card"><span class="card-tag tag-bear">Hello Bear 3PL</span><div class="card-icon">🐻</div><div class="card-title">Hello Bear System</div><div class="card-desc">Hello Bear 專屬物流功能 (Coming Soon)</div></div>""", unsafe_allow_html=True)
         with col4:
-            st.markdown("""<div class="home-card"><span class="card-tag tag-homey">Homey System</span><div class="card-icon">🏠</div><div class="card-title">Homey 3PL</div><div class="card-desc">Homey 專屬物流功能 (Coming Soon)</div></div>""", unsafe_allow_html=True)
+            st.markdown("""<div class="home-card"><span class="card-tag tag-homey">Homey 3PL</span><div class="card-icon">🏠</div><div class="card-title">Homey System</div><div class="card-desc">Homey 專屬物流功能 (Coming Soon)</div></div>""", unsafe_allow_html=True)
         st.write("") 
         c1, c2, c3 = st.columns([1, 2, 1])
         with c2:
