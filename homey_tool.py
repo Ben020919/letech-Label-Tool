@@ -55,13 +55,13 @@ def show_homey_page():
 
     master_df = load_master_data()
     if master_df is not None:
-        st.success(f"✅ 已連結主檔：`{MASTER_FILE}`")
+        st.success(f"✅ Linked Database：`{MASTER_FILE}`")
     else:
         st.warning(f"⚠️ 找不到 `{MASTER_FILE}`")
 
     st.divider()
 
-    uploaded_file = st.file_uploader("請上傳 Homey 3PL (PDF)", type=["pdf"], key="homey_pdf")
+    uploaded_file = st.file_uploader("Please Upload Homey 3PL (PDF)", type=["pdf"], key="homey_pdf")
 
     if uploaded_file:
         try:
@@ -149,12 +149,11 @@ def show_homey_page():
                 duplicated_pnos = df_result[df_result.duplicated('Product No', keep=False)]['Product No'].unique().tolist()
                 duplicate_count = len(duplicated_pnos)
 
-                st.write("#### 📊 處理統計")
                 c1, c2, c3, c4 = st.columns(4)
-                c1.metric("📄 原始頁數", total_pages)
-                c2.metric("✅ 有效頁數", valid_page_count)
-                c3.metric("🗑️ 移除空白", total_pages - valid_page_count)
-                c4.metric("⚠️ 重複 SKU 數", duplicate_count, delta=None, delta_color="inverse")
+                c1.metric("📄 Original Page Number", total_pages)
+                c2.metric("✅ Valid Pages", valid_page_count)
+                c3.metric("🗑️ Remove Blanks", total_pages - valid_page_count)
+                c4.metric("⚠️ Duplicate SKU", duplicate_count, delta=None, delta_color="inverse")
 
                 if duplicate_count > 0:
                     st.warning(f"⚠️ 偵測到以下 Product No 有重複出現：{', '.join(duplicated_pnos)}")
@@ -180,7 +179,7 @@ def show_homey_page():
                 df_result.index = range(1, len(df_result) + 1)
                 df_result.index.name = "No."
                 
-                st.write("#### 📋 訂單明細")
+                st.write("#### 📋 PDF Details")
                 
                 st.dataframe(
                     df_result.style.apply(highlight_row_and_duplicates, axis=1),
