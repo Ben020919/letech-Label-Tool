@@ -118,8 +118,7 @@ def show_anymall_page():
 
             if duplicate_count > 0:
                 st.warning(f"⚠️ 發現 {duplicate_count} 款商品編號重複：{', '.join(duplicated_pnos)}")
-            else:
-                st.success("✅ Check Passed: No Duplicate Product Numbers Found.")
+            
 
             # --- 搜尋功能 ---
             st.markdown("### 🔍 Search and Inspection")
