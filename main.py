@@ -194,18 +194,18 @@ def main():
         with col1:
             st.markdown("""
             <div class="home-card">
-                <span class="card-tag tag-yummy">YUMMY 3PL</span>
+                <span class="card-tag tag-yummy">Yummy 3PL</span>
                 <div class="card-icon">🍔</div>
-                <div class="card-title">Yummy 倉儲系統</div>
+                <div class="card-title">Yummy System</div>
                 <div class="card-desc">包含 PDF 訂單處理與標籤列印功能</div>
             </div>
             """, unsafe_allow_html=True)
         with col2:
             st.markdown("""
             <div class="home-card">
-                <span class="card-tag tag-anymall">ANYMALL 3PL</span>
+                <span class="card-tag tag-anymall">Anymall 3PL</span>
                 <div class="card-icon">🛍️</div>
-                <div class="card-title">Anymall 倉儲系統</div>
+                <div class="card-title">Anymall System</div>
                 <div class="card-desc">自動刪除空白頁，生成表格</div>
             </div>
             """, unsafe_allow_html=True)
@@ -213,9 +213,9 @@ def main():
         st.write("") 
         col3, col4 = st.columns(2)
         with col3:
-             st.markdown("""<div class="home-card"><span class="card-tag tag-bear">HELLO BEAR</span><div class="card-icon">🐻</div><div class="card-title">Hello Bear 3PL</div><div class="card-desc">Hello Bear 專屬物流功能 (Coming Soon)</div></div>""", unsafe_allow_html=True)
+             st.markdown("""<div class="home-card"><span class="card-tag tag-bear">Hello Bear System</span><div class="card-icon">🐻</div><div class="card-title">Hello Bear 3PL</div><div class="card-desc">Hello Bear 專屬物流功能 (Coming Soon)</div></div>""", unsafe_allow_html=True)
         with col4:
-            st.markdown("""<div class="home-card"><span class="card-tag tag-homey">HOMEY</span><div class="card-icon">🏠</div><div class="card-title">Homey 3PL</div><div class="card-desc">Homey 專屬物流功能 (Coming Soon)</div></div>""", unsafe_allow_html=True)
+            st.markdown("""<div class="home-card"><span class="card-tag tag-homey">Homey System</span><div class="card-icon">🏠</div><div class="card-title">Homey 3PL</div><div class="card-desc">Homey 專屬物流功能 (Coming Soon)</div></div>""", unsafe_allow_html=True)
         st.write("") 
         c1, c2, c3 = st.columns([1, 2, 1])
         with c2:
