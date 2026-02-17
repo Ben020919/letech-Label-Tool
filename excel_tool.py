@@ -422,7 +422,7 @@ def show_excel_page():
         if st.session_state['parsed_items']:
             st.markdown("---")
             col_ratios = [0.5, 1.5, 4, 2, 1.5, 0.8, 1.2]
-            headers = ["No.", "Product No", "Product Name", "Barcode", "Date", "Qty", "Action"]
+            headers = ["No", "Product No", "Product Name", "Barcode", "Date", "Qty", "Action"]
             cols = st.columns(col_ratios)
             for col, h in zip(cols, headers):
                 col.markdown(f"<div class='grid-header'>{h}</div>", unsafe_allow_html=True)
