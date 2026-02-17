@@ -6,30 +6,41 @@ import io
 import base64
 import time
 import os
-import gc  # 引入垃圾回收機制
+import gc
 import streamlit.components.v1 as components
 
 # ================= 設定預設檔案名稱 =================
 DEFAULT_EXCEL_PATH = "data.xlsx"
 DEFAULT_FONT_PATH = "font.ttf"
 
+# ================= 設定特殊警告標籤清單 =================
+CAUTION_PRODUCT_LIST = [
+    "GAR-113166", "GAR-113167", "GAR-113168",
+    "LT10006114", "LT10006115", "LT10006116",
+    "POPS-106413", "POPS-107836", "SAX-103842",
+    "LT10014114", "LT10011267", "NATV-113301",
+    "LT10013458", "LT10013459", "PRI-111852",
+    "CHE-108483"
+]
+
 # ================= 1. 快取讀取函式 =================
 @st.cache_data
 def load_local_excel(file_path):
     """讀取本地 Excel 並快取結果"""
+    # 強制使用 dtype=str 避免自動轉換導致資料判斷錯誤
     if file_path.endswith('.csv'):
-        return pd.read_csv(file_path)
+        return pd.read_csv(file_path, dtype=str, keep_default_na=False)
     else:
-        return pd.read_excel(file_path)
+        return pd.read_excel(file_path, dtype=str, keep_default_na=False)
 
 @st.cache_data
 def load_local_font_bytes(file_path):
-    """讀取本地字型檔並快取結果"""
     with open(file_path, "rb") as f:
         return f.read()
 
 # ================= 2. 輔助函式 =================
 def clean_val(val):
+    """清除 NaN 並轉字串"""
     if pd.isna(val) or str(val).lower() == 'nan': return ""
     return str(val).strip()
 
@@ -37,6 +48,30 @@ def get_nutri_val(data, key):
     val = data.get(key)
     if pd.isna(val) or str(val).lower() == 'nan': return "0"
     return str(val).strip()
+
+# --- 智慧欄位搜尋函式 ---
+def smart_get_caution_text(data_dict):
+    """
+    嘗試尋找 'Cautions' 欄位
+    優先順序: 'Cautions' -> 'Caution' -> 'cautions' -> 包含 'caution' 的欄位
+    """
+    # 1. 精準匹配
+    if 'Cautions' in data_dict: return clean_val(data_dict['Cautions'])
+    if 'Caution' in data_dict: return clean_val(data_dict['Caution'])
+    if 'cautions' in data_dict: return clean_val(data_dict['cautions'])
+    
+    # 2. 模糊搜尋
+    lower_keys = {k.lower(): k for k in data_dict.keys()}
+    for k_lower, k_original in lower_keys.items():
+        if 'caution' in k_lower:
+            return clean_val(data_dict[k_original])
+            
+    # 3. 嘗試 Warning
+    for k_lower, k_original in lower_keys.items():
+        if 'warning' in k_lower:
+            return clean_val(data_dict[k_original])
+            
+    return None 
 
 def extract_date_from_text(text):
     text = text.replace('\n', ' ')
@@ -64,11 +99,10 @@ def font_to_base64_css(font_bytes, file_name):
         """
     except Exception as e: return ""
 
-# ================= 3. HTML 標籤生成器 (即時生成) =================
+# ================= 3. HTML 標籤生成器 =================
+
+# --- A. 標準營養標籤 ---
 def create_label_html_on_the_fly(item, matched_data, font_css, qty):
-    """
-    這個函式會在按鈕被點擊時才執行，避免記憶體爆炸
-    """
     data = matched_data if matched_data else {}
     
     desc_text = clean_val(data.get('Description', item['商品名稱']))
@@ -91,7 +125,6 @@ def create_label_html_on_the_fly(item, matched_data, font_css, qty):
     mfr_text = f"{clean_val(data.get('Madeby_Prefix', ''))} {clean_val(data.get('Madeby', ''))}".strip()
     if "Manufacturer" not in mfr_text: mfr_text = "Manufacturer: " + mfr_text
 
-    # 生成單張標籤
     single_label_html = f"""
     <html><head><style>
         {font_css}
@@ -138,7 +171,6 @@ def create_label_html_on_the_fly(item, matched_data, font_css, qty):
     </body></html>
     """
     
-    # 複製 N 份 (根據 Qty)
     import re as regex
     match = regex.search(r'<body>(.*?)</body>', single_label_html, regex.DOTALL)
     if match:
@@ -150,7 +182,48 @@ def create_label_html_on_the_fly(item, matched_data, font_css, qty):
         
     return final_html
 
-# ================= 4. JS 列印腳本 (Windows/Mac 兼容修復版) =================
+# --- B. 警告標籤 (無框、置中、粗體) ---
+def create_caution_html(text, qty):
+    formatted_text = str(text).replace('\n', '<br/>')
+    if not formatted_text or formatted_text == "nan":
+        formatted_text = ""
+
+    single_label_html = f"""
+    <html>
+    <head>
+    <style>
+        @page {{ size: auto; margin: 0mm; }}
+        body {{ margin: 0; padding: 0; font-family: Helvetica, Arial, sans-serif; }}
+        .label-container {{ 
+            width: 70mm; height: 50mm; box-sizing: border-box; 
+            padding: 2mm; page-break-after: always; position: relative;
+            display: flex; align-items: center; justify-content: center; text-align: center;
+        }}
+        .caution-text {{
+            font-size: 15pt; font-weight: 900; line-height: 1.2; word-wrap: break-word; color: black;
+        }}
+    </style>
+    </head>
+    <body>
+        <div class="label-container">
+            <div class="caution-text">{formatted_text}</div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    import re as regex
+    match = regex.search(r'<body>(.*?)</body>', single_label_html, regex.DOTALL)
+    if match:
+        div_content = match.group(1)
+        full_body = div_content * qty
+        final_html = single_label_html.replace(div_content, full_body)
+    else:
+        final_html = single_label_html
+        
+    return final_html
+
+# ================= 4. JS 列印腳本 =================
 def js_instant_print(full_html_content, item_id):
     b64_html = base64.b64encode(full_html_content.encode('utf-8')).decode('utf-8')
     js_code = f"""
@@ -160,25 +233,14 @@ def js_instant_print(full_html_content, item_id):
             const htmlContent = decodeURIComponent(escape(window.atob(b64)));
             const win = window.open('', '_blank', 'width=400,height=400');
             if (win) {{
-                win.document.write(htmlContent); 
-                win.document.close();
-                
+                win.document.write(htmlContent); win.document.close();
                 win.onload = function() {{ 
                     win.focus(); 
-                    
-                    // --- 關鍵修復：先註冊關閉事件，再執行列印 ---
-                    // 這行確保 Windows 即使阻塞也能收到關閉指令
                     win.onafterprint = function() {{ win.close(); }}; 
-                    
-                    // 開始列印
                     win.print(); 
-                    
-                    // Mac/Safari 的備用方案 (保留)
                     win.onfocus = function() {{ setTimeout(()=>{{ win.close(); }}, 500); }}; 
                 }};
-            }} else {{ 
-                alert("請允許彈出視窗！"); 
-            }}
+            }} else {{ alert("請允許彈出視窗！"); }}
         }})();
     </script>
     """
@@ -186,14 +248,12 @@ def js_instant_print(full_html_content, item_id):
 
 # ================= 5. 主頁面 =================
 def show_excel_page():
-    # 初始化
     if 'parsed_items' not in st.session_state: st.session_state['parsed_items'] = []
     if 'last_uploaded_file_id' not in st.session_state: st.session_state['last_uploaded_file_id'] = None
     if 'font_css' not in st.session_state: st.session_state['font_css'] = ""
 
     st.markdown("""
         <style>
-            /* 與之前相同的 CSS 樣式 */
             .logo-container { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
             .logo-text { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 28px; font-weight: 800; color: #2c3e50; letter-spacing: -0.5px; margin-left: 10px; line-height: 1; }
             .logo-dot { color: #007bff; }
@@ -231,7 +291,7 @@ def show_excel_page():
 
     with col_up1:
         if bridge_pdf:
-            st.success(f"📂 使用 PDF Tool 傳送的檔案: **{bridge_name}**")
+            st.success(f"📂 PDF Tool 傳送: **{bridge_name}**")
             uploaded_pdf = io.BytesIO(bridge_pdf)
             uploaded_pdf.name = bridge_name 
             if st.button("❌ 清除 / 上傳新 PDF", key="clr_pdf"):
@@ -242,18 +302,19 @@ def show_excel_page():
             uploaded_pdf = st.file_uploader("1. Please Upload PDF File", type=["pdf"])
 
     with col_up2:
-        uploaded_excel_file = st.file_uploader("2. Please Upload Excel File (可選)", type=["csv", "xlsx"])
+        uploaded_excel_file = st.file_uploader("2. Please Upload Excel File", type=["csv", "xlsx"])
+        
         df_master = None
         current_excel_name = ""
 
         if uploaded_excel_file:
-            if uploaded_excel_file.name.endswith('.csv'): df_master = pd.read_csv(uploaded_excel_file)
-            else: df_master = pd.read_excel(uploaded_excel_file)
+            if uploaded_excel_file.name.endswith('.csv'): df_master = load_local_excel(uploaded_excel_file)
+            else: df_master = load_local_excel(uploaded_excel_file)
             current_excel_name = uploaded_excel_file.name
         elif os.path.exists(DEFAULT_EXCEL_PATH):
             try:
                 df_master = load_local_excel(DEFAULT_EXCEL_PATH)
-                st.info(f"✅ 已載入預設資料庫: {DEFAULT_EXCEL_PATH}")
+                st.info(f"✅ 使用資料庫: {DEFAULT_EXCEL_PATH}")
                 current_excel_name = DEFAULT_EXCEL_PATH
             except Exception as e:
                 st.error(f"預設資料庫讀取失敗: {e}")
@@ -283,14 +344,11 @@ def show_excel_page():
             st.session_state['parsed_items'] = []
             st.session_state['font_css'] = ""
             st.session_state['last_uploaded_file_id'] = current_file_id
-            
-            # 強制清理記憶體
             gc.collect() 
             st.cache_data.clear()
 
         if not st.session_state['parsed_items']:
             try:
-                # 預先處理 Font CSS，這個只需要一份，不會佔太多記憶體
                 if font_bytes and not st.session_state['font_css']:
                     st.session_state['font_css'] = font_to_base64_css(font_bytes, font_filename)
                 
@@ -320,15 +378,22 @@ def show_excel_page():
                             name_parts.append(line)
                     p_name = " ".join(name_parts)
                     
-                    # 匹配 Excel 資料
-                    row = df_master[df_master['Product_No'].astype(str).str.strip() == p_no]
+                    # 🔥 重複資料過濾邏輯 (確保找到有 Cautions 的那一行)
+                    matches = df_master[df_master['Product_No'].astype(str).str.strip() == p_no]
                     matched_data = {}
                     has_match = False
-                    if not row.empty:
-                        matched_data = row.iloc[0].to_dict()
+                    
+                    if not matches.empty:
                         has_match = True
+                        if 'Cautions' in matches.columns:
+                            valid_rows = matches[matches['Cautions'].notna() & (matches['Cautions'].str.strip() != "")]
+                            if not valid_rows.empty:
+                                matched_data = valid_rows.iloc[0].to_dict()
+                            else:
+                                matched_data = matches.iloc[0].to_dict()
+                        else:
+                            matched_data = matches.iloc[0].to_dict()
 
-                    # ✅ 記憶體優化重點：只儲存原始數據，不存 HTML
                     temp_items.append({
                         "id": f"{p_no}_{i}", 
                         "Product No": p_no, 
@@ -336,7 +401,7 @@ def show_excel_page():
                         "Barcode": barcode, 
                         "數量": qty, 
                         "日期": p_date,
-                        "matched_data": matched_data,  # 存 Excel 資料
+                        "matched_data": matched_data,
                         "has_match": has_match
                     })
                     prog.progress((i+1)/total_pages)
@@ -344,7 +409,7 @@ def show_excel_page():
                 st.session_state['parsed_items'] = temp_items
                 prog.empty()
                 status_text.empty()
-                gc.collect() # 再次清理
+                gc.collect()
                 st.success("✅ Processing Complete!")
                 time.sleep(1)
                 st.rerun()
@@ -382,15 +447,26 @@ def show_excel_page():
                     c5.markdown(f"<div class='grid-row'><span class='cell-qty'>{item['數量']}</span></div>", unsafe_allow_html=True)
                     
                     with c6:
-                        if item['has_match']:
+                        is_caution_item = str(item['Product No']).strip() in CAUTION_PRODUCT_LIST
+                        
+                        if item['has_match'] or is_caution_item:
                             if st.button("Print", key=f"btn_{item['id']}_{index}"):
-                                # 🔥 按下按鈕瞬間生成 HTML 🔥
-                                final_html = create_label_html_on_the_fly(
-                                    item, 
-                                    item['matched_data'], 
-                                    st.session_state['font_css'],
-                                    item['數量']
-                                )
+                                if is_caution_item:
+                                    caution_text = smart_get_caution_text(item['matched_data'])
+                                    if caution_text is None:
+                                        available_cols = ", ".join(item['matched_data'].keys())
+                                        caution_text = f"Cautions Column Missing!<br>Available: {available_cols}"
+                                    elif caution_text == "":
+                                        caution_text = "Caution Column Empty"
+                                        
+                                    final_html = create_caution_html(caution_text, item['數量'])
+                                else:
+                                    final_html = create_label_html_on_the_fly(
+                                        item, 
+                                        item['matched_data'], 
+                                        st.session_state['font_css'],
+                                        item['數量']
+                                    )
                                 js_instant_print(final_html, item['id'])
                         else:
                             st.markdown(f"<span class='cell-badge-err'>無資料</span>", unsafe_allow_html=True)
