@@ -5,8 +5,7 @@ import re
 import io
 
 def show_anymall_page():
-    st.markdown("### 🛍️ Anymall 訂單處理工具")
-    st.info("功能：去除空白頁 + 提取商品資料 (含 Barcode) + 序號索引")
+    st.markdown("### 🛍️ Anymall 3PL System")
 
     uploaded_file = st.file_uploader("請上傳 PDF 檔案", type=["pdf"], key="anymall_pdf")
 
