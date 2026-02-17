@@ -23,7 +23,7 @@ def show_pdf_page():
 
     st.markdown("### 🍔 Yummy 3PL System")
 
-    uploaded_file = st.file_uploader("Please Upload PDF File", type=["pdf"])
+    uploaded_file = st.file_uploader("Please Upload Yummy 3PL PDF File", type=["pdf"])
 
     if uploaded_file is not None:
         try:
