@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import os
+# ================= 新增：匯入追蹤工具 =================
+from usage_tracker import log_action 
 
 # ================= 設定固定檔案名稱 =================
 DEFAULT_DB_FILE = "Barcode.xlsx.csv"
@@ -79,6 +81,10 @@ def show_search_barcode_page():
     user_input = st.text_input("Please Enter Keywords. (SKU / Barcode / Name):", placeholder="Enter Search Terms...")
 
     if user_input:
+        # ================= 新增：記錄搜尋動作 =================
+        log_action("Search_Action") 
+        # ====================================================
+
         query = user_input.strip()
         mask = (
             df['ProductCode'].str.contains(query, case=False, na=False) | 
@@ -89,7 +95,6 @@ def show_search_barcode_page():
 
         if not results.empty:
             st.success(f"✅ Found {len(results)} Data")
-
 
             # --- B. 手機版顯示區域 (被包在 mobile-view div 中) ---
             st.markdown('<div class="mobile-view">', unsafe_allow_html=True)
@@ -105,5 +110,12 @@ def show_search_barcode_page():
                 """, unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
             
+            # --- C. 電腦版顯示區域 (若您需要顯示表格可加在此，依據您的 CSS .desktop-view) ---
+            # 您的原始代碼中似乎這裡沒有寫 desktop view 的內容，
+            # 若需要顯示表格可加上：
+            # st.markdown('<div class="desktop-view">', unsafe_allow_html=True)
+            # st.dataframe(results, use_container_width=True)
+            # st.markdown('</div>', unsafe_allow_html=True)
+
         else:
             st.warning("❌ No Data")

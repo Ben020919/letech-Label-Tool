@@ -3,6 +3,8 @@ from pypdf import PdfReader
 import pandas as pd
 import re
 import io
+from usage_tracker import log_action
+
 def show_anymall_page():
     # ================= LOGO / BRANDING AREA =================
     st.markdown("""
@@ -26,6 +28,11 @@ def show_anymall_page():
     uploaded_file = st.file_uploader("Please Upload Anymall 3PL PDF File", type=["pdf"], key="anymall_pdf")
 
     if uploaded_file:
+        # ⭐ 記錄使用次數 (避免重複記錄)
+        if 'last_anymall_file' not in st.session_state or st.session_state.last_anymall_file != uploaded_file.name:
+            st.session_state.last_anymall_file = uploaded_file.name
+            log_action("Anymall_Upload")
+
         try:
             reader = PdfReader(uploaded_file)
             total_pages = len(reader.pages)

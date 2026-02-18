@@ -5,13 +5,11 @@ import re
 import os
 import base64
 import streamlit.components.v1 as components
-
-# ================= 新增：匯入標籤格式模組 =================
-# ================= 新增：強制路徑並匯入標籤格式模組 =================
 import sys
 from pathlib import Path
+from usage_tracker import log_action
 
-# 獲取當前檔案所在的目錄
+# ================= 新增：強制路徑並匯入標籤格式模組 =================
 current_dir = Path(__file__).parent.absolute()
 if str(current_dir) not in sys.path:
     sys.path.append(str(current_dir))
@@ -147,6 +145,11 @@ def show_hellobear_page():
     uploaded_file = st.file_uploader("Please Upload Hello bear 3PL (PDF)", type=["pdf"], key="hellobear_pdf")
 
     if uploaded_file:
+        # ⭐ 記錄使用次數 (避免重複記錄)
+        if 'last_hb_file' not in st.session_state or st.session_state.last_hb_file != uploaded_file.name:
+            st.session_state.last_hb_file = uploaded_file.name
+            log_action("HelloBear_Upload")
+
         try:
             reader = PdfReader(uploaded_file)
             total_pages = len(reader.pages)
@@ -224,7 +227,6 @@ def show_hellobear_page():
 
             if valid_rows:
                 df_result = pd.DataFrame(valid_rows)
-                # 找出重複的 SKU
                 duplicated_pnos = df_result[df_result.duplicated('Product No', keep=False)]['Product No'].unique().tolist()
                 duplicate_count = len(duplicated_pnos)
 
@@ -278,6 +280,9 @@ def show_hellobear_page():
                             
                             if needs_print:
                                 if st.button("打印", key=f"btn_hb_{index}"):
+                                    # ⭐ 記錄使用次數 (Hello Bear 列印)
+                                    log_action("HelloBear_Print")
+
                                     if repack_lable:
                                         final_html = repack_lable.create_repack_label_html(
                                             row['商品名稱'], 

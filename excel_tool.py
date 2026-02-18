@@ -8,6 +8,7 @@ import time
 import os
 import gc
 import streamlit.components.v1 as components
+from usage_tracker import log_action
 
 # ================= 設定預設檔案名稱 =================
 DEFAULT_EXCEL_PATH = "data.xlsx"
@@ -341,6 +342,9 @@ def show_excel_page():
         current_file_id = f"{uploaded_pdf.name}_{current_excel_name}_{font_filename}"
 
         if st.session_state['last_uploaded_file_id'] != current_file_id:
+            # ⭐ 記錄使用次數 (Yummy 處理)
+            log_action("Yummy_Process")
+            
             st.session_state['parsed_items'] = []
             st.session_state['font_css'] = ""
             st.session_state['last_uploaded_file_id'] = current_file_id
@@ -451,6 +455,9 @@ def show_excel_page():
                         
                         if item['has_match'] or is_caution_item:
                             if st.button("Print", key=f"btn_{item['id']}_{index}"):
+                                # ⭐ 記錄使用次數 (Yummy 列印)
+                                log_action("Yummy_Print")
+                                
                                 if is_caution_item:
                                     caution_text = smart_get_caution_text(item['matched_data'])
                                     if caution_text is None:

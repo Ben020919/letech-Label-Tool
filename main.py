@@ -1,5 +1,8 @@
 import streamlit as st
 import streamlit.components.v1 as components
+import pandas as pd
+# 匯入統計模組
+from usage_tracker import load_stats 
 
 # ================= 1. 匯入功能模組 (修復變數作用域問題) =================
 
@@ -7,7 +10,7 @@ import streamlit.components.v1 as components
 try:
     from pdf_tool import show_pdf_page
 except ImportError as e:
-    pdf_err = str(e) # 將錯誤訊息存入持久變數
+    pdf_err = str(e)
     def show_pdf_page(): 
         st.error(f"❌ 無法載入 PDF 工具: {pdf_err}")
         st.info("💡 提示: 請確認是否已安裝 pypdf (pip install pypdf)")
@@ -44,10 +47,9 @@ except ImportError as e:
 
 # --- Hello Bear Tool ---
 try:
-    # 這裡確保匯入您的 hello_tool.py
     from hello_tool import show_hellobear_page
 except ImportError as e:
-    hb_err = str(e) # 修正關鍵：捕捉錯誤訊息
+    hb_err = str(e)
     def show_hellobear_page(): 
         st.error(f"❌ 無法載入 Hello Bear 工具: {hb_err}")
         st.info("💡 提示: 請確認 `hello_tool.py` 檔案存在且內容無語法錯誤。")
@@ -62,7 +64,6 @@ st.set_page_config(
 
 # ================= 3. 手機版自動收合邏輯 =================
 def close_sidebar_callback():
-    """回調函數：選單點擊時計數器 +1"""
     if 'sidebar_trigger_count' not in st.session_state:
         st.session_state.sidebar_trigger_count = 0
     st.session_state.sidebar_trigger_count += 1
@@ -70,9 +71,7 @@ def close_sidebar_callback():
 def inject_mobile_sidebar_closer():
     if 'sidebar_trigger_count' not in st.session_state:
         st.session_state.sidebar_trigger_count = 0
-    
     count = st.session_state.sidebar_trigger_count
-    
     js_code = f"""
     <script>
         console.log("Sidebar trigger: {count}");
@@ -82,9 +81,7 @@ def inject_mobile_sidebar_closer():
                 var sidebar = window.parent.document.querySelector('section[data-testid="stSidebar"]');
                 if (sidebar) {{
                     var buttons = sidebar.querySelectorAll('button');
-                    if (buttons.length > 0) {{
-                        buttons[0].click();
-                    }}
+                    if (buttons.length > 0) {{ buttons[0].click(); }}
                 }}
             }}, 300);
         }}
@@ -92,7 +89,7 @@ def inject_mobile_sidebar_closer():
     """
     components.html(js_code, height=0)
 
-# ================= 4. CSS 美化 =================
+# ================= 4. CSS 美化 (已統一卡片樣式) =================
 st.markdown("""
     <style>
     html, body, [class*="css"] { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
@@ -114,20 +111,62 @@ st.markdown("""
     }
     section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label > div:first-child { display: none !important; }
     .sidebar-header { font-size: 12px; font-weight: bold; color: #888; margin-top: 20px; margin-bottom: 5px; padding-left: 5px; letter-spacing: 1px; }
+    
+    /* Card Style (共用) */
     .home-card {
-        background-color: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 25px;
+        background-color: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 20px;
         text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: transform 0.2s; height: 100%;
+        display: flex; flex-direction: column; justify-content: flex-start; align-items: center;
     }
     .home-card:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); border-color: #007bff; }
     .card-icon { font-size: 36px; margin-bottom: 15px; }
     .card-title { font-size: 18px; font-weight: bold; color: #2c3e50; margin-bottom: 10px; }
     .card-desc { font-size: 13px; color: #666; line-height: 1.6; }
     .card-tag { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; margin-bottom: 15px; }
+    
+    /* Tags */
     .tag-yummy { background-color: #fff3cd; color: #856404; }
     .tag-anymall { background-color: #d4edda; color: #155724; }
     .tag-bear { background-color: #f8d7da; color: #721c24; }
     .tag-homey { background-color: #e2e3e5; color: #383d41; }
     .tag-tool { background-color: #d1ecf1; color: #0c5460; }
+    
+    /* Dashboard Specific - Single Stat */
+    .stat-card-num { font-size: 2.1em; font-weight: 800; color: #007bff; margin: 15px 0; line-height: 1; }
+    .stat-card-label { font-size: 1.2em; font-weight: bold; color: #2c3e50; }
+    .stat-card-icon { font-size: 40px; color: #007bff; margin-bottom: 5px; }
+    
+    /* Dashboard Specific - Dual Stat (Split View) */
+    .dual-stat-box {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid #eee;
+    }
+    .stat-item {
+        width: 48%;
+        text-align: center;
+    }
+    .mini-stat-num {
+        font-size: 26px;
+        font-weight: 800;
+        color: #007bff;
+        line-height: 1.2;
+    }
+    .mini-stat-label {
+        font-size: 12px;
+        color: #666;
+        font-weight: 600;
+        margin-bottom: 2px;
+    }
+    .stat-divider {
+        width: 1px;
+        height: 40px;
+        background-color: #eee;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -157,14 +196,138 @@ def render_main_header():
     st.markdown("""<div style="font-size: 16px; color: #888; margin-top: -10px; margin-bottom: 20px; letter-spacing: 0.5px;"><br><br>Intelligent Logistics System & Label Solution</div>""", unsafe_allow_html=True)
     st.divider()
 
-# ================= 7. 主程式邏輯 =================
+# ================= 7. 控制台頁面 (分開顯示 Upload 和 Print) =================
+def render_dashboard_page():
+    st.markdown("### 📊 System Dashboard (控制台)")
+    st.markdown("Overview of system usage statistics.")
+    st.divider()
+    
+    stats = load_stats()
+    
+    # 定義卡片結構
+    dashboard_cards = [
+        {
+            "type": "dual",
+            "icon": "🍔", 
+            "title": "Yummy System",
+            "val1": stats.get("Yummy_Process", 0), "label1": "📄 Uploads",
+            "val2": stats.get("Yummy_Print", 0), "label2": "🖨️ Prints"
+        },
+        {
+            "type": "dual", 
+            "icon": "🐻", 
+            "title": "HelloBear System",
+            "val1": stats.get("HelloBear_Upload", 0), "label1": "📄 Uploads",
+            "val2": stats.get("HelloBear_Print", 0), "label2": "🖨️ Prints"
+        },
+        {
+            "type": "single", 
+            "icon": "🛍️", 
+            "title": "Anymall System", 
+            "count": stats.get("Anymall_Upload", 0), 
+            "desc": "Files Processed"
+        },
+        {
+            "type": "single", 
+            "icon": "🏠", 
+            "title": "Homey System", 
+            "count": stats.get("Homey_Upload", 0), 
+            "desc": "Files Processed"
+        },
+        {
+            "type": "single", 
+            "icon": "🔍", 
+            "title": "Search Action", 
+            "count": stats.get("Search_Action", 0), 
+            "desc": "Database Queries"
+        },
+    ]
+    
+    cols = st.columns(3)
+    
+    for i, card in enumerate(dashboard_cards):
+        col_idx = i % 3
+        
+        if card["type"] == "dual":
+            card_html = f"""
+            <div class="home-card">
+                <div class="stat-card-icon">{card['icon']}</div>
+                <div class="stat-card-label">{card['title']}</div>
+                <div class="dual-stat-box">
+                    <div class="stat-item">
+                        <div class="mini-stat-label">{card['label1']}</div>
+                        <div class="mini-stat-num">{card['val1']}</div>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat-item">
+                        <div class="mini-stat-label">{card['label2']}</div>
+                        <div class="mini-stat-num">{card['val2']}</div>
+                    </div>
+                </div>
+            </div>
+            """
+        else:
+            card_html = f"""
+            <div class="home-card">
+                <div class="stat-card-icon">{card['icon']}</div>
+                <div class="stat-card-label">{card['title']}</div>
+                <div class="stat-card-num">{card['count']}</div>
+                <div class="card-desc">{card['desc']}</div>
+            </div>
+            """
+        
+        cols[col_idx].markdown(card_html, unsafe_allow_html=True)
+        
+        # 增加垂直間距
+        if col_idx == 2:
+            st.write("") 
+            st.write("")
+            st.write("") 
+
+# ================= 8. 首頁頁面 (使用與 Control Panel 相同的迴圈邏輯) =================
+def render_home_page():
+    render_main_header()
+    
+    # 定義首頁卡片資料
+    home_cards = [
+        {"tag": "Yummy 3PL", "tag_class": "tag-yummy", "icon": "🍔", "title": "Yummy System", "desc": "PDF 處理與標籤列印"},
+        {"tag": "Anymall 3PL", "tag_class": "tag-anymall", "icon": "🛍️", "title": "Anymall System", "desc": "自動處理空白頁與表格"},
+        {"tag": "Hello Bear 3PL", "tag_class": "tag-bear", "icon": "🐻", "title": "Hello Bear System", "desc": "專屬物流功能"},
+        {"tag": "Homey 3PL", "tag_class": "tag-homey", "icon": "🏠", "title": "Homey System", "desc": "資料整合與去除空白"},
+        {"tag": "Mobile Tool", "tag_class": "tag-tool", "icon": "🔍", "title": "Search Barcode", "desc": "快速查詢 SKU"},
+    ]
+    
+    # 使用與 Dashboard 相同的 3 欄位迴圈
+    cols = st.columns(3)
+    
+    for i, card in enumerate(home_cards):
+        col_idx = i % 3
+        
+        card_html = f"""
+        <div class="home-card">
+            <span class="card-tag {card['tag_class']}">{card['tag']}</span>
+            <div class="card-icon">{card['icon']}</div>
+            <div class="card-title">{card['title']}</div>
+            <div class="card-desc">{card['desc']}</div>
+        </div>
+        """
+        
+        cols[col_idx].markdown(card_html, unsafe_allow_html=True)
+        
+        # 增加垂直間距
+        if col_idx == 2:
+            st.write("") 
+            st.write("")
+            st.write("") 
+
+# ================= 9. 主程式邏輯 =================
 def main():
     render_sidebar_logo()
     st.sidebar.markdown("<div class='sidebar-header'>MAIN MENU</div>", unsafe_allow_html=True)
     
     category_selection = st.sidebar.radio(
         "Main Category", 
-        ["🏠 首頁總覽", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🔍 Search Barcode"],
+        ["🏠 首頁總覽", "📊 控制台", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🔍 Search Barcode"],
         label_visibility="collapsed",
         key="main_nav",
         on_change=close_sidebar_callback
@@ -173,17 +336,10 @@ def main():
     inject_mobile_sidebar_closer()
 
     if category_selection == "🏠 首頁總覽":
-        render_main_header()
-        c1, c2 = st.columns(2)
-        with c1: st.markdown("""<div class="home-card"><span class="card-tag tag-yummy">Yummy 3PL</span><div class="card-icon">🍔</div><div class="card-title">Yummy System</div><div class="card-desc">PDF 處理與標籤列印</div></div>""", unsafe_allow_html=True)
-        with c2: st.markdown("""<div class="home-card"><span class="card-tag tag-anymall">Anymall 3PL</span><div class="card-icon">🛍️</div><div class="card-title">Anymall System</div><div class="card-desc">自動處理空白頁與表格</div></div>""", unsafe_allow_html=True)
-        st.write("") 
-        c3, c4 = st.columns(2)
-        with c3: st.markdown("""<div class="home-card"><span class="card-tag tag-bear">Hello Bear 3PL</span><div class="card-icon">🐻</div><div class="card-title">Hello Bear System</div><div class="card-desc">專屬物流功能</div></div>""", unsafe_allow_html=True)
-        with c4: st.markdown("""<div class="home-card"><span class="card-tag tag-homey">Homey 3PL</span><div class="card-icon">🏠</div><div class="card-title">Homey System</div><div class="card-desc">資料整合與去除空白</div></div>""", unsafe_allow_html=True)
-        st.write("") 
-        c5, c6, c7 = st.columns([1, 2, 1])
-        with c6: st.markdown("""<div class="home-card"><span class="card-tag tag-tool">Mobile Tool</span><div class="card-icon">🔍</div><div class="card-title">Search Barcode</div><div class="card-desc">快速查詢 SKU</div></div>""", unsafe_allow_html=True)
+        render_home_page()  # 使用新的渲染函數
+
+    elif category_selection == "📊 控制台":
+        render_dashboard_page()
 
     elif category_selection == "🍔 Yummy 3PL":
         st.sidebar.markdown("---")

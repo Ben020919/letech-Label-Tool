@@ -3,6 +3,7 @@ from pypdf import PdfReader
 import pandas as pd
 import re
 import os
+from usage_tracker import log_action
 
 # ================= 設定固定主檔名稱 =================
 MASTER_FILE = "data.xlsx"
@@ -64,6 +65,11 @@ def show_homey_page():
     uploaded_file = st.file_uploader("Please Upload Homey 3PL (PDF)", type=["pdf"], key="homey_pdf")
 
     if uploaded_file:
+        # ⭐ 記錄使用次數 (避免重複記錄)
+        if 'last_homey_file' not in st.session_state or st.session_state.last_homey_file != uploaded_file.name:
+            st.session_state.last_homey_file = uploaded_file.name
+            log_action("Homey_Upload")
+
         try:
             reader = PdfReader(uploaded_file)
             total_pages = len(reader.pages)
