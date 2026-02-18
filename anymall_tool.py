@@ -3,7 +3,7 @@ from pypdf import PdfReader
 import pandas as pd
 import re
 import io
-
+#就是狂歡節卡士達和經濟的快速
 def show_anymall_page():
     # ================= LOGO / BRANDING AREA =================
     st.markdown("""
