@@ -198,6 +198,22 @@ def render_main_header():
 
 # ================= 7. 控制台頁面 (分開顯示 Upload 和 Print) =================
 def render_dashboard_page():
+     # ================= LOGO / BRANDING AREA =================
+    st.markdown("""
+        <style>
+            .logo-container { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
+            .logo-text { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 28px; font-weight: 800; color: #2c3e50; letter-spacing: -0.5px; margin-left: 10px; line-height: 1; }
+            .logo-dot { color: #007bff; }
+            .logo-sub { font-size: 14px; color: #888; font-weight: 400; margin-left: 15px; padding-left: 15px; border-left: 1px solid #ddd; height: 20px; line-height: 20px; }
+        </style>
+        <div class="logo-container">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#007bff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v8H6z"></path>
+            </svg>
+            <div class="logo-text">Letech<span class="logo-dot">.</span></div>
+            <div class="logo-sub">Intelligent Label Solution</div>
+        </div>
+    """, unsafe_allow_html=True)
     st.markdown("### 📊 System Dashboard")
     st.markdown("Overview of System Usage Statistics.")
     st.divider()
