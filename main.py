@@ -359,10 +359,10 @@ def main():
 
     elif category_selection == "🍔 Yummy 3PL":
         st.sidebar.markdown("---")
-        yummy_ops = ["📄 PDF 處理工具", "🖨️ Excel 標籤生成"]
+        yummy_ops = ["📄 PDF Processing Tools", "🖨️ Excel Lable Generation"]
         yummy_function = st.sidebar.radio("Yummy Functions", yummy_ops, label_visibility="collapsed")
-        if yummy_function == "📄 PDF 處理工具": show_pdf_page()
-        elif yummy_function == "🖨️ Excel 標籤生成": show_excel_page()
+        if yummy_function == "📄 PDF Processing Tools": show_pdf_page()
+        elif yummy_function == "🖨️ 🖨️ Excel Lable Generation": show_excel_page()
 
     elif category_selection == "🛍️ Anymall 3PL":
         st.sidebar.markdown("---")
