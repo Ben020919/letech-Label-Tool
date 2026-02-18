@@ -338,7 +338,7 @@ def main():
     if category_selection == "🏠 Home Page":
         render_home_page()  # 使用新的渲染函數
 
-    elif category_selection == "📊 控制台":
+    elif category_selection == "📊 Dashboard":
         render_dashboard_page()
 
     elif category_selection == "🍔 Yummy 3PL":
