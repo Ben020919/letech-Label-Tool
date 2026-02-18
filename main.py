@@ -327,7 +327,7 @@ def main():
     
     category_selection = st.sidebar.radio(
         "Main Category", 
-        ["🏠 Home Page", "📊 控制台", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🔍 Search Barcode"],
+        ["🏠 Home Page", "📊 Dashboard", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🔍 Search Barcode"],
         label_visibility="collapsed",
         key="main_nav",
         on_change=close_sidebar_callback
