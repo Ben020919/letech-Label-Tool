@@ -8,9 +8,9 @@ import streamlit.components.v1 as components
 
 # ================= 新增：匯入標籤格式模組 =================
 try:
-    import repack_label
+    import repack_lable
 except ImportError:
-    repack_label = None
+    repack_lable = None
 
 # ================= 設定固定主檔名稱 =================
 MASTER_FILE = "data.xlsx"
@@ -27,11 +27,11 @@ def load_master_data():
         df.columns = [str(c).strip() for c in df.columns]
         col_map = {c.replace('_', '').replace(' ', '').lower(): c for c in df.columns}
         p_no_col = col_map.get('productno')
-        label_col = col_map.get('labeltype')
-        if p_no_col and label_col:
+        lable_col = col_map.get('labletype')
+        if p_no_col and lable_col:
             df[p_no_col] = df[p_no_col].astype(str).str.strip()
-            df[label_col] = df[label_col].astype(str).str.strip()
-            return df[[p_no_col, label_col]].rename(columns={p_no_col: 'Product_No', label_col: 'Label_Type'})
+            df[lable_col] = df[lable_col].astype(str).str.strip()
+            return df[[p_no_col, lable_col]].rename(columns={p_no_col: 'Product_No', lable_col: 'Lable_Type'})
         else:
             return None
     except Exception:
