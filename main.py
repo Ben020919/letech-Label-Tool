@@ -214,7 +214,7 @@ def render_dashboard_page():
             <div class="logo-sub">Intelligent Label Solution</div>
         </div>
     """, unsafe_allow_html=True)
-    st.markdown("### 📊 System Dashboard")
+    st.markdown("System Dashboard")
     st.markdown("Overview of System Usage Statistics.")
     st.divider()
     
