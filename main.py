@@ -1,36 +1,56 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# ================= 1. 匯入功能模組 =================
+# ================= 1. 匯入功能模組 (修復變數作用域問題) =================
+
+# --- PDF Tool ---
 try:
     from pdf_tool import show_pdf_page
 except ImportError as e:
-    def show_pdf_page(): st.error(f"❌ 無法載入 PDF 工具: {e}")
+    pdf_err = str(e) # 將錯誤訊息存入持久變數
+    def show_pdf_page(): 
+        st.error(f"❌ 無法載入 PDF 工具: {pdf_err}")
+        st.info("💡 提示: 請確認是否已安裝 pypdf (pip install pypdf)")
 
+# --- Excel Tool ---
 try:
     from excel_tool import show_excel_page
 except ImportError as e:
-    def show_excel_page(): st.error(f"❌ 無法載入 Excel 工具: {e}")
+    excel_err = str(e)
+    def show_excel_page(): 
+        st.error(f"❌ 無法載入 Excel 工具: {excel_err}")
+        st.info("💡 提示: 請確認資料夾內是否有 Lable.py 和 Cautions.py")
 
+# --- Anymall Tool ---
 try:
     from anymall_tool import show_anymall_page
 except ImportError as e:
-    def show_anymall_page(): st.error(f"❌ 無法載入 Anymall 工具: {e}")
+    anymall_err = str(e)
+    def show_anymall_page(): st.error(f"❌ 無法載入 Anymall 工具: {anymall_err}")
 
+# --- Search Tool ---
 try:
     from search_tool import show_search_barcode_page
 except ImportError as e:
-    def show_search_barcode_page(): st.error(f"❌ 無法載入 Search 工具: {e}")
+    search_err = str(e)
+    def show_search_barcode_page(): st.error(f"❌ 無會載入 Search 工具: {search_err}")
 
+# --- Homey Tool ---
 try:
     from homey_tool import show_homey_page
 except ImportError as e:
-    def show_homey_page(): st.error(f"❌ 無法載入 Homey 工具: {e}")
+    homey_err = str(e)
+    def show_homey_page(): st.error(f"❌ 無法載入 Homey 工具: {homey_err}")
 
+# --- Hello Bear Tool ---
 try:
-    from hello_tool import show_homey_page as show_hellobear_page
+    # 這裡確保匯入您的 hello_tool.py
+    from hello_tool import show_hellobear_page
 except ImportError as e:
-    def show_hellobear_page(): st.error(f"❌ 無法載入 Hello Bear 工具: {e}")
+    hb_err = str(e) # 修正關鍵：捕捉錯誤訊息
+    def show_hellobear_page(): 
+        st.error(f"❌ 無法載入 Hello Bear 工具: {hb_err}")
+        st.info("💡 提示: 請確認 `hello_tool.py` 檔案存在且內容無語法錯誤。")
 
 # ================= 2. 頁面設定 =================
 st.set_page_config(
@@ -40,36 +60,28 @@ st.set_page_config(
     initial_sidebar_state="auto"
 )
 
-# ================= 3. 強制關閉側邊欄邏輯 (修正版) =================
-# 回調函數：選單點擊時計數器 +1
+# ================= 3. 手機版自動收合邏輯 =================
 def close_sidebar_callback():
+    """回調函數：選單點擊時計數器 +1"""
     if 'sidebar_trigger_count' not in st.session_state:
         st.session_state.sidebar_trigger_count = 0
     st.session_state.sidebar_trigger_count += 1
 
 def inject_mobile_sidebar_closer():
-    """
-    修正版：不使用 key 參數，而是將 trigger count 寫入 HTML 內容中。
-    當內容改變，Streamlit 會自動重新執行 JS。
-    """
     if 'sidebar_trigger_count' not in st.session_state:
         st.session_state.sidebar_trigger_count = 0
     
-    # 將計數器嵌入到 console.log 中，讓每次的 HTML 字串都不一樣
-    # 注意：f-string 中，JS 的大括號 {} 需要寫成 {{ }} 來跳脫
     count = st.session_state.sidebar_trigger_count
     
     js_code = f"""
     <script>
-        console.log("Sidebar toggle trigger count: {count}");
-        
+        console.log("Sidebar trigger: {count}");
         var width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
         if (width <= 768) {{
             setTimeout(function() {{
                 var sidebar = window.parent.document.querySelector('section[data-testid="stSidebar"]');
                 if (sidebar) {{
                     var buttons = sidebar.querySelectorAll('button');
-                    // 通常第一個按鈕就是關閉 (X)
                     if (buttons.length > 0) {{
                         buttons[0].click();
                     }}
@@ -78,8 +90,6 @@ def inject_mobile_sidebar_closer():
         }}
     </script>
     """
-    
-    # 這裡移除了 key 參數，避免 TypeError
     components.html(js_code, height=0)
 
 # ================= 4. CSS 美化 =================
@@ -92,10 +102,15 @@ st.markdown("""
         padding: 12px 15px !important; margin-bottom: 8px !important;
         border-radius: 8px !important; transition: all 0.2s; cursor: pointer; 
         display: flex; align-items: center; color: #333333 !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    }
+    section[data-testid="stSidebar"] .stRadio > div[role="radiogroup"] > label:hover {
+        background-color: #eef2f7 !important; border-color: #007bff !important; color: #007bff !important;
     }
     section[data-testid="stSidebar"] .stRadio > div[role="radiogroup"] > label[data-checked="true"] {
         background-color: #007bff !important; border-color: #007bff !important; 
         color: white !important; font-weight: 600 !important;
+        box-shadow: 0 4px 6px rgba(0,123,255,0.25);
     }
     section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label > div:first-child { display: none !important; }
     .sidebar-header { font-size: 12px; font-weight: bold; color: #888; margin-top: 20px; margin-bottom: 5px; padding-left: 5px; letter-spacing: 1px; }
@@ -116,6 +131,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# ================= 5. 側邊欄 LOGO =================
 def render_sidebar_logo():
     st.sidebar.markdown("""
     <div style="display: flex; align-items: center; padding: 10px 5px 20px 5px; border-bottom: 1px solid #ddd; margin-bottom: 10px;">
@@ -131,90 +147,61 @@ def render_sidebar_logo():
     </div>
     """, unsafe_allow_html=True)
 
+# ================= 6. 首頁主視覺 =================
 def render_main_header():
     col_logo, col_text = st.columns([0.08, 0.92])
     with col_logo:
         st.markdown("""<svg width="55" height="55" viewBox="0 0 24 24" fill="none" stroke="#007bff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>""", unsafe_allow_html=True)
     with col_text:
         st.markdown("""<div style="font-family: 'Helvetica Neue', sans-serif; font-size: 42px; font-weight: 800; color: #2c3e50; line-height: 1.1; margin-top: 5px;">Letech<span style="color:#007bff">.</span> 3PL</div>""", unsafe_allow_html=True)
-    st.markdown("<br><div style='color: #888;'>Intelligent Logistics System & Label Solution</div><br>", unsafe_allow_html=True)
+    st.markdown("""<div style="font-size: 16px; color: #888; margin-top: -10px; margin-bottom: 20px; letter-spacing: 0.5px;"><br><br>Intelligent Logistics System & Label Solution</div>""", unsafe_allow_html=True)
     st.divider()
 
 # ================= 7. 主程式邏輯 =================
-
 def main():
     render_sidebar_logo()
     st.sidebar.markdown("<div class='sidebar-header'>MAIN MENU</div>", unsafe_allow_html=True)
     
-    # 初始化計數器 (如果還沒有)
-    if 'sidebar_trigger_count' not in st.session_state:
-        st.session_state.sidebar_trigger_count = 0
-
-    # 1. 大分類導航 (綁定 on_change)
     category_selection = st.sidebar.radio(
         "Main Category", 
-        ["🏠 Home Page", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🔍 Search Barcode"],
+        ["🏠 首頁總覽", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🔍 Search Barcode"],
         label_visibility="collapsed",
         key="main_nav",
-        on_change=close_sidebar_callback  # 🔥 綁定回調
+        on_change=close_sidebar_callback
     )
 
-    current_sub_func = ""
-
-    # 2. Yummy 子選單 (綁定 on_change)
-    if category_selection == "🍔 Yummy 3PL":
-        st.sidebar.markdown("---")
-        st.sidebar.markdown("<div class='sidebar-header'>YUMMY TOOLS</div>", unsafe_allow_html=True)
-        current_sub_func = st.sidebar.radio(
-            "Yummy Functions", 
-            ["📄 PDF Processing Tools", "🖨️ Food Lable Generation"], 
-            label_visibility="collapsed", 
-            key="yummy_nav",
-            on_change=close_sidebar_callback # 🔥 綁定回調
-        )
-    
-    # 裝飾用
-    elif category_selection in ["🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL"]:
-        st.sidebar.markdown("---")
-
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("<div style='text-align: center; color: #aaa; font-size: 12px;'>© 2026 Letech System v3.2</div>", unsafe_allow_html=True)
-
-    # ================= 執行 JS 注入 (放在這裡優先執行) =================
-    # 因為 HTML 內容包含變動的 count，所以每次點擊選單，HTML 都會重整，觸發 JS
     inject_mobile_sidebar_closer()
 
-    # ================= 右側內容顯示區 =================
-    
-    if category_selection == "🏠 Home Page":
+    if category_selection == "🏠 首頁總覽":
         render_main_header()
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("""<div class="home-card"><span class="card-tag tag-yummy">Yummy 3PL</span><div class="card-icon">🍔</div><div class="card-title">Yummy System</div><div class="card-desc">Includes PDF Processing and Label<br> Printing Functions.</div></div>""", unsafe_allow_html=True)
-        with col2:
-            st.markdown("""<div class="home-card"><span class="card-tag tag-anymall">Anymall 3PL</span><div class="card-icon">🛍️</div><div class="card-title">Anymall System</div><div class="card-desc">Automatic handling of Blank Pages and <br>Table Generation.</div></div>""", unsafe_allow_html=True)
-        st.write("")
-        col3, col4 = st.columns(2)
-        with col3:
-            st.markdown("""<div class="home-card"><span class="card-tag tag-bear">Hello Bear 3PL</span><div class="card-icon">🐻</div><div class="card-title">Hello Bear System</div><div class="card-desc">Automatic detection of SKU, Label and Repack.</div></div>""", unsafe_allow_html=True)
-        with col4:
-            st.markdown("""<div class="home-card"><span class="card-tag tag-homey">Homey 3PL</span><div class="card-icon">🏠</div><div class="card-title">Homey System</div><div class="card-desc">Automatic detection of SKU and Repack.</div></div>""", unsafe_allow_html=True)
-        st.write("")
-        c1, c2, c3 = st.columns([1, 2, 1])
-        with c2:
-             st.markdown("""<div class="home-card"><span class="card-tag tag-tool">Barcode Tool</span><div class="card-icon">🔍</div><div class="card-title">Search Barcode System</div><div class="card-desc">Quickly Search for SKU and Barcode Information.</div></div>""", unsafe_allow_html=True)
+        c1, c2 = st.columns(2)
+        with c1: st.markdown("""<div class="home-card"><span class="card-tag tag-yummy">Yummy 3PL</span><div class="card-icon">🍔</div><div class="card-title">Yummy System</div><div class="card-desc">PDF 處理與標籤列印</div></div>""", unsafe_allow_html=True)
+        with c2: st.markdown("""<div class="home-card"><span class="card-tag tag-anymall">Anymall 3PL</span><div class="card-icon">🛍️</div><div class="card-title">Anymall System</div><div class="card-desc">自動處理空白頁與表格</div></div>""", unsafe_allow_html=True)
+        st.write("") 
+        c3, c4 = st.columns(2)
+        with c3: st.markdown("""<div class="home-card"><span class="card-tag tag-bear">Hello Bear 3PL</span><div class="card-icon">🐻</div><div class="card-title">Hello Bear System</div><div class="card-desc">專屬物流功能</div></div>""", unsafe_allow_html=True)
+        with c4: st.markdown("""<div class="home-card"><span class="card-tag tag-homey">Homey 3PL</span><div class="card-icon">🏠</div><div class="card-title">Homey System</div><div class="card-desc">資料整合與去除空白</div></div>""", unsafe_allow_html=True)
+        st.write("") 
+        c5, c6, c7 = st.columns([1, 2, 1])
+        with c6: st.markdown("""<div class="home-card"><span class="card-tag tag-tool">Mobile Tool</span><div class="card-icon">🔍</div><div class="card-title">Search Barcode</div><div class="card-desc">快速查詢 SKU</div></div>""", unsafe_allow_html=True)
 
     elif category_selection == "🍔 Yummy 3PL":
-        if current_sub_func == "📄 PDF Processing Tools": show_pdf_page()
-        elif current_sub_func == "🖨️ Food Lable Generation": show_excel_page()
+        st.sidebar.markdown("---")
+        yummy_ops = ["📄 PDF 處理工具", "🖨️ Excel 標籤生成"]
+        yummy_function = st.sidebar.radio("Yummy Functions", yummy_ops, label_visibility="collapsed")
+        if yummy_function == "📄 PDF 處理工具": show_pdf_page()
+        elif yummy_function == "🖨️ Excel 標籤生成": show_excel_page()
 
     elif category_selection == "🛍️ Anymall 3PL":
+        st.sidebar.markdown("---")
         show_anymall_page()
 
     elif category_selection == "🐻 Hello Bear 3PL":
+        st.sidebar.markdown("---")
         show_hellobear_page()
 
     elif category_selection == "🏠 Homey 3PL":
+        st.sidebar.markdown("---")
         show_homey_page()
 
     elif category_selection == "🔍 Search Barcode":
