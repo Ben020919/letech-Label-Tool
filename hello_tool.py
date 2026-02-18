@@ -287,4 +287,4 @@ def show_hellobear_page():
             st.error(f"處理失敗: {e}")
 
 if __name__ == "__main__":
-    show_hellobear_page()
+    show_homey_page()
