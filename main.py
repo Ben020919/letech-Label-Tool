@@ -198,8 +198,8 @@ def render_main_header():
 
 # ================= 7. 控制台頁面 (分開顯示 Upload 和 Print) =================
 def render_dashboard_page():
-    st.markdown("### 📊 System Dashboard (控制台)")
-    st.markdown("Overview of system usage statistics.")
+    st.markdown("### 📊 System Dashboard")
+    st.markdown("Overview of System Usage Statistics.")
     st.divider()
     
     stats = load_stats()
@@ -327,7 +327,7 @@ def main():
     
     category_selection = st.sidebar.radio(
         "Main Category", 
-        ["🏠 首頁總覽", "📊 控制台", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🔍 Search Barcode"],
+        ["🏠 Home Page", "📊 控制台", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🔍 Search Barcode"],
         label_visibility="collapsed",
         key="main_nav",
         on_change=close_sidebar_callback
@@ -335,7 +335,7 @@ def main():
 
     inject_mobile_sidebar_closer()
 
-    if category_selection == "🏠 首頁總覽":
+    if category_selection == "🏠 Home Page":
         render_home_page()  # 使用新的渲染函數
 
     elif category_selection == "📊 控制台":
