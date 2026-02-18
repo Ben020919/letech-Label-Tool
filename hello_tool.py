@@ -268,14 +268,14 @@ def show_hellobear_page():
                             if needs_print:
                                 if st.button("打印", key=f"btn_hb_{index}"):
                                     if repack_lable:
-                                        final_html = repack_lable.create_repack_lable_html(
+                                        final_html = repack_lable.create_repack_label_html(
                                             row['商品名稱'], 
                                             row['Barcode'], 
                                             row['數量']
                                         )
                                         repack_lable.js_instant_print(final_html)
                                     else:
-                                        st.error("找不到 repack_lable.py")
+                                        st.error("找不到 repack_label.py")
                             else:
                                 st.markdown(f"<div style='{row_wrapper_style}'><div class='cell-badge-normal'>普通注意</div></div>", unsafe_allow_html=True)
 
