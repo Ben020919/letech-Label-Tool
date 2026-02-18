@@ -7,9 +7,20 @@ import base64
 import streamlit.components.v1 as components
 
 # ================= 新增：匯入標籤格式模組 =================
+# ================= 新增：強制路徑並匯入標籤格式模組 =================
+import sys
+from pathlib import Path
+
+# 獲取當前檔案所在的目錄
+current_dir = Path(__file__).parent.absolute()
+if str(current_dir) not in sys.path:
+    sys.path.append(str(current_dir))
+
 try:
+    # 確保名稱與您的檔名完全一致 (repack_lable.py)
     import repack_lable
-except ImportError:
+except ImportError as e:
+    st.error(f"❌ 模組匯入失敗: {e}")
     repack_lable = None
 
 # ================= 設定固定主檔名稱 =================
