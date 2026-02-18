@@ -27,11 +27,11 @@ def load_master_data():
         df.columns = [str(c).strip() for c in df.columns]
         col_map = {c.replace('_', '').replace(' ', '').lower(): c for c in df.columns}
         p_no_col = col_map.get('productno')
-        lable_col = col_map.get('labletype')
-        if p_no_col and lable_col:
+        label_col = col_map.get('labeltype')
+        if p_no_col and label_col:
             df[p_no_col] = df[p_no_col].astype(str).str.strip()
-            df[lable_col] = df[lable_col].astype(str).str.strip()
-            return df[[p_no_col, lable_col]].rename(columns={p_no_col: 'Product_No', lable_col: 'Lable_Type'})
+            df[label_col] = df[label_col].astype(str).str.strip()
+            return df[[p_no_col, label_col]].rename(columns={p_no_col: 'Product_No', label_col: 'Label_Type'})
         else:
             return None
     except Exception:
@@ -267,13 +267,13 @@ def show_hellobear_page():
                             
                             if needs_print:
                                 if st.button("打印", key=f"btn_hb_{index}"):
-                                    if repack_label:
-                                        final_html = repack_label.create_repack_label_html(
+                                    if repack_lable:
+                                        final_html = repack_lable.create_repack_label_html(
                                             row['商品名稱'], 
                                             row['Barcode'], 
                                             row['數量']
                                         )
-                                        repack_label.js_instant_print(final_html)
+                                        repack_lable.js_instant_print(final_html)
                                     else:
                                         st.error("找不到 repack_label.py")
                             else:

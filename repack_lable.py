@@ -89,13 +89,13 @@ def generate_barcode_b64(code_text):
     Code128(code_text, writer=ImageWriter()).write(rv, options={"write_text": False, "module_height": 10.0, "quiet_zone": 1.0})
     return f"data:image/png;base64,{base64.b64encode(rv.getvalue()).decode('utf-8')}"
 
-def create_repack_lable_html(p_name, p_barcode_val, qty):
+def create_repack_label_html(p_name, p_barcode_val, qty):
     """生成符合 70x50mm 規格的打印 HTML"""
     barcode_img_src = generate_barcode_b64(p_barcode_val)
     s = STYLE_CONFIG # 讀取固定參數
     
-    single_lable = f"""
-    <div class="lable-container">
+    single_label = f"""
+    <div class="label-container">
         <img src="{barcode_img_src}" style="height: {s['barcode_height']}; width: 90%; object-fit: contain;">
         
         <div style="
@@ -131,7 +131,7 @@ def create_repack_lable_html(p_name, p_barcode_val, qty):
     <style>
         @page {{ size: 70mm 50mm; margin: 0; }}
         body {{ margin: 0; padding: 0; font-family: Arial, sans-serif; }}
-        .lable-container {{ 
+        .label-container {{ 
             width: 70mm; 
             height: 50mm; 
             padding-top: {s['margin_top']}; 
@@ -146,7 +146,7 @@ def create_repack_lable_html(p_name, p_barcode_val, qty):
     </style>
     </head>
     <body>
-        {single_lable * qty}
+        {single_label * qty}
     </body>
     </html>
     """
@@ -177,8 +177,8 @@ def js_instant_print(full_html_content):
 # ================= 3. 主頁面 =================
 
 def show_repack_page():
-    st.set_page_config(page_title="Repack Lable Tool", layout="centered")
-    st.markdown("### 🏷️ Repack Lable Generator")
+    st.set_page_config(page_title="Repack Label Tool", layout="centered")
+    st.markdown("### 🏷️ Repack Label Generator")
 
     uploaded_file = st.file_uploader("Upload PDF File", type=["pdf"])
 
@@ -189,7 +189,7 @@ def show_repack_page():
         if not items:
             st.success("✅ PDF 解析完成：沒有發現需要 Repack 的項目。")
         else:
-            st.warning(f"⚠️ 偵測到 {len(items)} 個項目需要製作 Repack Lable。")
+            st.warning(f"⚠️ 偵測到 {len(items)} 個項目需要製作 Repack Label。")
             
             st.markdown("---")
             
@@ -204,8 +204,8 @@ def show_repack_page():
                 st.info(f"📦 **{target_item['Product Name']}**\n\n數量: {target_item['Qty']}")
                 
                 # 3. 打印按鈕
-                if st.button("🖨️ 打印標籤 (Print Lable)", use_container_width=True, type="primary"):
-                    html = create_repack_lable_html(
+                if st.button("🖨️ 打印標籤 (Print Label)", use_container_width=True, type="primary"):
+                    html = create_repack_label_html(
                         target_item['Product Name'], 
                         target_item['Barcode'], 
                         target_item['Qty']
