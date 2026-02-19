@@ -1,0 +1,12 @@
+{
+    "today": {},
+    "tomorrow": {
+        "date": "2026-02-20",
+        "CONFIRMED": "14",
+        "ACKNOWLEDGED": "0",
+        "PACKED": "0",
+        "PICKED": "38"
+    },
+    "status_msg": "⚡ 機器人努力抓取中...",
+    "last_updated": "2026-02-19 21:21:19"
+}

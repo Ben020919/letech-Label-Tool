@@ -1,10 +1,29 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
+import threading
 # 匯入統計模組
 from usage_tracker import load_stats 
 
 # ================= 1. 匯入功能模組 (修復變數作用域問題) =================
+
+# --- 新增: HKTVmall Tool (與爬蟲背景啟動) ---
+try:
+    from hktv_tool import show_hktvmall_page
+    from hktv_scraper import run_scraper_loop
+    
+    # 確保 Streamlit 伺服器啟動時，爬蟲只會在背景啟動一次
+    @st.cache_resource
+    def start_hktv_scraper():
+        print("🚀 啟動系統：正在背景喚醒 HKTVmall 爬蟲機器人...")
+        thread = threading.Thread(target=run_scraper_loop, daemon=True)
+        thread.start()
+        return thread
+        
+    start_hktv_scraper()
+except ImportError as e:
+    hktv_err = str(e)
+    def show_hktvmall_page(): st.error(f"❌ 無法載入 HKTVmall 工具: {hktv_err}")
 
 # --- PDF Tool ---
 try:
@@ -36,7 +55,7 @@ try:
     from search_tool import show_search_barcode_page
 except ImportError as e:
     search_err = str(e)
-    def show_search_barcode_page(): st.error(f"❌ 無會載入 Search 工具: {search_err}")
+    def show_search_barcode_page(): st.error(f"❌ 無法載入 Search 工具: {search_err}")
 
 # --- Homey Tool ---
 try:
@@ -196,31 +215,14 @@ def render_main_header():
     st.markdown("""<div style="font-size: 16px; color: #888; margin-top: -10px; margin-bottom: 20px; letter-spacing: 0.5px;"><br><br>Intelligent Logistics System & Label Solution</div>""", unsafe_allow_html=True)
     st.divider()
 
-# ================= 7. 控制台頁面 (分開顯示 Upload 和 Print) =================
+# ================= 7. 控制台頁面 =================
 def render_dashboard_page():
-     # ================= LOGO / BRANDING AREA =================
-    st.markdown("""
-        <style>
-            .logo-container { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
-            .logo-text { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 28px; font-weight: 800; color: #2c3e50; letter-spacing: -0.5px; margin-left: 10px; line-height: 1; }
-            .logo-dot { color: #007bff; }
-            .logo-sub { font-size: 14px; color: #888; font-weight: 400; margin-left: 15px; padding-left: 15px; border-left: 1px solid #ddd; height: 20px; line-height: 20px; }
-        </style>
-        <div class="logo-container">
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#007bff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v8H6z"></path>
-            </svg>
-            <div class="logo-text">Letech<span class="logo-dot">.</span></div>
-            <div class="logo-sub">Intelligent Label Solution</div>
-        </div>
-    """, unsafe_allow_html=True)
-    st.markdown("### System Dashboard")
-    st.markdown("Overview of System Usage Statistics.")
+    st.markdown("### 📊 System Dashboard (控制台)")
+    st.markdown("Overview of system usage statistics.")
     st.divider()
     
     stats = load_stats()
     
-    # 定義卡片結構
     dashboard_cards = [
         {
             "type": "dual",
@@ -260,25 +262,17 @@ def render_dashboard_page():
     ]
     
     cols = st.columns(3)
-    
     for i, card in enumerate(dashboard_cards):
         col_idx = i % 3
-        
         if card["type"] == "dual":
             card_html = f"""
             <div class="home-card">
                 <div class="stat-card-icon">{card['icon']}</div>
                 <div class="stat-card-label">{card['title']}</div>
                 <div class="dual-stat-box">
-                    <div class="stat-item">
-                        <div class="mini-stat-label">{card['label1']}</div>
-                        <div class="mini-stat-num">{card['val1']}</div>
-                    </div>
+                    <div class="stat-item"><div class="mini-stat-label">{card['label1']}</div><div class="mini-stat-num">{card['val1']}</div></div>
                     <div class="stat-divider"></div>
-                    <div class="stat-item">
-                        <div class="mini-stat-label">{card['label2']}</div>
-                        <div class="mini-stat-num">{card['val2']}</div>
-                    </div>
+                    <div class="stat-item"><div class="mini-stat-label">{card['label2']}</div><div class="mini-stat-num">{card['val2']}</div></div>
                 </div>
             </div>
             """
@@ -291,21 +285,16 @@ def render_dashboard_page():
                 <div class="card-desc">{card['desc']}</div>
             </div>
             """
-        
         cols[col_idx].markdown(card_html, unsafe_allow_html=True)
-        
-        # 增加垂直間距
         if col_idx == 2:
-            st.write("") 
-            st.write("")
-            st.write("") 
+            st.write("\n\n\n") 
 
-# ================= 8. 首頁頁面 (使用與 Control Panel 相同的迴圈邏輯) =================
+# ================= 8. 首頁頁面 =================
 def render_home_page():
     render_main_header()
     
-    # 定義首頁卡片資料
     home_cards = [
+        {"tag": "HKTV 3PL", "tag_class": "tag-tool", "icon": "📦", "title": "HKTVmall 監控", "desc": "商戶8小時送貨訂單追蹤"},
         {"tag": "Yummy 3PL", "tag_class": "tag-yummy", "icon": "🍔", "title": "Yummy System", "desc": "PDF 處理與標籤列印"},
         {"tag": "Anymall 3PL", "tag_class": "tag-anymall", "icon": "🛍️", "title": "Anymall System", "desc": "自動處理空白頁與表格"},
         {"tag": "Hello Bear 3PL", "tag_class": "tag-bear", "icon": "🐻", "title": "Hello Bear System", "desc": "專屬物流功能"},
@@ -313,12 +302,9 @@ def render_home_page():
         {"tag": "Mobile Tool", "tag_class": "tag-tool", "icon": "🔍", "title": "Search Barcode", "desc": "快速查詢 SKU"},
     ]
     
-    # 使用與 Dashboard 相同的 3 欄位迴圈
     cols = st.columns(3)
-    
     for i, card in enumerate(home_cards):
         col_idx = i % 3
-        
         card_html = f"""
         <div class="home-card">
             <span class="card-tag {card['tag_class']}">{card['tag']}</span>
@@ -327,24 +313,28 @@ def render_home_page():
             <div class="card-desc">{card['desc']}</div>
         </div>
         """
-        
         cols[col_idx].markdown(card_html, unsafe_allow_html=True)
-        
-        # 增加垂直間距
         if col_idx == 2:
-            st.write("") 
-            st.write("")
-            st.write("") 
+            st.write("\n\n\n") 
 
 # ================= 9. 主程式邏輯 =================
 def main():
     render_sidebar_logo()
     st.sidebar.markdown("<div class='sidebar-header'>MAIN MENU</div>", unsafe_allow_html=True)
     
-    # 調整選單順序：Dashboard 第一，Home Page 第二
+    # 選單加入 HKTVmall
     category_selection = st.sidebar.radio(
         "Main Category", 
-        ["📊 Dashboard", "🏠 Home Page", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🔍 Search Barcode"],
+        [
+            "🏠 首頁總覽", 
+            "📊 控制台", 
+            "📦 HKTVmall 監控", 
+            "🍔 Yummy 3PL", 
+            "🛍️ Anymall 3PL", 
+            "🐻 Hello Bear 3PL", 
+            "🏠 Homey 3PL", 
+            "🔍 Search Barcode"
+        ],
         label_visibility="collapsed",
         key="main_nav",
         on_change=close_sidebar_callback
@@ -352,18 +342,23 @@ def main():
 
     inject_mobile_sidebar_closer()
 
-    if category_selection == "🏠 Home Page":
-        render_home_page()  # 使用新的渲染函數
+    if category_selection == "🏠 首頁總覽":
+        render_home_page()
 
-    elif category_selection == "📊 Dashboard":
+    elif category_selection == "📊 控制台":
         render_dashboard_page()
+        
+    # 👇 新增：HKTVmall 頁面導航
+    elif category_selection == "📦 HKTVmall 監控":
+        st.sidebar.markdown("---")
+        show_hktvmall_page()
 
     elif category_selection == "🍔 Yummy 3PL":
         st.sidebar.markdown("---")
-        yummy_ops = ["📄 PDF Processing Tools", "🖨️ Excel Lable Generation"]
+        yummy_ops = ["📄 PDF 處理工具", "🖨️ Excel 標籤生成"]
         yummy_function = st.sidebar.radio("Yummy Functions", yummy_ops, label_visibility="collapsed")
-        if yummy_function == "📄 PDF Processing Tools": show_pdf_page()
-        elif yummy_function == "🖨️ Excel Lable Generation": show_excel_page()
+        if yummy_function == "📄 PDF 處理工具": show_pdf_page()
+        elif yummy_function == "🖨️ Excel 標籤生成": show_excel_page()
 
     elif category_selection == "🛍️ Anymall 3PL":
         st.sidebar.markdown("---")

@@ -2,4 +2,6 @@ streamlit
 pandas
 pypdf
 openpyxl
+playwright
+python-dotenv
 python-barcode
