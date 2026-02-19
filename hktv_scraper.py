@@ -132,14 +132,25 @@ def scrape_hktvmall(username, password):
             print(f"🎉 [爬蟲] 抓取完成！\n")
             browser.close()
 
+import streamlit as st  # 必須加入這行
+
 def run_scraper_loop():
-    load_dotenv()
-    MY_USERNAME = os.getenv("HKTV_USERNAME")
-    MY_PASSWORD = os.getenv("HKTV_PASSWORD")
+    # 優先從 Streamlit Cloud 的 Secrets 讀取
+    if "HKTV_USERNAME" in st.secrets:
+        MY_USERNAME = st.secrets["HKTV_USERNAME"]
+        MY_PASSWORD = st.secrets["HKTV_PASSWORD"]
+    else:
+        # 如果是本地運行，才讀取 .env
+        load_dotenv()
+        MY_USERNAME = os.getenv("HKTV_USERNAME")
+        MY_PASSWORD = os.getenv("HKTV_PASSWORD")
     
+    # 檢查是否真的拿到了資料
     if not MY_USERNAME or not MY_PASSWORD:
-        print("❌ [系統嚴重錯誤] 找不到帳號或密碼！請確認 .env 檔案是否設定正確。")
+        print("❌ [系統嚴重錯誤] 找不到帳號或密碼！請在 Streamlit Cloud Settings -> Secrets 設定。")
         return
+
+    # ... 後續爬蟲邏輯 ...
     
     while True:
         try:
