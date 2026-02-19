@@ -13,17 +13,30 @@ try:
     from hktv_scraper import run_scraper_loop
     
     # 確保 Streamlit 伺服器啟動時，爬蟲只會在背景啟動一次
-    @st.cache_resource
+   @st.cache_resource
     def start_hktv_scraper():
-        print("🚀 啟動系統：正在背景喚醒 HKTVmall 爬蟲機器人...")
-        thread = threading.Thread(target=run_scraper_loop, daemon=True)
-        thread.start()
-        return thread
+        # 1. 優先確認雲端 Secrets 是否存在
+        if "HKTV_USERNAME" in st.secrets:
+            username = st.secrets["HKTV_USERNAME"]
+            password = st.secrets["HKTV_PASSWORD"]
+        else:
+            # 2. 否則從本地環境變數讀取
+            username = os.getenv("HKTV_USERNAME")
+            password = os.getenv("HKTV_PASSWORD")
+            
+        if username and password:
+            print("🚀 啟動系統：正在背景喚醒 HKTVmall 爬蟲機器人...")
+            # 將帳號密碼作為參數傳入，或者讓 scraper 自己去讀取 st.secrets
+            thread = threading.Thread(target=run_scraper_loop, daemon=True)
+            thread.start()
+            return thread
+        else:
+            st.error("❌ 找不到 HKTVmall 帳號密碼，爬蟲未啟動。請檢查 Secrets 設定。")
+            return None
         
     start_hktv_scraper()
 except ImportError as e:
-    hktv_err = str(e)
-    def show_hktvmall_page(): st.error(f"❌ 無法載入 HKTVmall 工具: {hktv_err}")
+    st.error(f"❌ 模組載入失敗: {e}")
 
 # --- PDF Tool ---
 try:
