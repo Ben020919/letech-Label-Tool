@@ -1,9 +1,9 @@
 {
-    "Anymall_Upload": 3,
-    "HelloBear_Upload": 1,
+    "Anymall_Upload": 0,
+    "HelloBear_Upload": 0,
     "Search_Action": 0,
-    "Homey_Upload": 2,
-    "HelloBear_Print": 1,
-    "Yummy_Process": 1,
-    "Yummy_Print": 3
+    "Homey_Upload": 0,
+    "HelloBear_Print": 0,
+    "Yummy_Process": 0,
+    "Yummy_Print": 0
 }
