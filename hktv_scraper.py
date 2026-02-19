@@ -135,21 +135,19 @@ def scrape_hktvmall(username, password):
             browser.close()
 
 def run_scraper_loop():
-    # 1. 優先從 Streamlit Cloud 的 Secrets 讀取 (雲端環境)
+    # 1. 優先從雲端 Secrets 拿資料 (Streamlit Cloud 專用)
     if "HKTV_USERNAME" in st.secrets:
         MY_USERNAME = st.secrets["HKTV_USERNAME"]
         MY_PASSWORD = st.secrets["HKTV_PASSWORD"]
     else:
-        # 2. 如果是本地運行，才載入 .env 檔案
+        # 2. 如果是本地執行，才讀取 .env
         load_dotenv()
         MY_USERNAME = os.getenv("HKTV_USERNAME")
         MY_PASSWORD = os.getenv("HKTV_PASSWORD")
     
-    # 3. 嚴格檢查
-    if not MY_USERNAME or not MY_PASSWORD:
-        # 這裡的 print 會顯示在 Streamlit Cloud 的 Logs 裡面
-        print("❌ [系統嚴重錯誤] 找不到帳號或密碼！")
-        print("💡 請確認已在 Streamlit Cloud App Settings -> Secrets 中設定。")
+    # 檢查是否真的拿到了
+    if not MY_USERNAME:
+        print("❌ [系統嚴重錯誤] 找不到帳號或密碼！請在 Secrets 設定。")
         return
 
     # ... 後續爬蟲邏輯 ...
