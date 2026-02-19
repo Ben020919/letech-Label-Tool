@@ -1,42 +1,10 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
-import threading
 # 匯入統計模組
 from usage_tracker import load_stats 
 
 # ================= 1. 匯入功能模組 (修復變數作用域問題) =================
-
-# --- 新增: HKTVmall Tool (與爬蟲背景啟動) ---
-try:
-    from hktv_tool import show_hktvmall_page
-    from hktv_scraper import run_scraper_loop
-    
-    # 確保 Streamlit 伺服器啟動時，爬蟲只會在背景啟動一次
-   @st.cache_resource
-    def start_hktv_scraper():
-        # 1. 優先確認雲端 Secrets 是否存在
-        if "HKTV_USERNAME" in st.secrets:
-            username = st.secrets["HKTV_USERNAME"]
-            password = st.secrets["HKTV_PASSWORD"]
-        else:
-            # 2. 否則從本地環境變數讀取
-            username = os.getenv("HKTV_USERNAME")
-            password = os.getenv("HKTV_PASSWORD")
-            
-        if username and password:
-            print("🚀 啟動系統：正在背景喚醒 HKTVmall 爬蟲機器人...")
-            # 將帳號密碼作為參數傳入，或者讓 scraper 自己去讀取 st.secrets
-            thread = threading.Thread(target=run_scraper_loop, daemon=True)
-            thread.start()
-            return thread
-        else:
-            st.error("❌ 找不到 HKTVmall 帳號密碼，爬蟲未啟動。請檢查 Secrets 設定。")
-            return None
-        
-    start_hktv_scraper()
-except ImportError as e:
-    st.error(f"❌ 模組載入失敗: {e}")
 
 # --- PDF Tool ---
 try:
@@ -68,7 +36,7 @@ try:
     from search_tool import show_search_barcode_page
 except ImportError as e:
     search_err = str(e)
-    def show_search_barcode_page(): st.error(f"❌ 無法載入 Search 工具: {search_err}")
+    def show_search_barcode_page(): st.error(f"❌ 無會載入 Search 工具: {search_err}")
 
 # --- Homey Tool ---
 try:
@@ -228,7 +196,7 @@ def render_main_header():
     st.markdown("""<div style="font-size: 16px; color: #888; margin-top: -10px; margin-bottom: 20px; letter-spacing: 0.5px;"><br><br>Intelligent Logistics System & Label Solution</div>""", unsafe_allow_html=True)
     st.divider()
 
-# ================= 7. 控制台頁面 =================
+# ================= 7. 控制台頁面 (分開顯示 Upload 和 Print) =================
 def render_dashboard_page():
     st.markdown("### 📊 System Dashboard (控制台)")
     st.markdown("Overview of system usage statistics.")
@@ -236,6 +204,7 @@ def render_dashboard_page():
     
     stats = load_stats()
     
+    # 定義卡片結構
     dashboard_cards = [
         {
             "type": "dual",
@@ -275,17 +244,25 @@ def render_dashboard_page():
     ]
     
     cols = st.columns(3)
+    
     for i, card in enumerate(dashboard_cards):
         col_idx = i % 3
+        
         if card["type"] == "dual":
             card_html = f"""
             <div class="home-card">
                 <div class="stat-card-icon">{card['icon']}</div>
                 <div class="stat-card-label">{card['title']}</div>
                 <div class="dual-stat-box">
-                    <div class="stat-item"><div class="mini-stat-label">{card['label1']}</div><div class="mini-stat-num">{card['val1']}</div></div>
+                    <div class="stat-item">
+                        <div class="mini-stat-label">{card['label1']}</div>
+                        <div class="mini-stat-num">{card['val1']}</div>
+                    </div>
                     <div class="stat-divider"></div>
-                    <div class="stat-item"><div class="mini-stat-label">{card['label2']}</div><div class="mini-stat-num">{card['val2']}</div></div>
+                    <div class="stat-item">
+                        <div class="mini-stat-label">{card['label2']}</div>
+                        <div class="mini-stat-num">{card['val2']}</div>
+                    </div>
                 </div>
             </div>
             """
@@ -298,16 +275,21 @@ def render_dashboard_page():
                 <div class="card-desc">{card['desc']}</div>
             </div>
             """
+        
         cols[col_idx].markdown(card_html, unsafe_allow_html=True)
+        
+        # 增加垂直間距
         if col_idx == 2:
-            st.write("\n\n\n") 
+            st.write("") 
+            st.write("")
+            st.write("") 
 
-# ================= 8. 首頁頁面 =================
+# ================= 8. 首頁頁面 (使用與 Control Panel 相同的迴圈邏輯) =================
 def render_home_page():
     render_main_header()
     
+    # 定義首頁卡片資料
     home_cards = [
-        {"tag": "HKTV 3PL", "tag_class": "tag-tool", "icon": "📦", "title": "HKTVmall 監控", "desc": "商戶8小時送貨訂單追蹤"},
         {"tag": "Yummy 3PL", "tag_class": "tag-yummy", "icon": "🍔", "title": "Yummy System", "desc": "PDF 處理與標籤列印"},
         {"tag": "Anymall 3PL", "tag_class": "tag-anymall", "icon": "🛍️", "title": "Anymall System", "desc": "自動處理空白頁與表格"},
         {"tag": "Hello Bear 3PL", "tag_class": "tag-bear", "icon": "🐻", "title": "Hello Bear System", "desc": "專屬物流功能"},
@@ -315,9 +297,12 @@ def render_home_page():
         {"tag": "Mobile Tool", "tag_class": "tag-tool", "icon": "🔍", "title": "Search Barcode", "desc": "快速查詢 SKU"},
     ]
     
+    # 使用與 Dashboard 相同的 3 欄位迴圈
     cols = st.columns(3)
+    
     for i, card in enumerate(home_cards):
         col_idx = i % 3
+        
         card_html = f"""
         <div class="home-card">
             <span class="card-tag {card['tag_class']}">{card['tag']}</span>
@@ -326,28 +311,23 @@ def render_home_page():
             <div class="card-desc">{card['desc']}</div>
         </div>
         """
+        
         cols[col_idx].markdown(card_html, unsafe_allow_html=True)
+        
+        # 增加垂直間距
         if col_idx == 2:
-            st.write("\n\n\n") 
+            st.write("") 
+            st.write("")
+            st.write("") 
 
 # ================= 9. 主程式邏輯 =================
 def main():
     render_sidebar_logo()
     st.sidebar.markdown("<div class='sidebar-header'>MAIN MENU</div>", unsafe_allow_html=True)
     
-    # 選單加入 HKTVmall
     category_selection = st.sidebar.radio(
         "Main Category", 
-        [
-            "🏠 首頁總覽", 
-            "📊 控制台", 
-            "📦 HKTVmall 監控", 
-            "🍔 Yummy 3PL", 
-            "🛍️ Anymall 3PL", 
-            "🐻 Hello Bear 3PL", 
-            "🏠 Homey 3PL", 
-            "🔍 Search Barcode"
-        ],
+        ["🏠 首頁總覽", "📊 控制台", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🔍 Search Barcode"],
         label_visibility="collapsed",
         key="main_nav",
         on_change=close_sidebar_callback
@@ -356,15 +336,10 @@ def main():
     inject_mobile_sidebar_closer()
 
     if category_selection == "🏠 首頁總覽":
-        render_home_page()
+        render_home_page()  # 使用新的渲染函數
 
     elif category_selection == "📊 控制台":
         render_dashboard_page()
-        
-    # 👇 新增：HKTVmall 頁面導航
-    elif category_selection == "📦 HKTVmall 監控":
-        st.sidebar.markdown("---")
-        show_hktvmall_page()
 
     elif category_selection == "🍔 Yummy 3PL":
         st.sidebar.markdown("---")
