@@ -5,6 +5,8 @@ import time
 import os
 import re
 from dotenv import load_dotenv
+import streamlit as st  # 確保有匯入 streamlit
+
 
 def extract_total_count(text):
     if not text: return "0"
@@ -132,22 +134,22 @@ def scrape_hktvmall(username, password):
             print(f"🎉 [爬蟲] 抓取完成！\n")
             browser.close()
 
-import streamlit as st  # 必須加入這行
-
 def run_scraper_loop():
-    # 優先從 Streamlit Cloud 的 Secrets 讀取
+    # 1. 優先從 Streamlit Cloud 的 Secrets 讀取 (雲端環境)
     if "HKTV_USERNAME" in st.secrets:
         MY_USERNAME = st.secrets["HKTV_USERNAME"]
         MY_PASSWORD = st.secrets["HKTV_PASSWORD"]
     else:
-        # 如果是本地運行，才讀取 .env
+        # 2. 如果是本地運行，才載入 .env 檔案
         load_dotenv()
         MY_USERNAME = os.getenv("HKTV_USERNAME")
         MY_PASSWORD = os.getenv("HKTV_PASSWORD")
     
-    # 檢查是否真的拿到了資料
+    # 3. 嚴格檢查
     if not MY_USERNAME or not MY_PASSWORD:
-        print("❌ [系統嚴重錯誤] 找不到帳號或密碼！請在 Streamlit Cloud Settings -> Secrets 設定。")
+        # 這裡的 print 會顯示在 Streamlit Cloud 的 Logs 裡面
+        print("❌ [系統嚴重錯誤] 找不到帳號或密碼！")
+        print("💡 請確認已在 Streamlit Cloud App Settings -> Secrets 中設定。")
         return
 
     # ... 後續爬蟲邏輯 ...
