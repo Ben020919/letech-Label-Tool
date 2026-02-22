@@ -159,7 +159,7 @@ def create_single_label_canvas(c, barcode_text, desc_text, nutri_dict, ing_text,
     w, h = p_bb.wrap(FIXED_BB_W * mm, LABEL_HEIGHT)
     p_bb.drawOn(c, FIXED_BB_X * mm, FIXED_BB_Y * mm - h)
 
-# ================= 3. 新增：匯出 HTML 用於列印 =================
+# ================= 3. 匯出 HTML 用於列印 =================
 def generate_food_label_html(item_data, master_df_row, qty):
     """
     產生包含 PDF Base64 內容的 HTML，透過 iframe 直接調用瀏覽器列印
@@ -172,7 +172,7 @@ def generate_food_label_html(item_data, master_df_row, qty):
     # 準備資料
     barcode_text = item_data.get('Barcode', '')
     desc_text = item_data.get('商品名稱', '')
-    date_format = "YY-MM-DD" # 若有特定欄位可替換
+    date_format = "YY-MM-DD" 
 
     # 從 master_df 讀取營養標籤資料
     nutri_dict = {}
@@ -217,6 +217,7 @@ def generate_food_label_html(item_data, master_df_row, qty):
     # 轉成 Base64 HTML 供列印使用
     b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
     
+    # 修正 JS 觸發方式：改用 setTimeout 確保 iframe 載入後觸發列印
     html = f"""
     <html>
         <head>
@@ -227,13 +228,13 @@ def generate_food_label_html(item_data, master_df_row, qty):
         <body>
             <iframe id="pdfFrame" src="data:application/pdf;base64,{b64_pdf}" style="width:100%; height:100%; border:none;"></iframe>
             <script>
-                window.onload = function() {{
+                setTimeout(function() {{
                     var iframe = document.getElementById('pdfFrame');
-                    iframe.contentWindow.focus();
-                    iframe.contentWindow.print();
-                    // 延遲關閉視窗，確保列印對話框彈出
-                    setTimeout(function() {{ window.close(); }}, 1000);
-                }};
+                    if (iframe && iframe.contentWindow) {{
+                        iframe.contentWindow.focus();
+                        iframe.contentWindow.print();
+                    }}
+                }}, 500);
             </script>
         </body>
     </html>
