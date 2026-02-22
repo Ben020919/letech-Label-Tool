@@ -185,10 +185,6 @@ def render_dashboard_page():
     with col_title:
         st.markdown("### 📊 System Dashboard (控制台)")
         st.markdown("Overview of system usage statistics.")
-    with col_btn:
-        # 新增手動刷新按鈕，確保能抓到最新的 JSON 數據
-        if st.button("🔄 刷新數據", use_container_width=True):
-            st.rerun()
             
     st.divider()
     
