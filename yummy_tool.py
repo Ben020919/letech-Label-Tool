@@ -13,6 +13,7 @@ from usage_tracker import log_action
 # ================= 設定預設檔案名稱 =================
 DEFAULT_EXCEL_PATH = "data.xlsx"
 DEFAULT_FONT_PATH = "font.ttf"
+DB_NAME_FILE = "current_db_name.txt" # 用來記憶您上傳的真實檔名
 
 # ================= 設定特殊警告標籤清單 =================
 CAUTION_PRODUCT_LIST = [
@@ -24,7 +25,19 @@ CAUTION_PRODUCT_LIST = [
     "CHE-108483"
 ]
 
-# ================= 1. 快取讀取函式 =================
+# ================= 1. 快取讀取與檔名記憶函式 =================
+def get_current_db_name():
+    """讀取當前使用的真實資料庫名稱"""
+    if os.path.exists(DB_NAME_FILE):
+        with open(DB_NAME_FILE, "r", encoding="utf-8") as f:
+            return f.read().strip()
+    return "data.xlsx"
+
+def set_current_db_name(name):
+    """儲存您上傳的真實資料庫名稱"""
+    with open(DB_NAME_FILE, "w", encoding="utf-8") as f:
+        f.write(name)
+
 @st.cache_data
 def load_local_excel(file_path):
     if not os.path.exists(file_path):
@@ -210,7 +223,7 @@ def show_yummy_page():
     if 'font_css' not in st.session_state: st.session_state['font_css'] = ""
     if 'cleaned_pdf_bytes' not in st.session_state: st.session_state['cleaned_pdf_bytes'] = None
     if 'cleaned_pdf_name' not in st.session_state: st.session_state['cleaned_pdf_name'] = ""
-    if 'product_no_tracker' not in st.session_state: st.session_state['product_no_tracker'] = {} # 記錄重複頁面
+    if 'product_no_tracker' not in st.session_state: st.session_state['product_no_tracker'] = {} 
 
     st.markdown("""
         <style>
@@ -248,14 +261,42 @@ def show_yummy_page():
 
     st.markdown("### 🍔 Yummy 3PL System (Integrated)")
 
-    # 預先載入資料庫與字體
+    # ================= 🌟 配置新文件區塊 =================
+    with st.expander("⚙️ 配置新資料庫文件 (Database Management)", expanded=False):
+        st.info("支援上傳任何檔名的 Excel (.xlsx) 或 CSV (.csv) 檔案。上傳後系統會自動套用！")
+        new_db_file = st.file_uploader("上傳新的資料庫檔案", type=["xlsx", "csv"], key="new_db_uploader")
+        
+        if new_db_file:
+            if st.button("確認更新資料庫", type="primary"):
+                try:
+                    # 檔案轉換邏輯：不管是啥名字，統一轉成 data.xlsx 給系統吃
+                    if new_db_file.name.endswith('.csv'):
+                        temp_df = pd.read_csv(new_db_file, dtype=str)
+                        temp_df.to_excel(DEFAULT_EXCEL_PATH, index=False)
+                    else:
+                        with open(DEFAULT_EXCEL_PATH, "wb") as f:
+                            f.write(new_db_file.getbuffer())
+                    
+                    # ⭐ 記錄真實檔名，讓 UI 可以顯示
+                    set_current_db_name(new_db_file.name)
+                    
+                    st.cache_data.clear()
+                    st.success(f"✅ 資料庫已成功更新為：【{new_db_file.name}】！系統將在 2 秒後重新載入...")
+                    time.sleep(2)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ 更新失敗: {e}")
+
+    # ================= 預先載入資料庫 =================
     df_master = load_local_excel(DEFAULT_EXCEL_PATH)
     font_bytes = load_local_font_bytes(DEFAULT_FONT_PATH)
+    current_db_name = get_current_db_name() # 讀取顯示用的真實檔名
+    
     if df_master is not None:
         df_master.columns = df_master.columns.str.strip()
-        st.success(f"✅ Linked Database：`{DEFAULT_EXCEL_PATH}`")
+        st.success(f"✅ Linked Database：`{current_db_name}` (最新版本)")
     else:
-        st.warning(f"⚠️ 找不到 `{DEFAULT_EXCEL_PATH}`")
+        st.warning(f"⚠️ 找不到 `{current_db_name}`，請在上方「配置新資料庫文件」上傳檔案。")
 
     st.divider()
 
