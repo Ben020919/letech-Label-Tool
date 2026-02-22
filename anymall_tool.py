@@ -159,7 +159,7 @@ def show_anymall_page():
             /* 2. 普通注意標籤 (灰色) */
             .cell-badge-normal { 
                 width: 100px !important;       
-                height: 38px !important; /* 修正：統一為 38px */
+                height: 10px !important; /* 修正：統一為 38px */
                 min-height: 38px !important;
                 border-radius: 6px !important; 
                 padding: 0px !important;
