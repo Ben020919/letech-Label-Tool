@@ -171,8 +171,8 @@ def show_anymall_page():
                 margin: 0 auto !important;
                 font-size: 13px !important;    
                 font-weight: bold !important;
-                line-height: 10 !important;
-                transform: translateX(20px) !important; /* 修正：統一往右平移 20px */
+                line-height: 1 !important;
+                transform: translateX(10px) !important; /* 修正：統一往右平移 20px */
             }
 
             .cell-text { font-size: 15px; color: #333; padding: 0 5px; width: 100%; text-align: left; }
