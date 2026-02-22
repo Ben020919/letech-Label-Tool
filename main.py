@@ -36,7 +36,7 @@ try:
     from search_tool import show_search_barcode_page
 except ImportError as e:
     search_err = str(e)
-    def show_search_barcode_page(): st.error(f"❌ 無會載入 Search 工具: {search_err}")
+    def show_search_barcode_page(): st.error(f"❌ 無法載入 Search 工具: {search_err}")
 
 # --- Homey Tool ---
 try:
@@ -89,7 +89,7 @@ def inject_mobile_sidebar_closer():
     """
     components.html(js_code, height=0)
 
-# ================= 4. CSS 美化 (已統一卡片樣式) =================
+# ================= 4. CSS 美化 =================
 st.markdown("""
     <style>
     html, body, [class*="css"] { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
@@ -146,27 +146,10 @@ st.markdown("""
         padding-top: 15px;
         border-top: 1px solid #eee;
     }
-    .stat-item {
-        width: 48%;
-        text-align: center;
-    }
-    .mini-stat-num {
-        font-size: 26px;
-        font-weight: 800;
-        color: #007bff;
-        line-height: 1.2;
-    }
-    .mini-stat-label {
-        font-size: 12px;
-        color: #666;
-        font-weight: 600;
-        margin-bottom: 2px;
-    }
-    .stat-divider {
-        width: 1px;
-        height: 40px;
-        background-color: #eee;
-    }
+    .stat-item { width: 48%; text-align: center; }
+    .mini-stat-num { font-size: 26px; font-weight: 800; color: #007bff; line-height: 1.2; }
+    .mini-stat-label { font-size: 12px; color: #666; font-weight: 600; margin-bottom: 2px; }
+    .stat-divider { width: 1px; height: 40px; background-color: #eee; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -196,15 +179,22 @@ def render_main_header():
     st.markdown("""<div style="font-size: 16px; color: #888; margin-top: -10px; margin-bottom: 20px; letter-spacing: 0.5px;"><br><br>Intelligent Logistics System & Label Solution</div>""", unsafe_allow_html=True)
     st.divider()
 
-# ================= 7. 控制台頁面 (分開顯示 Upload 和 Print) =================
+# ================= 7. 控制台頁面 =================
 def render_dashboard_page():
-    st.markdown("### 📊 System Dashboard (控制台)")
-    st.markdown("Overview of system usage statistics.")
+    col_title, col_btn = st.columns([0.85, 0.15])
+    with col_title:
+        st.markdown("### 📊 System Dashboard (控制台)")
+        st.markdown("Overview of system usage statistics.")
+    with col_btn:
+        # 新增手動刷新按鈕，確保能抓到最新的 JSON 數據
+        if st.button("🔄 刷新數據", use_container_width=True):
+            st.rerun()
+            
     st.divider()
     
     stats = load_stats()
     
-    # 定義卡片結構
+    # 💡 修正點：將 Anymall 和 Homey 全部改成 "dual"，這樣才能顯示 Print 的次數！
     dashboard_cards = [
         {
             "type": "dual",
@@ -221,18 +211,18 @@ def render_dashboard_page():
             "val2": stats.get("HelloBear_Print", 0), "label2": "🖨️ Prints"
         },
         {
-            "type": "single", 
+            "type": "dual", 
             "icon": "🛍️", 
             "title": "Anymall System", 
-            "count": stats.get("Anymall_Upload", 0), 
-            "desc": "Files Processed"
+            "val1": stats.get("Anymall_Upload", 0), "label1": "📄 Uploads",
+            "val2": stats.get("Anymall_Print", 0), "label2": "🖨️ Prints" # 修正：新增 Print 顯示
         },
         {
-            "type": "single", 
+            "type": "dual", 
             "icon": "🏠", 
             "title": "Homey System", 
-            "count": stats.get("Homey_Upload", 0), 
-            "desc": "Files Processed"
+            "val1": stats.get("Homey_Upload", 0), "label1": "📄 Uploads",
+            "val2": stats.get("Homey_Print", 0), "label2": "🖨️ Prints" # 修正：新增 Print 顯示
         },
         {
             "type": "single", 
@@ -284,11 +274,10 @@ def render_dashboard_page():
             st.write("")
             st.write("") 
 
-# ================= 8. 首頁頁面 (使用與 Control Panel 相同的迴圈邏輯) =================
+# ================= 8. 首頁頁面 =================
 def render_home_page():
     render_main_header()
     
-    # 定義首頁卡片資料
     home_cards = [
         {"tag": "Yummy 3PL", "tag_class": "tag-yummy", "icon": "🍔", "title": "Yummy System", "desc": "PDF 處理與標籤列印"},
         {"tag": "Anymall 3PL", "tag_class": "tag-anymall", "icon": "🛍️", "title": "Anymall System", "desc": "自動處理空白頁與表格"},
@@ -297,12 +286,10 @@ def render_home_page():
         {"tag": "Mobile Tool", "tag_class": "tag-tool", "icon": "🔍", "title": "Search Barcode", "desc": "快速查詢 SKU"},
     ]
     
-    # 使用與 Dashboard 相同的 3 欄位迴圈
     cols = st.columns(3)
     
     for i, card in enumerate(home_cards):
         col_idx = i % 3
-        
         card_html = f"""
         <div class="home-card">
             <span class="card-tag {card['tag_class']}">{card['tag']}</span>
@@ -311,14 +298,9 @@ def render_home_page():
             <div class="card-desc">{card['desc']}</div>
         </div>
         """
-        
         cols[col_idx].markdown(card_html, unsafe_allow_html=True)
-        
-        # 增加垂直間距
         if col_idx == 2:
-            st.write("") 
-            st.write("")
-            st.write("") 
+            st.write(""); st.write(""); st.write("") 
 
 # ================= 9. 主程式邏輯 =================
 def main():
@@ -335,31 +317,23 @@ def main():
 
     inject_mobile_sidebar_closer()
 
-    if category_selection == "🏠 首頁總覽":
-        render_home_page()  # 使用新的渲染函數
-
-    elif category_selection == "📊 控制台":
-        render_dashboard_page()
-
+    if category_selection == "🏠 首頁總覽": render_home_page()  
+    elif category_selection == "📊 控制台": render_dashboard_page()
     elif category_selection == "🍔 Yummy 3PL":
         st.sidebar.markdown("---")
         yummy_ops = ["📄 PDF 處理工具", "🖨️ Excel 標籤生成"]
         yummy_function = st.sidebar.radio("Yummy Functions", yummy_ops, label_visibility="collapsed")
         if yummy_function == "📄 PDF 處理工具": show_pdf_page()
         elif yummy_function == "🖨️ Excel 標籤生成": show_excel_page()
-
     elif category_selection == "🛍️ Anymall 3PL":
         st.sidebar.markdown("---")
         show_anymall_page()
-
     elif category_selection == "🐻 Hello Bear 3PL":
         st.sidebar.markdown("---")
         show_hellobear_page()
-
     elif category_selection == "🏠 Homey 3PL":
         st.sidebar.markdown("---")
         show_homey_page()
-
     elif category_selection == "🔍 Search Barcode":
         show_search_barcode_page()
 
