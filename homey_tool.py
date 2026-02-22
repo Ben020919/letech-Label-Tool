@@ -56,14 +56,14 @@ def get_master_row(master_df, p_no):
 
 def create_simple_text_html(text, qty):
     """生成簡單的純文字標籤 (用於普通注意等)"""
-    single_label_html = f"""
+    single_lable_html = f"""
     <div style="width: 70mm; height: 50mm; box-sizing: border-box; padding: 2mm; page-break-after: always; display: flex; align-items: center; justify-content: center; text-align: center;">
         <div style="font-size: 15pt; font-weight: 900; line-height: 1.2; font-family: sans-serif;">{text}</div>
     </div>
     """
     full_html = f"""
     <html><head><style>@page {{ size: 70mm 50mm; margin: 0; }} body {{ margin: 0; padding: 0; }}</style></head>
-    <body>{single_label_html * qty}</body></html>
+    <body>{single_lable_html * qty}</body></html>
     """
     return full_html
 
@@ -153,7 +153,7 @@ def show_homey_page():
                 <path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v8H6z"></path>
             </svg>
             <div class="logo-text">Letech<span class="logo-dot">.</span></div>
-            <div class="logo-sub">Intelligent Label Solution</div>
+            <div class="logo-sub">Intelligent Lable Solution</div>
         </div>
     """, unsafe_allow_html=True)
     st.markdown("### 🏠 Homey 3PL System")
@@ -222,33 +222,33 @@ def show_homey_page():
                 if qty_line_index > 1:
                     p_name = " ".join(lines[1:qty_line_index])
 
-                # --- Step 2: 邏輯判斷 Label Type ---
+                # --- Step 2: 邏輯判斷 Lable Type ---
                 master_row = get_master_row(master_df, p_no)
-                excel_label = ""
+                excel_lable = ""
                 if master_row is not None and not master_row.empty:
-                    if 'Label_Type' in master_row.columns:
-                        excel_label = str(master_row.iloc[0]['Label_Type'])
-                    elif 'Label Type' in master_row.columns:
-                        excel_label = str(master_row.iloc[0]['Label Type'])
+                    if 'Lable_Type' in master_row.columns:
+                        excel_lable = str(master_row.iloc[0]['Lable_Type'])
+                    elif 'Lable Type' in master_row.columns:
+                        excel_lable = str(master_row.iloc[0]['Lable Type'])
 
-                final_label = ""
+                final_lable = ""
                 
                 # 判斷邏輯調整：
                 # 1. 優先看資料庫是否指定 Food Lable
-                if "food" in excel_label.lower():
-                    final_label = excel_label
+                if "food" in excel_lable.lower():
+                    final_lable = excel_lable
                 # 2. 如果沒有 Barcode 或顯示為 (N/A) -> 需要 Print Repack Lable (用 Product No 印)
                 elif not barcode_val or barcode_val.strip() == "" or barcode_val == p_no:
-                    final_label = "Print SKU Barcode"
+                    final_lable = "Print SKU Barcode"
                 # 3. Barcode 結尾有英文字母 -> Print Repack Lable
                 elif barcode_val and barcode_val[-1].isalpha():
-                    final_label = "Print Repack Lable"
+                    final_lable = "Print Repack Lable"
                 # 4. 其他根據資料庫
-                elif excel_label and excel_label != "nan" and excel_label.strip() != "":
-                    final_label = excel_label
+                elif excel_lable and excel_lable != "nan" and excel_lable.strip() != "":
+                    final_lable = excel_lable
                 # 5. 預設
                 else:
-                    final_label = "普通Lable"
+                    final_lable = "普通Lable"
 
                 valid_rows.append({
                     "id": f"{p_no}_{i}", 
@@ -256,7 +256,7 @@ def show_homey_page():
                     "Barcode": barcode_val if barcode_val else "(N/A)",
                     "商品名稱": p_name,
                     "數量": qty,
-                    "Label Type": final_label,
+                    "Lable Type": final_lable,
                     "master_row": master_row # 將找到的 Excel 資料存起來，印 Food Lable 時會用到
                 })
 
@@ -283,7 +283,7 @@ def show_homey_page():
                 
                 # --- 自訂 Grid 表格渲染 ---
                 col_ratios = [0.5, 1.1, 1.1, 4.0, 0.8, 1.2, 1.2]
-                headers = ["No", "Product No", "Barcode", "Product Name", "Qty", "Label Type", "Action"]
+                headers = ["No", "Product No", "Barcode", "Product Name", "Qty", "Lable Type", "Action"]
                 
                 cols = st.columns(col_ratios)
                 for col, h in zip(cols, headers):
@@ -292,12 +292,12 @@ def show_homey_page():
                 for index, row in enumerate(valid_rows):
                     p_no = row['Product No']
                     barcode_clean = row['Barcode'].strip()
-                    label_type = row['Label Type']
+                    lable_type = row['Lable Type']
                     
                     pno_style = 'color: #CC5500; font-weight: bold;' if p_no in duplicated_pnos else ""
                     
                     highlight_style = ""
-                    if any(k in str(label_type).lower() for k in ["repack", "sku", "蟲", "food"]):
+                    if any(k in str(lable_type).lower() for k in ["repack", "sku", "蟲", "food"]):
                         highlight_style = "background-color: #FFFFAA; color: #B30000; font-weight: bold;"
 
                     with st.container():
@@ -308,37 +308,37 @@ def show_homey_page():
                         c2.markdown(f"<div class='grid-row'><div class='cell-text'>{row['Barcode']}</div></div>", unsafe_allow_html=True)
                         c3.markdown(f"<div class='grid-row' style='{highlight_style}'><div class='cell-text'>{row['商品名稱']}</div></div>", unsafe_allow_html=True)
                         c4.markdown(f"<div class='grid-row'><span class='cell-qty'>{row['數量']}</span></div>", unsafe_allow_html=True)
-                        c5.markdown(f"<div class='grid-row' style='{highlight_style}'><div class='cell-text'>{label_type}</div></div>", unsafe_allow_html=True)
+                        c5.markdown(f"<div class='grid-row' style='{highlight_style}'><div class='cell-text'>{lable_type}</div></div>", unsafe_allow_html=True)
                         
                         with c6:
                             # 一律顯示打印按鈕
                             if st.button("打印", key=f"btn_hm_{index}"):
                                 log_action("Homey_Print")
 
-                                v_label_lower = str(label_type).lower()
+                                v_lable_lower = str(lable_type).lower()
 
                                 # 1. 判斷是否為 Food Lable
-                                if "food" in v_label_lower:
+                                if "food" in v_lable_lower:
                                     if Lable:
-                                        html = Lable.generate_food_label_html(row, row['master_row'], row['數量'])
+                                        html = Lable.generate_food_lable_html(row, row['master_row'], row['數量'])
                                         # Lable 生成的是 iframe 套件，可以直接丟給 components.html
                                         components.html(html, height=0)
                                     else:
                                         st.error("找不到 Lable.py")
 
                                 # 2. 判斷是否為 Repack Lable / SKU
-                                elif "repack" in v_label_lower or "sku" in v_label_lower:
+                                elif "repack" in v_lable_lower or "sku" in v_lable_lower:
                                     if repack_lable:
                                         # 如果沒有 barcode 或 barcode 是 N/A，使用 Product No 作為條碼
                                         print_barcode = p_no if not barcode_clean or barcode_clean == "(N/A)" else barcode_clean
-                                        html = repack_lable.create_repack_label_html(row['商品名稱'], print_barcode, row['數量'])
+                                        html = repack_lable.create_repack_lable_html(row['商品名稱'], print_barcode, row['數量'])
                                         js_instant_print(html)
                                     else:
                                         st.error("找不到 repack_lable.py")
 
-                                # 3. 其他 (普通標籤，直接印出 Label Type 的文字)
+                                # 3. 其他 (普通標籤，直接印出 Lable Type 的文字)
                                 else:
-                                    html = create_simple_text_html(label_type, row['數量'])
+                                    html = create_simple_text_html(lable_type, row['數量'])
                                     js_instant_print(html)
 
                 st.markdown("---")
@@ -346,7 +346,7 @@ def show_homey_page():
                 df_export = df_result.drop(columns=['master_row'])
                 csv = df_export.to_csv(index=True).encode('utf-8-sig')
                 st.download_button(
-                    label="📥 下載處理結果 (CSV)",
+                    lable="📥 下載處理結果 (CSV)",
                     data=csv,
                     file_name="homey_processed_orders.csv",
                     mime="text/csv",
