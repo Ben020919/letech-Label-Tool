@@ -160,7 +160,7 @@ def show_anymall_page():
             .cell-badge-normal { 
                 width: 100px !important;       
                 height: 10px !important; /* 修正：統一為 38px */
-                min-height: 38px !important;
+                min-height: 10px !important;
                 border-radius: 6px !important; 
                 padding: 0px !important;
                 background-color: #eee !important; 
