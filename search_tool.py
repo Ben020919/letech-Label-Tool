@@ -5,6 +5,7 @@ import urllib.parse
 import base64
 import requests
 import shutil
+import time  # 新增時間模組
 from io import BytesIO
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -24,7 +25,6 @@ except ImportError:
 # ================= 2. 設定固定檔案名稱 =================
 DEFAULT_DB_FILE = "Barcode.xlsx.csv"
 
-# 讀取 Excel 資料 (這個可以保留快取，因為資料庫不常變動)
 @st.cache_data
 def load_data():
     if not os.path.exists(DEFAULT_DB_FILE): return None
@@ -39,23 +39,23 @@ def load_data():
         return df
     except Exception: return None
 
-# ================= 3. 核心爬蟲 (雲端無敵版) =================
-# ⚠️ 注意：這裡我把 @st.cache_data 拿掉了！
-# 這樣它每次都會老老實實去抓圖，絕對不會再把你之前失敗的「無圖片」結果記住了！
+# ================= 3. 核心爬蟲 (防阻擋診斷版) =================
 def get_hktvmall_image_final(product_name):
+    # 🌟 秘密武器 1：強制停頓 2 秒，避免被 HKTVmall 封鎖，也讓記憶體有空喘息
+    time.sleep(2) 
+    
     encoded_name = urllib.parse.quote(str(product_name).strip())
     search_url = f"https://www.hktvmall.com/hktv/zh/search_a?keyword={encoded_name}"
     
     chrome_options = Options()
     chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--no-sandbox")               # 雲端必備：繞過沙盒
-    chrome_options.add_argument("--disable-dev-shm-usage")    # 雲端必備：防止記憶體爆掉
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--disable-features=NetworkService")
     chrome_options.add_argument("--window-size=1920x1080")
     chrome_options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
     
-    # 🌟 終極解法：自動偵測 Streamlit Cloud 上的 Chromium 路徑
     chrome_binary = shutil.which("chromium") or shutil.which("chromium-browser")
     if chrome_binary:
         chrome_options.binary_location = chrome_binary
@@ -63,10 +63,8 @@ def get_hktvmall_image_final(product_name):
     driver_path = shutil.which("chromedriver") or shutil.which("chromedriver-linux64")
     
     if driver_path:
-        # Streamlit 雲端環境
         service = Service(executable_path=driver_path)
     else:
-        # 本地端環境 (例如你的 Mac)
         service = Service(ChromeDriverManager().install())
         
     service.log_path = os.devnull
@@ -75,13 +73,13 @@ def get_hktvmall_image_final(product_name):
         driver = webdriver.Chrome(service=service, options=chrome_options)
         driver.get(search_url)
         wait = WebDriverWait(driver, 15)
-        # 完美移植你成功的精準選擇器
         img_element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".product-brief img")))
         img_url = img_element.get_attribute("src")
         return img_url
     except Exception as e:
-        print(f"爬蟲抓取失敗 ({product_name}): {e}")
-        return None
+        # 🌟 秘密武器 2：把真實錯誤訊息回傳給前端
+        error_msg = str(e).split('\n')[0] # 只取第一行錯誤，避免太長
+        return f"ERROR_SELENIUM: {error_msg}"
     finally:
         try:
             driver.quit()
@@ -163,9 +161,18 @@ def show_search_barcode_page():
                 # 執行爬蟲抓網址
                 img_url = get_hktvmall_image_final(target_name)
                 
-                if img_url:
+                if img_url and str(img_url).startswith("ERROR_SELENIUM:"):
+                    # 🌟 攔截錯誤，直接顯示在圖片框裡面！
+                    error_text = img_url.replace("ERROR_SELENIUM:", "").strip()
+                    if "TimeoutException" in error_text:
+                        final_img_html = f'<span style="color:red; font-size:11px; text-align:center;">15秒超時<br>(可能被防爬蟲擋了)</span>'
+                    elif "SessionNotCreated" in error_text or "WebDriverException" in error_text:
+                        final_img_html = f'<span style="color:red; font-size:11px; text-align:center;">瀏覽器崩潰<br>(記憶體不足)</span>'
+                    else:
+                        final_img_html = f'<span style="color:red; font-size:10px; word-break:break-all;">報錯: {error_text}</span>'
+                
+                elif img_url:
                     try:
-                        # 執行下載轉 Base64
                         headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
                         img_response = requests.get(img_url, headers=headers, timeout=10)
                         img_response.raise_for_status()
@@ -178,7 +185,7 @@ def show_search_barcode_page():
                         
                         final_img_html = f'<img src="data:{mime_type};base64,{b64_img}" alt="Product Image" />'
                     except Exception as e:
-                        final_img_html = f'<span style="color:red; font-size:12px;">圖片被阻擋下載失敗</span>'
+                        final_img_html = f'<span style="color:red; font-size:12px;">防盜鏈阻擋<br>無法下載圖片</span>'
                 else:
                     final_img_html = '<span style="color:#aaa; font-size:12px;">無圖片</span>'
 
