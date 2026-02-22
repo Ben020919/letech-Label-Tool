@@ -27,13 +27,13 @@ def load_data():
         return df
     except Exception: return None
 
-# ================= 3. HTML 卡片渲染器 (光速輕量版) =================
+# ================= 3. HTML 卡片渲染器 (高質感按鈕版) =================
 def generate_card_html(row):
     name = row.get('Name', 'Unknown')
     sku = row.get('ProductCode', 'N/A')
     barcode = row.get('Barcode', 'N/A')
     
-    # 🌟 核心魔法：瞬間組合出專屬的 HKTVmall 搜尋網址，完全不需要爬蟲！
+    # 組合出專屬的 HKTVmall 搜尋網址
     encoded_name = urllib.parse.quote(str(name).strip())
     search_url = f"https://www.hktvmall.com/hktv/zh/search_a?keyword={encoded_name}"
     
@@ -41,8 +41,8 @@ def generate_card_html(row):
     <div class="result-card">
         <div class="card-action-container">
             <a href="{search_url}" target="_blank" class="hktv-btn">
-                <span style="font-size: 20px; display: block; margin-bottom: 5px;">🛒</span>
-                查看商品
+                <span style="font-size: 18px; display: block; margin-bottom: 4px;">🔍</span>
+                前往查看
             </a>
         </div>
         <div class="card-info">
@@ -59,23 +59,27 @@ def generate_card_html(row):
 def show_search_barcode_page():
     st.markdown("""
         <style>
-            .result-card { display: flex; flex-direction: row; align-items: center; background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: transform 0.2s; }
-            .result-card:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
+            /* 卡片整體樣式 */
+            .result-card { display: flex; flex-direction: row; align-items: center; background-color: #ffffff; border: 1px solid #eef0f2; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: transform 0.2s, box-shadow 0.2s; }
+            .result-card:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(0,0,0,0.08); }
             
-            /* 新的按鈕區塊樣式 */
-            .card-action-container { width: 110px; height: 110px; flex-shrink: 0; margin-right: 20px; display: flex; align-items: center; justify-content: center; background-color: #f8f9fa; border-radius: 8px; border: 1px dashed #ccc; }
-            .hktv-btn { background-color: #007bff; color: white !important; padding: 12px 15px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: bold; text-align: center; display: inline-block; width: 85%; transition: 0.2s; }
-            .hktv-btn:hover { background-color: #0056b3; }
+            /* 新版高質感按鈕區塊 */
+            .card-action-container { width: 110px; height: 110px; flex-shrink: 0; margin-right: 20px; display: flex; align-items: center; justify-content: center; background-color: #f4f7f6; border-radius: 10px; }
+            .hktv-btn { background-color: #10b981; color: white !important; padding: 10px 14px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 600; letter-spacing: 0.5px; text-align: center; display: inline-block; width: 85%; transition: all 0.2s ease-in-out; box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25); }
+            .hktv-btn:hover { background-color: #059669; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.4); transform: translateY(-1px); }
             
+            /* 文字資訊區塊 */
             .card-info { flex-grow: 1; min-width: 0; }
             .card-label { color: #888; font-size: 11px; font-weight: bold; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.5px;}
             .card-value { color: #333; font-size: 15px; margin-bottom: 8px; word-break: break-all; font-family: monospace; }
-            .card-name { color: #2c3e50; font-weight: 700; font-size: 16px; line-height: 1.4; border-top: 1px solid #eee; padding-top: 10px; margin-top: 5px; }
-            @media screen and (max-width: 768px) { .result-card { flex-direction: column; align-items: flex-start; } .card-action-container { margin-right: 0; margin-bottom: 15px; width: 100%; height: auto; padding: 15px 0; border: none; background: transparent; justify-content: flex-start; } .hktv-btn { width: auto; padding: 10px 20px; display: flex; align-items: center; gap: 8px; } .hktv-btn span { margin-bottom: 0 !important; } }
+            .card-name { color: #2c3e50; font-weight: 700; font-size: 16px; line-height: 1.4; border-top: 1px solid #f0f0f0; padding-top: 10px; margin-top: 5px; }
+            
+            /* 手機版適應 */
+            @media screen and (max-width: 768px) { .result-card { flex-direction: column; align-items: flex-start; } .card-action-container { margin-right: 0; margin-bottom: 15px; width: 100%; height: auto; padding: 12px 0; background: transparent; justify-content: flex-start; } .hktv-btn { width: auto; padding: 8px 20px; display: flex; align-items: center; gap: 8px; } .hktv-btn span { margin-bottom: 0 !important; } }
         </style>
     """, unsafe_allow_html=True)
     
-    st.markdown("### 🔍 Search Barcode System (光速版 ⚡)")
+    st.markdown("### 🔍 Search Barcode System")
     
     df = load_data()
     if df is None:
@@ -100,9 +104,8 @@ def show_search_barcode_page():
         results = df[mask]
 
         if not results.empty:
-            st.success(f"✅ Found {len(results)} Data (搜尋耗時: <0.1秒)")
+            st.success(f"✅ Found {len(results)} Data")
             
-            # 直接秒殺生成所有卡片！
             for idx, row in results.iterrows():
                 st.markdown(generate_card_html(row), unsafe_allow_html=True)
                 
