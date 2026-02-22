@@ -80,43 +80,36 @@ def get_hktvmall_image_url(original_product_name):
             return None
 
     try:
-        # 波段 1：🌟 原汁原味！不管有沒有括號，一字不漏直接搜！
         search_name = original_product_name.strip()
         img_url = do_search(search_name)
         if img_url: return img_url
             
-        # 波段 2：拔除最前方的括號 (例如: "(瑕疵品)韓國洗髮水" -> "韓國洗髮水")
         name_no_prefix = re.sub(r'^[\(（].*?[\)）]\s*', '', search_name).strip()
         if name_no_prefix and name_no_prefix != search_name:
             img_url = do_search(name_no_prefix)
             if img_url: return img_url
 
-        # 波段 3：拔除後方的括號 (例如: "韓國洗髮水(嬰兒香)" -> "韓國洗髮水")
         name_no_suffix = re.sub(r'\s*[\(（][^()（）]*[\)）]$', '', name_no_prefix).strip()
         if name_no_suffix and name_no_suffix != name_no_prefix:
             img_url = do_search(name_no_suffix)
             if img_url: return img_url
 
-        # 波段 4：砍掉連字號 (-) 後面的所有款式字眼
         fallback_1 = re.sub(r'\s*[-－].*$', '', name_no_suffix).strip()
         if fallback_1 and fallback_1 != name_no_suffix:
             img_url = do_search(fallback_1)
             if img_url: return img_url
 
-        # 波段 5：砍掉國家名、容量 (ml, g, 包, 人份)
         fallback_2 = re.sub(r'^(韓國|日本|美國|澳洲|英國|德國|法國|台灣|泰國|紐西蘭)\s*', '', fallback_1)
         fallback_2 = re.sub(r'\s*\d+(\.\d+)?\s*(ml|g|kg|l|oz|毫升|克|件|片|樽|罐|包|人份).*$', '', fallback_2, flags=re.IGNORECASE).strip()
         if fallback_2 and fallback_2 != fallback_1:
             img_url = do_search(fallback_2)
             if img_url: return img_url
                 
-        # 波段 6：純中文精準打擊 
         chinese_chars = "".join(re.findall(r'[\u4e00-\u9fff]+', fallback_2))
         if len(chinese_chars) >= 3: 
             img_url = do_search(chinese_chars)
             if img_url: return img_url
 
-        # 波段 7：如果連中文都沒有，只取名字最前面的兩個詞彙
         words = fallback_2.split()
         if len(words) >= 2:
             fallback_3 = " ".join(words[:2])
@@ -148,8 +141,16 @@ def generate_card_html(row, img_html):
     </div>
     """
 
+# --- 回呼函數：清除搜尋框 ---
+def clear_search():
+    st.session_state.search_query = ""
+
 # ================= 頁面主邏輯 =================
 def show_search_barcode_page():
+    # 初始化 Session State
+    if "search_query" not in st.session_state:
+        st.session_state.search_query = ""
+
     st.markdown("""
         <style>
             .result-card { display: flex; flex-direction: row; align-items: center; background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: transform 0.2s; }
@@ -164,6 +165,13 @@ def show_search_barcode_page():
             .card-value { color: #333; font-size: 15px; margin-bottom: 8px; word-break: break-all; }
             .card-name { color: #2c3e50; font-weight: 700; font-size: 16px; line-height: 1.4; border-top: 1px solid #eee; padding-top: 10px; margin-top: 5px; }
             @media screen and (max-width: 768px) { .result-card { flex-direction: column; align-items: flex-start; } .card-img-container { margin-right: 0; margin-bottom: 15px; width: 100%; height: 150px; } }
+            
+            /* 調整 Clear 按鈕的高度讓它和文字框對齊 */
+            div[data-testid="column"]:nth-of-type(2) {
+                display: flex;
+                align-items: flex-end;
+                padding-bottom: 2px;
+            }
         </style>
     """, unsafe_allow_html=True)
     
@@ -192,7 +200,19 @@ def show_search_barcode_page():
 
     st.caption(f"📚 Inventory Ready：Total {len(df)} Data")
     
-    user_input = st.text_input("Please Enter Keywords. (SKU / Barcode / Name):", placeholder="Enter Search Terms...")
+    # === 修改：加入 Clear 按鈕的佈局 ===
+    col_search, col_clear = st.columns([0.85, 0.15])
+    
+    with col_search:
+        user_input = st.text_input(
+            "Please Enter Keywords. (SKU / Barcode / Name):", 
+            key="search_query", 
+            placeholder="Enter Search Terms..."
+        )
+        
+    with col_clear:
+        st.button("❌ Clear", on_click=clear_search, use_container_width=True)
+    # =================================
 
     if user_input:
         log_action("Search_Action") 
@@ -231,3 +251,6 @@ def show_search_barcode_page():
 
         else:
             st.warning("❌ No Data Found")
+
+if __name__ == "__main__":
+    show_search_barcode_page()
