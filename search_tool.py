@@ -6,6 +6,7 @@ import base64
 import requests
 import shutil
 import json
+import time
 from io import BytesIO
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -15,6 +16,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 import streamlit.components.v1 as components
+from selenium_stealth import stealth  # 🌟 匯入隱形魔法套件
 
 # ================= 1. 匯入追蹤工具 =================
 try:
@@ -59,19 +61,22 @@ def save_image_cache(cache_dict):
     except Exception as e:
         print(f"記憶庫儲存失敗: {e}")
 
-# ================= 3. 核心爬蟲 (雲端無敵版) =================
+# ================= 3. 核心爬蟲 (隱形斗篷升級版) =================
 def get_hktvmall_image_final(product_name):
+    # 強制停頓一下，模擬人類操作節奏
+    time.sleep(1.5)
+    
     encoded_name = urllib.parse.quote(str(product_name).strip())
     search_url = f"https://www.hktvmall.com/hktv/zh/search_a?keyword={encoded_name}"
     
     chrome_options = Options()
     chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--no-sandbox")               # 雲端必備：繞過沙盒
+    chrome_options.add_argument("--disable-dev-shm-usage")    # 雲端必備：防止記憶體爆掉
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--disable-features=NetworkService")
     chrome_options.add_argument("--window-size=1920x1080")
-    chrome_options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+    # 這裡不再手動寫死 user-agent，因為 stealth 會幫我們生成更真實的
     
     chrome_binary = shutil.which("chromium") or shutil.which("chromium-browser")
     if chrome_binary:
@@ -88,6 +93,17 @@ def get_hktvmall_image_final(product_name):
     
     try:
         driver = webdriver.Chrome(service=service, options=chrome_options)
+        
+        # 🌟 啟動隱形魔法！把雲端機器人偽裝成普通的 Windows 電腦
+        stealth(driver,
+            languages=["zh-TW", "zh-HK", "en-US", "en"],
+            vendor="Google Inc.",
+            platform="Win32",
+            webgl_vendor="Intel Inc.",
+            renderer="Intel Iris OpenGL Engine",
+            fix_hairline=True,
+        )
+        
         driver.get(search_url)
         wait = WebDriverWait(driver, 15)
         img_element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".product-brief img")))
@@ -95,7 +111,7 @@ def get_hktvmall_image_final(product_name):
         return img_url
     except Exception as e:
         print(f"爬蟲抓取失敗 ({product_name}): {e}")
-        return None
+        return f"ERROR:{str(e).splitlines()[0]}" # 把錯誤訊息傳出去診斷
     finally:
         try:
             driver.quit()
@@ -165,7 +181,7 @@ def show_search_barcode_page():
         if not results.empty:
             st.success(f"✅ Found {len(results)} Data")
             
-            # 🌟 載入目前的記憶庫
+            # 載入目前的記憶庫
             image_cache = load_image_cache()
             cache_updated = False
             
@@ -174,20 +190,27 @@ def show_search_barcode_page():
                 ph = st.empty()
                 target_name = str(row['Name'])
                 
-                # 🌟 第一關：檢查記憶庫！如果以前成功抓過，直接秒殺顯示！
+                # 第一關：檢查記憶庫！如果以前成功抓過，直接秒殺顯示！
                 if target_name in image_cache:
                     ph.markdown(generate_card_html(row, image_cache[target_name]), unsafe_allow_html=True)
                 else:
                     # 如果沒記過，先顯示等待動畫，並加入待爬取清單
-                    ph.markdown(generate_card_html(row, '<span class="loading-text">⏳ 圖片加載中...</span>'), unsafe_allow_html=True)
+                    ph.markdown(generate_card_html(row, '<span class="loading-text">⏳ 正在啟動爬蟲抓取圖片...</span>'), unsafe_allow_html=True)
                     placeholders.append((ph, row))
 
-            # 🌟 第二關：只有沒被記住的商品，才真的去啟動爬蟲
+            # 第二關：只有沒被記住的商品，才真的去啟動爬蟲
             for ph, row in placeholders:
                 target_name = str(row['Name'])
                 img_url = get_hktvmall_image_final(target_name)
                 
-                if img_url:
+                if img_url and img_url.startswith("ERROR:"):
+                     # 如果爬蟲失敗，把簡短的錯誤原因顯示出來幫助診斷
+                     error_msg = img_url.replace("ERROR:", "")
+                     if "TimeoutException" in error_msg:
+                         final_img_html = '<span style="color:red; font-size:11px; text-align:center;">15秒超時<br>(被 HKTVmall 阻擋)</span>'
+                     else:
+                         final_img_html = '<span style="color:red; font-size:11px; text-align:center;">伺服器崩潰或記憶體不足</span>'
+                elif img_url:
                     try:
                         headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
                         img_response = requests.get(img_url, headers=headers, timeout=10)
@@ -201,19 +224,19 @@ def show_search_barcode_page():
                         
                         final_img_html = f'<img src="data:{mime_type};base64,{b64_img}" alt="Product Image" />'
                         
-                        # 🌟 核心魔法：成功抓取並轉換後，把它寫進記憶庫！
+                        # 成功抓取並轉換後，把它寫進記憶庫！
                         image_cache[target_name] = final_img_html
                         cache_updated = True
                         
                     except Exception as e:
-                        final_img_html = f'<span style="color:red; font-size:12px;">圖片被阻擋下載失敗</span>'
+                        final_img_html = f'<span style="color:red; font-size:12px;">防盜鏈阻擋下載失敗</span>'
                 else:
                     final_img_html = '<span style="color:#aaa; font-size:12px;">無圖片</span>'
 
                 # 更新畫面
                 ph.markdown(generate_card_html(row, final_img_html), unsafe_allow_html=True)
             
-            # 🌟 迴圈結束後，如果有新記住的圖片，就把小本本存檔
+            # 迴圈結束後，如果有新記住的圖片，就把小本本存檔
             if cache_updated:
                 save_image_cache(image_cache)
                 
