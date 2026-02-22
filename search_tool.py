@@ -11,6 +11,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
+import streamlit.components.v1 as components
 
 # ================= 匯入追蹤工具 =================
 try:
@@ -141,16 +142,8 @@ def generate_card_html(row, img_html):
     </div>
     """
 
-# --- 回呼函數：清除搜尋框 ---
-def clear_search():
-    st.session_state.search_query = ""
-
 # ================= 頁面主邏輯 =================
 def show_search_barcode_page():
-    # 初始化 Session State
-    if "search_query" not in st.session_state:
-        st.session_state.search_query = ""
-
     st.markdown("""
         <style>
             .result-card { display: flex; flex-direction: row; align-items: center; background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: transform 0.2s; }
@@ -166,11 +159,12 @@ def show_search_barcode_page():
             .card-name { color: #2c3e50; font-weight: 700; font-size: 16px; line-height: 1.4; border-top: 1px solid #eee; padding-top: 10px; margin-top: 5px; }
             @media screen and (max-width: 768px) { .result-card { flex-direction: column; align-items: flex-start; } .card-img-container { margin-right: 0; margin-bottom: 15px; width: 100%; height: 150px; } }
             
-            /* 調整 Clear 按鈕的高度讓它和文字框對齊 */
-            div[data-testid="column"]:nth-of-type(2) {
-                display: flex;
-                align-items: flex-end;
-                padding-bottom: 2px;
+            /* 調整原生 Search 輸入框清除按鈕的樣式 */
+            input[type="search"]::-webkit-search-cancel-button {
+                -webkit-appearance: searchfield-cancel-button;
+                cursor: pointer;
+                height: 14px;
+                width: 14px;
             }
         </style>
     """, unsafe_allow_html=True)
@@ -200,19 +194,29 @@ def show_search_barcode_page():
 
     st.caption(f"📚 Inventory Ready：Total {len(df)} Data")
     
-    # === 修改：加入 Clear 按鈕的佈局 ===
-    col_search, col_clear = st.columns([0.85, 0.15])
-    
-    with col_search:
-        user_input = st.text_input(
-            "Please Enter Keywords. (SKU / Barcode / Name):", 
-            key="search_query", 
-            placeholder="Enter Search Terms..."
-        )
-        
-    with col_clear:
-        st.button("❌ Clear", on_click=clear_search, use_container_width=True)
-    # =================================
+    # 標準的 Streamlit 輸入框
+    user_input = st.text_input("Please Enter Keywords. (SKU / Barcode / Name):", placeholder="Enter Search Terms...")
+
+    # 🪄 魔法在此：利用 JS 動態將上面的 text_input 轉換成瀏覽器原生的 search 輸入框，自動生成內建的「X」！
+    components.html(
+        """
+        <script>
+        const parentDoc = window.parent.document;
+        function transformToSearchBox() {
+            // 精準抓取剛剛建立的那個輸入框
+            const input = parentDoc.querySelector('input[aria-label="Please Enter Keywords. (SKU / Barcode / Name):"]');
+            if (input && input.type !== "search") {
+                input.setAttribute('type', 'search');
+            }
+        }
+        // 確保在不同載入速度下都能成功執行
+        transformToSearchBox();
+        setTimeout(transformToSearchBox, 500);
+        setTimeout(transformToSearchBox, 1500);
+        </script>
+        """, 
+        height=0
+    )
 
     if user_input:
         log_action("Search_Action") 
