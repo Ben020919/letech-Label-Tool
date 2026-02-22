@@ -5,4 +5,3 @@ openpyxl
 python-barcode
 selenium
 webdriver-manager
-reportlab
