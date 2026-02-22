@@ -5,7 +5,7 @@ import urllib.parse
 import base64
 import requests
 import shutil
-import time  # 新增時間模組
+import json
 from io import BytesIO
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -22,9 +22,11 @@ try:
 except ImportError:
     def log_action(action_name): pass
 
-# ================= 2. 設定固定檔案名稱 =================
+# ================= 2. 設定固定檔案名稱與快取 =================
 DEFAULT_DB_FILE = "Barcode.xlsx.csv"
+IMAGE_CACHE_FILE = "image_cache.json"  # 🌟 專門用來記憶成功圖片的小本本
 
+# 讀取 Excel 資料
 @st.cache_data
 def load_data():
     if not os.path.exists(DEFAULT_DB_FILE): return None
@@ -39,11 +41,26 @@ def load_data():
         return df
     except Exception: return None
 
-# ================= 3. 核心爬蟲 (防阻擋診斷版) =================
+# 🌟 讀取圖片記憶庫
+def load_image_cache():
+    if os.path.exists(IMAGE_CACHE_FILE):
+        try:
+            with open(IMAGE_CACHE_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
+
+# 🌟 儲存圖片記憶庫
+def save_image_cache(cache_dict):
+    try:
+        with open(IMAGE_CACHE_FILE, 'w', encoding='utf-8') as f:
+            json.dump(cache_dict, f, ensure_ascii=False)
+    except Exception as e:
+        print(f"記憶庫儲存失敗: {e}")
+
+# ================= 3. 核心爬蟲 (雲端無敵版) =================
 def get_hktvmall_image_final(product_name):
-    # 🌟 秘密武器 1：強制停頓 2 秒，避免被 HKTVmall 封鎖，也讓記憶體有空喘息
-    time.sleep(2) 
-    
     encoded_name = urllib.parse.quote(str(product_name).strip())
     search_url = f"https://www.hktvmall.com/hktv/zh/search_a?keyword={encoded_name}"
     
@@ -77,9 +94,8 @@ def get_hktvmall_image_final(product_name):
         img_url = img_element.get_attribute("src")
         return img_url
     except Exception as e:
-        # 🌟 秘密武器 2：把真實錯誤訊息回傳給前端
-        error_msg = str(e).split('\n')[0] # 只取第一行錯誤，避免太長
-        return f"ERROR_SELENIUM: {error_msg}"
+        print(f"爬蟲抓取失敗 ({product_name}): {e}")
+        return None
     finally:
         try:
             driver.quit()
@@ -149,29 +165,29 @@ def show_search_barcode_page():
         if not results.empty:
             st.success(f"✅ Found {len(results)} Data")
             
+            # 🌟 載入目前的記憶庫
+            image_cache = load_image_cache()
+            cache_updated = False
+            
             placeholders = []
             for idx, row in results.iterrows():
                 ph = st.empty()
-                ph.markdown(generate_card_html(row, '<span class="loading-text">⏳ 正在啟動爬蟲抓取圖片...</span>'), unsafe_allow_html=True)
-                placeholders.append((ph, row))
-
-            for ph, row in placeholders:
                 target_name = str(row['Name'])
                 
-                # 執行爬蟲抓網址
+                # 🌟 第一關：檢查記憶庫！如果以前成功抓過，直接秒殺顯示！
+                if target_name in image_cache:
+                    ph.markdown(generate_card_html(row, image_cache[target_name]), unsafe_allow_html=True)
+                else:
+                    # 如果沒記過，先顯示等待動畫，並加入待爬取清單
+                    ph.markdown(generate_card_html(row, '<span class="loading-text">⏳ 正在啟動爬蟲抓取圖片...</span>'), unsafe_allow_html=True)
+                    placeholders.append((ph, row))
+
+            # 🌟 第二關：只有沒被記住的商品，才真的去啟動爬蟲
+            for ph, row in placeholders:
+                target_name = str(row['Name'])
                 img_url = get_hktvmall_image_final(target_name)
                 
-                if img_url and str(img_url).startswith("ERROR_SELENIUM:"):
-                    # 🌟 攔截錯誤，直接顯示在圖片框裡面！
-                    error_text = img_url.replace("ERROR_SELENIUM:", "").strip()
-                    if "TimeoutException" in error_text:
-                        final_img_html = f'<span style="color:red; font-size:11px; text-align:center;">15秒超時<br>(可能被防爬蟲擋了)</span>'
-                    elif "SessionNotCreated" in error_text or "WebDriverException" in error_text:
-                        final_img_html = f'<span style="color:red; font-size:11px; text-align:center;">瀏覽器崩潰<br>(記憶體不足)</span>'
-                    else:
-                        final_img_html = f'<span style="color:red; font-size:10px; word-break:break-all;">報錯: {error_text}</span>'
-                
-                elif img_url:
+                if img_url:
                     try:
                         headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
                         img_response = requests.get(img_url, headers=headers, timeout=10)
@@ -184,12 +200,23 @@ def show_search_barcode_page():
                         elif ".webp" in img_url.lower(): mime_type = "image/webp"
                         
                         final_img_html = f'<img src="data:{mime_type};base64,{b64_img}" alt="Product Image" />'
+                        
+                        # 🌟 核心魔法：成功抓取並轉換後，把它寫進記憶庫！
+                        image_cache[target_name] = final_img_html
+                        cache_updated = True
+                        
                     except Exception as e:
-                        final_img_html = f'<span style="color:red; font-size:12px;">防盜鏈阻擋<br>無法下載圖片</span>'
+                        final_img_html = f'<span style="color:red; font-size:12px;">圖片被阻擋下載失敗</span>'
                 else:
                     final_img_html = '<span style="color:#aaa; font-size:12px;">無圖片</span>'
 
+                # 更新畫面
                 ph.markdown(generate_card_html(row, final_img_html), unsafe_allow_html=True)
+            
+            # 🌟 迴圈結束後，如果有新記住的圖片，就把小本本存檔
+            if cache_updated:
+                save_image_cache(image_cache)
+                
         else:
             st.warning("❌ No Data Found")
 
