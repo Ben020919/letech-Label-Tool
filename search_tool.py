@@ -179,7 +179,7 @@ def show_search_barcode_page():
                     ph.markdown(generate_card_html(row, image_cache[target_name]), unsafe_allow_html=True)
                 else:
                     # 如果沒記過，先顯示等待動畫，並加入待爬取清單
-                    ph.markdown(generate_card_html(row, '<span class="loading-text">⏳ 正在啟動爬蟲抓取圖片...</span>'), unsafe_allow_html=True)
+                    ph.markdown(generate_card_html(row, '<span class="loading-text">⏳ 圖片加載中...</span>'), unsafe_allow_html=True)
                     placeholders.append((ph, row))
 
             # 🌟 第二關：只有沒被記住的商品，才真的去啟動爬蟲
