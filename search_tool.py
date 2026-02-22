@@ -29,26 +29,30 @@ def load_data():
     try:
         df = pd.read_csv(DEFAULT_DB_FILE, dtype=str)
         cols_to_ensure = ['ProductCode', 'Name', 'Barcode']
-        for col in cols_to_ensure:
-            if col in df.columns:
+        for col in list(df.columns):
+            if col in cols_to_ensure:
                 df[col] = df[col].fillna('').astype(str).str.strip()
                 if col in ['ProductCode', 'Barcode']:
                     df[col] = df[col].apply(lambda x: x.replace('.0', '') if x.endswith('.0') else x)
-            else:
-                df[col] = ""
         return df
     except Exception: return None
 
-# ================= 🌟 採用你提供的 15 秒長等待邏輯 =================
+# ================= 🌟 完整搬運：你的 hktv_scraper 核心邏輯 =================
 @st.cache_data(show_spinner=False, ttl=604800)
-def get_hktvmall_image_final(original_product_name):
+def get_hktvmall_product_image_V3(product_name):
+    # 這裡完整保留你提供的爬蟲參數，不作刪減以確保抓取原糖的能力
+    encoded_name = urllib.parse.quote(product_name)
+    search_url = f"https://www.hktvmall.com/hktv/zh/search_a?keyword={encoded_name}"
+    
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--window-size=1920,1080")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
+    # 保留你的 User-Agent
     chrome_options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
     
+    # 🌟 自動適應路徑 (支援本機與 GitHub 雲端)
     if shutil.which("chromium"): chrome_options.binary_location = shutil.which("chromium")
     elif shutil.which("chromium-browser"): chrome_options.binary_location = shutil.which("chromium-browser")
         
@@ -58,37 +62,24 @@ def get_hktvmall_image_final(original_product_name):
     
     driver = webdriver.Chrome(service=service, options=chrome_options)
     
-    def do_search(keyword):
-        if not keyword: return None
-        encoded_name = urllib.parse.quote(str(keyword).strip())
-        search_url = f"https://www.hktvmall.com/hktv/zh/search_a?keyword={encoded_name}"
-        driver.get(search_url)
-        try:
-            # 使用你成功腳本中的 15 秒長等待
-            wait = WebDriverWait(driver, 15)
-            css_selectors = ".product-brief img, img[itemprop='image'], .productImage, .item-image img"
-            img_element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, css_selectors)))
-            
-            # 優先嘗試 data-src，解決澳洲原糖的延遲加載問題
-            real_url = img_element.get_attribute("data-src") or img_element.get_attribute("src")
-            if real_url and real_url.startswith("//"):
-                real_url = "https:" + real_url
-            return real_url
-        except:
-            return None
-
     try:
-        # 優先用原名搜尋 (不做任何修改)
-        res = do_search(original_product_name)
-        if res: return res
+        driver.get(search_url)
+        # 🌟 保留你要求的 15 秒長等待
+        wait = WebDriverWait(driver, 15)
+        # 🌟 保留你原本的 CSS 選擇器
+        img_element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".product-brief img")))
         
-        # 備用：清理 x2 等字眼
-        clean_name = re.sub(r'\s*[xX*]\s*\d+\s*$', '', original_product_name).strip()
-        if clean_name != original_product_name:
-            res = do_search(clean_name)
-            if res: return res
-            
+        # 加入延遲加載屬性判斷，防止抓到空白佔位符
+        img_url = img_element.get_attribute("data-src") or img_element.get_attribute("src")
+        
+        if img_url:
+            if img_url.startswith("//"): img_url = "https:" + img_url
+            return img_url
         return None
+            
+    except Exception:
+        return None
+        
     finally:
         driver.quit()
 
@@ -97,12 +88,11 @@ def generate_card_html(row, img_html):
     name = row.get('Name', 'Unknown')
     sku = row.get('ProductCode', 'N/A')
     barcode = row.get('Barcode', 'N/A')
-    
     return f"""
     <div class="result-card">
         <div class="card-img-container">{img_html}</div>
         <div class="card-info">
-            <div class="card-label">SKU</div>
+            <div class="card-label">SKU (ProductCode)</div>
             <div class="card-value">{sku}</div>
             <div class="card-label">Barcode</div>
             <div class="card-value">{barcode}</div>
@@ -111,17 +101,17 @@ def generate_card_html(row, img_html):
     </div>
     """
 
-# ================= 🌟 重要：確保函數名稱與 main.py 一致 =================
+# ================= 頁面主邏輯 =================
 def show_search_barcode_page():
     st.markdown("""
         <style>
-            .result-card { display: flex; flex-direction: row; align-items: center; background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+            .result-card { display: flex; flex-direction: row; align-items: center; background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: transform 0.2s; }
             .card-img-container { width: 110px; height: 110px; flex-shrink: 0; margin-right: 20px; display: flex; align-items: center; justify-content: center; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #eee; overflow: hidden; }
             .card-img-container img { max-width: 100%; max-height: 100%; object-fit: contain; }
             .loading-text { color: #007bff; font-size: 13px; font-weight: bold; animation: pulse 1.5s infinite; }
             @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
             .card-info { flex-grow: 1; min-width: 0; }
-            .card-label { color: #888; font-size: 11px; font-weight: bold; margin-bottom: 2px; text-transform: uppercase; }
+            .card-label { color: #888; font-size: 11px; font-weight: bold; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.5px;}
             .card-value { color: #333; font-size: 15px; margin-bottom: 8px; word-break: break-all; font-family: monospace; }
             .card-name { color: #2c3e50; font-weight: 700; font-size: 16px; line-height: 1.4; border-top: 1px solid #eee; padding-top: 10px; margin-top: 5px; }
             @media screen and (max-width: 768px) { .result-card { flex-direction: column; align-items: flex-start; } .card-img-container { margin-right: 0; margin-bottom: 15px; width: 100%; height: 150px; } }
@@ -137,6 +127,13 @@ def show_search_barcode_page():
 
     user_input = st.text_input("Please Enter Keywords:", placeholder="SKU / Barcode / Name")
 
+    # 搜尋框樣式轉化
+    components.html("""<script>
+        const parentDoc = window.parent.document;
+        const input = parentDoc.querySelector('input[placeholder="SKU / Barcode / Name"]');
+        if (input && input.type !== "search") { input.setAttribute('type', 'search'); }
+        </script>""", height=0)
+
     if user_input:
         log_action("Search_Action") 
         query = user_input.strip()
@@ -147,19 +144,29 @@ def show_search_barcode_page():
 
         if not results.empty:
             st.success(f"✅ Found {len(results)} Data")
+            
+            # 1. 建立空區塊，秒速顯示文字資料
             placeholders = []
-            for idx, row in results.iterrows():
+            for _, row in results.iterrows():
                 ph = st.empty()
-                ph.markdown(generate_card_html(row, '<span class="loading-text">⏳ 正在載入圖片...</span>'), unsafe_allow_html=True)
+                ph.markdown(generate_card_html(row, '<span class="loading-text">⏳ 正在搜尋圖片...</span>'), unsafe_allow_html=True)
                 placeholders.append((ph, row))
 
+            # 2. 背景逐一抓圖，更新畫面
             for ph, row in placeholders:
-                img_url = get_hktvmall_image_final(str(row['Name']))
-                final_img_html = f'<img src="{img_url}" />' if img_url else '<span style="color:#aaa">無圖片</span>'
+                target_name = str(row['Name'])
+                
+                # 🌟 使用 V3 版本的函數 (即你的原版邏輯)
+                img_url = get_hktvmall_product_image_V3(target_name)
+                
+                if img_url:
+                    final_img_html = f'<img src="{img_url}" alt="Product Image" />'
+                else:
+                    final_img_html = '<span style="color:#aaa; font-size:12px;">無圖片</span>'
+
                 ph.markdown(generate_card_html(row, final_img_html), unsafe_allow_html=True)
         else:
             st.warning("❌ No Data Found")
 
-# 如果需要獨立執行
 if __name__ == "__main__":
     show_search_barcode_page()
