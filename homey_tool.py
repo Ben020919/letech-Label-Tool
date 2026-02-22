@@ -3,7 +3,22 @@ from pypdf import PdfReader
 import pandas as pd
 import re
 import os
+import sys
+from pathlib import Path
 from usage_tracker import log_action
+
+# ================= 新增：強制路徑並匯入標籤格式模組 =================
+current_dir = Path(__file__).parent.absolute()
+if str(current_dir) not in sys.path:
+    sys.path.append(str(current_dir))
+
+try:
+    # 確保名稱與您的檔名完全一致 (repack_lable.py)
+    import repack_lable
+except ImportError as e:
+    st.error(f"❌ 模組匯入失敗: {e}")
+    repack_lable = None
+
 
 # ================= 設定固定主檔名稱 =================
 MASTER_FILE = "data.xlsx"
@@ -36,13 +51,79 @@ def load_master_data():
         return None
 
 def show_homey_page():
-    # ================= LOGO / BRANDING AREA =================
+    # ================= LOGO / BRANDING / CSS AREA =================
     st.markdown("""
         <style>
             .logo-container { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
             .logo-text { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 28px; font-weight: 800; color: #2c3e50; letter-spacing: -0.5px; margin-left: 10px; line-height: 1; }
             .logo-dot { color: #007bff; }
             .logo-sub { font-size: 14px; color: #888; font-weight: 400; margin-left: 15px; padding-left: 15px; border-left: 1px solid #ddd; height: 20px; line-height: 20px; }
+            
+            .grid-header { background-color: #f8f9fa; padding: 12px 10px; border-top: 2px solid #e9ecef; border-bottom: 2px solid #e9ecef; font-weight: 600; color: #495057; font-size: 14px; }
+            .grid-row { 
+                padding: 8px 0; border-bottom: 1px solid #f1f3f5; 
+                transition: background-color 0.2s; 
+                display: flex; align-items: center; height: 100%; 
+                min-height: 45px; 
+            }
+            .grid-row:hover { background-color: #f8f9fa; }
+            
+            div.stButton > button { 
+                width: 100px !important;       
+                height: 38px !important;      
+                min-height: 32px !important;
+                border-radius: 6px !important; 
+                padding: 0px !important;      
+                background-color: #e7f5ff !important; 
+                color: #004085 !important; 
+                border: none !important; 
+                display: flex !important; 
+                justify-content: center !important; 
+                align-items: center !important;
+                margin: 0 auto !important;    
+                transform: translateX(19px) !important;
+            }
+            div.stButton > button:hover { background-color: #d0ebff !important; color: #002752 !important; }
+            
+            div.stButton > button p {
+                font-size: 13px !important;
+                font-weight: bold !important;
+                line-height: 1 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            
+            div.stButton { width: 100% !important; display: flex !important; justify-content: center !important; margin: 0 !important; }
+
+            .cell-badge-normal { 
+                width: 100px !important;       
+                height: 37px !important;      
+                min-height: 32px !important;
+                border-radius: 6px !important; 
+                padding: 0px !important;
+                background-color: #eee !important; 
+                color: #666 !important; 
+                display: flex !important; 
+                justify-content: center !important; 
+                align-items: center !important;
+                margin: 0 auto !important;
+                font-size: 13px !important;    
+                font-weight: bold !important;
+                line-height: 1 !important;
+                transform: translateX(1px) !important;
+            }
+
+            .cell-text { font-size: 15px; color: #333; padding: 0 5px; width: 100%; text-align: left; }
+            .cell-qty { font-weight: bold; font-size: 15px; color: #000; text-align: center; display: block; width: 100%; }
+            div[data-testid="column"] { display: flex; flex-direction: column; justify-content: center; }
+            div[data-testid="column"]:nth-of-type(7) > div {
+                display: flex !important;
+                flex-direction: row !important;
+                justify-content: center !important; 
+                align-items: center !important;     
+                width: 100% !important;
+                height: 100% !important;
+            }
         </style>
         <div class="logo-container">
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#007bff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -129,17 +210,18 @@ def show_homey_page():
 
                 final_label = ""
                 if not barcode_val or barcode_val.strip() == "" or barcode_val == p_no:
-                    final_label = "需要Print SKU 當作Barcode"
+                    final_label = "Print SKU Barcode"
                 elif barcode_val and barcode_val[-1].isalpha():
-                    final_label = "需要Print Repack Lable"
+                    final_label = "Print Repack Lable"
                 elif excel_label and excel_label != "nan" and excel_label.strip() != "":
                     final_label = excel_label
                 else:
                     final_label = "普通Lable"
 
                 valid_rows.append({
+                    "id": f"{p_no}_{i}", 
                     "Product No": p_no,
-                    "Barcode": barcode_val if barcode_val else " (N/A) ",
+                    "Barcode": barcode_val if barcode_val else "(N/A)",
                     "商品名稱": p_name,
                     "數量": qty,
                     "Label Type": final_label
@@ -164,42 +246,70 @@ def show_homey_page():
                 if duplicate_count > 0:
                     st.warning(f"⚠️ 偵測到以下 Product No 有重複出現：{', '.join(duplicated_pnos)}")
 
-                # --- 樣式處理邏輯 ---
-                def highlight_row_and_duplicates(row):
-                    styles = [''] * len(row)
-                    v_label = str(row['Label Type']).lower()
-                    p_no = str(row['Product No'])
-                    
-                    # 1. 整行高亮 (黃色) - 用於特殊標籤偵測
-                    if any(k in v_label for k in ["repack", "sku", "蟲", "food"]):
-                        styles = ['background-color: #FFFFAA; color: #B30000; font-weight: bold;'] * len(row)
-                    
-                    # 2. 欄位高亮 (橙色) - 用於重複 SKU 偵測
-                    if p_no in duplicated_pnos:
-                        pno_idx = row.index.get_loc('Product No')
-                        styles[pno_idx] = 'background-color: #FFCC88; color: #CC5500; font-weight: bold; border: 1px solid #FFAA44;'
-                        
-                    return styles
-
-                # 設定序號從 1 開始
-                df_result.index = range(1, len(df_result) + 1)
-                df_result.index.name = "No."
-                
                 st.write("#### 📋 PDF Details")
                 
-                st.dataframe(
-                    df_result.style.apply(highlight_row_and_duplicates, axis=1),
-                    use_container_width=False,
-                    height=900,
-                    column_config={
-                        "Product No": st.column_config.TextColumn("Product No", width=120, help="橙色代表此編號重複出現"),
-                        "Barcode": st.column_config.TextColumn("Barcode", width=120),
-                        "商品名稱": st.column_config.TextColumn("商品名稱", width=650),
-                        "數量": st.column_config.NumberColumn("數量", width=40, format="%d"),
-                        "Label Type": st.column_config.TextColumn("Label Type (自動偵測)", width=225)
-                    }
-                )
+                # --- 自訂 Grid 表格渲染 ---
+                col_ratios = [0.5, 1.1, 1.1, 4.0, 0.8, 1.2, 1.2]
+                headers = ["No", "Product No", "Barcode", "Product Name", "Qty", "Label Type", "Action"]
                 
+                cols = st.columns(col_ratios)
+                for col, h in zip(cols, headers):
+                    col.markdown(f"<div class='grid-header'>{h}</div>", unsafe_allow_html=True)
+
+                for index, row in enumerate(valid_rows):
+                    p_no = row['Product No']
+                    barcode_clean = row['Barcode'].strip()
+                    
+                    pno_style = 'color: #CC5500; font-weight: bold;' if p_no in duplicated_pnos else ""
+                    
+                    highlight_style = ""
+                    v_label = str(row['Label Type']).lower()
+                    if any(k in v_label for k in ["repack", "sku", "蟲", "food"]):
+                        highlight_style = "background-color: #FFFFAA; color: #B30000; font-weight: bold;"
+
+                    with st.container():
+                        c0, c1, c2, c3, c4, c5, c6 = st.columns(col_ratios)
+                        
+                        c0.markdown(f"<div class='grid-row'><div class='cell-text' style='text-align:center; color:#888;'>{index+1}</div></div>", unsafe_allow_html=True)
+                        c1.markdown(f"<div class='grid-row'><div class='cell-text' style='{pno_style}'>{p_no}</div></div>", unsafe_allow_html=True)
+                        c2.markdown(f"<div class='grid-row'><div class='cell-text'>{row['Barcode']}</div></div>", unsafe_allow_html=True)
+                        c3.markdown(f"<div class='grid-row' style='{highlight_style}'><div class='cell-text'>{row['商品名稱']}</div></div>", unsafe_allow_html=True)
+                        c4.markdown(f"<div class='grid-row'><span class='cell-qty'>{row['數量']}</span></div>", unsafe_allow_html=True)
+                        c5.markdown(f"<div class='grid-row' style='{highlight_style}'><div class='cell-text'>{row['Label Type']}</div></div>", unsafe_allow_html=True)
+                        
+                        with c6:
+                            # ====== Action 列印邏輯 ======
+                            needs_print = False
+                            print_barcode = barcode_clean # 預設使用原本的 Barcode
+                            
+                            # 1. 如果完全沒有 Barcode 或顯示為 (N/A) -> 需要打印，並將 Product No 當作 Barcode
+                            if not barcode_clean or barcode_clean == "(N/A)":
+                                needs_print = True
+                                print_barcode = p_no 
+                            # 2. 如果 Barcode 結尾有英文字母，或是 Barcode 數字與 Product No 相同 -> 需要打印
+                            elif re.search(r'[a-zA-Z]$', barcode_clean) or barcode_clean == p_no:
+                                needs_print = True
+                            
+                            row_wrapper_style = "display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;"
+                            
+                            if needs_print:
+                                if st.button("打印", key=f"btn_hm_{index}"):
+                                    # 記錄使用次數
+                                    log_action("Homey_Print")
+
+                                    if repack_lable:
+                                        final_html = repack_lable.create_repack_label_html(
+                                            row['商品名稱'], 
+                                            print_barcode, # 傳入計算過後的正確條碼 (可能是原始 Barcode，也可能是 Product No)
+                                            row['數量']
+                                        )
+                                        repack_lable.js_instant_print(final_html)
+                                    else:
+                                        st.error("找不到 repack_lable.py")
+                            else:
+                                st.markdown(f"<div style='{row_wrapper_style}'><div class='cell-badge-normal'>普通注意</div></div>", unsafe_allow_html=True)
+
+                st.markdown("---")
                 csv = df_result.to_csv(index=True).encode('utf-8-sig')
                 st.download_button(
                     label="📥 下載處理結果 (CSV)",
