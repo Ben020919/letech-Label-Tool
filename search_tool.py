@@ -56,9 +56,7 @@ def save_image_cache(cache_dict):
             json.dump(cache_dict, f, ensure_ascii=False)
     except Exception as e: print(f"記憶庫儲存失敗: {e}")
 
-# ================= 3. 核心爬蟲 (記憶體極致優化版) =================
-
-# 🌟 新增：統一的瀏覽器啟動器 (只啟動一次)
+# ================= 3. 核心爬蟲 (包車模式) =================
 def init_driver():
     chrome_options = Options()
     chrome_options.add_argument("--headless")
@@ -67,7 +65,6 @@ def init_driver():
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--disable-features=NetworkService")
     chrome_options.add_argument("--window-size=1920x1080")
-    # 極致省記憶體設定
     chrome_options.add_argument("--disable-extensions")
     chrome_options.add_argument("--disable-infobars")
     
@@ -89,9 +86,8 @@ def init_driver():
     )
     return driver
 
-# 🌟 修改：不再自己開關瀏覽器，而是接收上面那台「包車」來用
 def get_hktvmall_image_final(product_name, driver):
-    time.sleep(1.5) # 模擬人類停頓
+    time.sleep(1.5) 
     encoded_name = urllib.parse.quote(str(product_name).strip())
     search_url = f"https://www.hktvmall.com/hktv/zh/search_a?keyword={encoded_name}"
     
@@ -126,14 +122,18 @@ def show_search_barcode_page():
     st.markdown("""
         <style>
             .result-card { display: flex; flex-direction: row; align-items: center; background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: transform 0.2s; }
-            .card-img-container { width: 110px; height: 110px; flex-shrink: 0; margin-right: 20px; display: flex; align-items: center; justify-content: center; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #eee; overflow: hidden; }
+            .card-img-container { width: 110px; height: 110px; flex-shrink: 0; margin-right: 20px; display: flex; align-items: center; justify-content: center; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #eee; overflow: hidden; flex-direction: column; gap: 8px; }
             .card-img-container img { max-width: 100%; max-height: 100%; object-fit: contain; }
-            .loading-text { color: #007bff; font-size: 13px; font-weight: bold; animation: pulse 1.5s infinite; }
+            .loading-text { color: #007bff; font-size: 13px; font-weight: bold; animation: pulse 1.5s infinite; text-align: center; }
             @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
             .card-info { flex-grow: 1; min-width: 0; }
             .card-label { color: #888; font-size: 11px; font-weight: bold; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.5px;}
             .card-value { color: #333; font-size: 15px; margin-bottom: 8px; word-break: break-all; font-family: monospace; }
             .card-name { color: #2c3e50; font-weight: 700; font-size: 16px; line-height: 1.4; border-top: 1px solid #eee; padding-top: 10px; margin-top: 5px; }
+            .fallback-btn { background-color: #007bff; color: white !important; padding: 6px 10px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; display: inline-block; text-align: center; border: none; cursor: pointer; }
+            .fallback-btn:hover { background-color: #0056b3; }
+            .btn-orange { background-color: #e67e22; }
+            .btn-orange:hover { background-color: #d35400; }
             @media screen and (max-width: 768px) { .result-card { flex-direction: column; align-items: flex-start; } .card-img-container { margin-right: 0; margin-bottom: 15px; width: 100%; height: 150px; } }
         </style>
     """, unsafe_allow_html=True)
@@ -169,48 +169,46 @@ def show_search_barcode_page():
             cache_updated = False
             placeholders = []
             
-            # 第一階段：先建立所有的卡片空殼
             for idx, row in results.iterrows():
                 ph = st.empty()
                 placeholders.append((ph, row))
 
-            # 🌟 第二階段：判斷是不是有需要真正去爬網頁的商品
             items_to_scrape = [row for ph, row in placeholders if str(row['Name']) not in image_cache]
             driver = None
             
             if items_to_scrape:
                 try:
-                    # 只有在真的需要抓新圖的時候，才叫一台「包車 (瀏覽器)」過來
                     driver = init_driver()
                 except Exception as e:
-                    st.error("伺服器記憶體過載，請稍後再試或清除記憶。")
+                    pass # 如果啟動失敗，下面會自動產生手動搜尋按鈕
 
-            # 第三階段：依序填入圖片 (讀取記憶 or 使用包車去抓)
             for ph, row in placeholders:
                 target_name = str(row['Name'])
                 
-                # 1. 記憶庫裡有，直接秒出！
+                # 預先準備好 HKTVmall 的手動搜尋網址
+                encoded_target_name = urllib.parse.quote(target_name)
+                manual_search_url = f"https://www.hktvmall.com/hktv/zh/search_a?keyword={encoded_target_name}"
+                
+                # 1. 記憶庫有，秒出！
                 if target_name in image_cache:
                     ph.markdown(generate_card_html(row, image_cache[target_name]), unsafe_allow_html=True)
                 
-                # 2. 記憶庫沒有，開始抓
+                # 2. 記憶庫沒有，開始處理
                 else:
                     if driver is None:
-                        # 瀏覽器啟動失敗的防呆機制
-                        final_img_html = '<span style="color:red; font-size:11px; text-align:center;">瀏覽器啟動失敗</span>'
+                        # 瀏覽器啟動失敗，直接給搜尋按鈕
+                        final_img_html = f'<span style="color:red; font-size:11px; text-align:center;">瀏覽器啟動失敗</span><a href="{manual_search_url}" target="_blank" class="fallback-btn">🔗 手動搜尋</a>'
                         ph.markdown(generate_card_html(row, final_img_html), unsafe_allow_html=True)
                         continue
                         
-                    ph.markdown(generate_card_html(row, '<span class="loading-text">⏳ 正在抓取圖片...</span>'), unsafe_allow_html=True)
+                    ph.markdown(generate_card_html(row, '<span class="loading-text">⏳ 抓圖中...</span>'), unsafe_allow_html=True)
                     
                     img_url = get_hktvmall_image_final(target_name, driver)
                     
                     if img_url and img_url.startswith("ERROR:"):
-                         error_msg = img_url.replace("ERROR:", "")
-                         if "TimeoutException" in error_msg:
-                             final_img_html = '<span style="color:red; font-size:11px; text-align:center;">15秒超時<br>(被防護阻擋)</span>'
-                         else:
-                             final_img_html = '<span style="color:red; font-size:11px; text-align:center;">尋找圖片失敗</span>'
+                         # 爬蟲被擋住了，給「前往 HKTVmall」按鈕
+                         final_img_html = f'<span style="color:red; font-size:11px; text-align:center;">防護阻擋</span><a href="{manual_search_url}" target="_blank" class="fallback-btn">🔗 手動搜尋</a>'
+                         
                     elif img_url:
                         try:
                             headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
@@ -224,18 +222,18 @@ def show_search_barcode_page():
                             elif ".webp" in img_url.lower(): mime_type = "image/webp"
                             
                             final_img_html = f'<img src="data:{mime_type};base64,{b64_img}" alt="Product Image" />'
-                            
-                            # 寫進記憶庫
                             image_cache[target_name] = final_img_html
                             cache_updated = True
+                            
                         except Exception as e:
-                            final_img_html = f'<span style="color:red; font-size:12px;">防盜鏈阻擋下載</span>'
+                            # 找到了網址但無法下載 (防盜鏈)，給「開啟原圖」按鈕
+                            final_img_html = f'<span style="color:#d35400; font-size:11px; text-align:center;">防盜鏈阻擋下載</span><a href="{img_url}" target="_blank" class="fallback-btn btn-orange">🖼️ 開啟原圖</a>'
                     else:
-                        final_img_html = '<span style="color:#aaa; font-size:12px;">無圖片</span>'
+                        # 真的完全沒圖片，給「手動搜尋」按鈕
+                        final_img_html = f'<span style="color:#aaa; font-size:11px; text-align:center;">無圖片</span><a href="{manual_search_url}" target="_blank" class="fallback-btn">🔗 手動搜尋</a>'
 
                     ph.markdown(generate_card_html(row, final_img_html), unsafe_allow_html=True)
             
-            # 🌟 任務全部結束，把這台唯一的「包車」徹底關閉銷毀，釋放珍貴的記憶體！
             if driver:
                 try: driver.quit()
                 except: pass
