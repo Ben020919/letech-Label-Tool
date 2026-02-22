@@ -117,10 +117,13 @@ def show_anymall_page():
             }
             .grid-row:hover { background-color: #f8f9fa; }
             
+            /* ====== 【對齊修正區】 ====== */
+            
+            /* 1. 打印按鈕 (藍色) */
             div.stButton > button { 
                 width: 100px !important;       
                 height: 38px !important;      
-                min-height: 32px !important;
+                min-height: 38px !important;
                 border-radius: 6px !important; 
                 padding: 0px !important;      
                 background-color: #e7f5ff !important; 
@@ -130,7 +133,7 @@ def show_anymall_page():
                 justify-content: center !important; 
                 align-items: center !important;
                 margin: 0 auto !important;    
-                transform: translateX(19px) !important;
+                transform: translateX(20px) !important; /* 統一往右平移 20px */
             }
             div.stButton > button:hover { background-color: #d0ebff !important; color: #002752 !important; }
             
@@ -142,12 +145,22 @@ def show_anymall_page():
                 padding: 0 !important;
             }
             
-            div.stButton { width: 100% !important; display: flex !important; justify-content: center !important; margin: 0 !important; }
+            /* 按鈕的外層容器：確保高度與 .grid-row 一致且置中 */
+            div.stButton { 
+                width: 100% !important; 
+                display: flex !important; 
+                justify-content: center !important; 
+                align-items: center !important;
+                height: 100% !important;
+                min-height: 45px !important;
+                margin: 0 !important; 
+            }
 
+            /* 2. 普通注意標籤 (灰色) */
             .cell-badge-normal { 
                 width: 100px !important;       
-                height: 37px !important;      
-                min-height: 32px !important;
+                height: 38px !important; /* 修正：統一為 38px */
+                min-height: 38px !important;
                 border-radius: 6px !important; 
                 padding: 0px !important;
                 background-color: #eee !important; 
@@ -159,12 +172,13 @@ def show_anymall_page():
                 font-size: 13px !important;    
                 font-weight: bold !important;
                 line-height: 1 !important;
-                transform: translateX(1px) !important;
+                transform: translateX(20px) !important; /* 修正：統一往右平移 20px */
             }
 
             .cell-text { font-size: 15px; color: #333; padding: 0 5px; width: 100%; text-align: left; }
             .cell-qty { font-weight: bold; font-size: 15px; color: #000; text-align: center; display: block; width: 100%; }
             div[data-testid="column"] { display: flex; flex-direction: column; justify-content: center; }
+            
             div[data-testid="column"]:nth-of-type(6) > div {
                 display: flex !important;
                 flex-direction: row !important;
@@ -267,7 +281,7 @@ def show_anymall_page():
 
             df = pd.DataFrame(valid_rows)
 
-            # --- 重複檢查 ---
+            # --- 重複檢查邏輯 ---
             duplicated_mask = df.duplicated(subset=['Product No'], keep=False)
             duplicated_pnos = df[duplicated_mask]['Product No'].unique().tolist()
             duplicate_count = len(duplicated_pnos)
@@ -326,7 +340,8 @@ def show_anymall_page():
                         if barcode_clean and barcode_clean != "(N/A)" and barcode_clean == p_no:
                             needs_print = True
                         
-                        row_wrapper_style = "display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;"
+                        # 確保標籤的 wrapper 高度與 .grid-row 一致
+                        row_wrapper_style = "display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; min-height: 45px;"
                         
                         if needs_print:
                             if st.button("打印", key=f"btn_am_{row['id']}_{index}"):
