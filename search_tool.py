@@ -37,13 +37,14 @@ def load_data():
         return df
     except Exception: return None
 
-# ================= 100% 純 HKTVmall 爬蟲 (文字秒出，圖片背景抓) =================
+# ================= 100% 純 HKTVmall 爬蟲 (V2版：強制刷新舊記憶) =================
+# 🌟 函數名稱改為 v2，徹底打破 Streamlit 的舊快取！
 @st.cache_data(show_spinner=False, ttl=86400)
-def get_hktvmall_image_url(original_name):
-    # 🌟 1. 基礎清理：精準切掉結尾的 "x 2", "x10" 等數量干擾
+def get_hktvmall_image_v2(original_name):
+    # 1. 基礎清理：精準切掉結尾的 "x 2", "x10" 等數量干擾
     clean_name = re.sub(r'\s*[xX*]\s*\d+\s*$', '', original_name).strip()
     
-    # 🌟 2. 啟動瀏覽器設定 (針對 HKTVmall 優化)
+    # 2. 啟動瀏覽器設定 (針對 HKTVmall 優化)
     chrome_options = Options()
     chrome_options.add_argument("--headless=new") 
     chrome_options.add_argument("--no-sandbox") 
@@ -104,7 +105,7 @@ def get_hktvmall_image_url(original_name):
             res = do_search(step5)
             if res: return res
                 
-        # 【波段 6】：純中文精準打擊 (解決特殊英文品牌干擾)
+        # 【波段 6】：純中文精準打擊 
         chinese_chars = "".join(re.findall(r'[\u4e00-\u9fff]+', step5))
         if len(chinese_chars) >= 3: 
             res = do_search(chinese_chars)
@@ -214,15 +215,14 @@ def show_search_barcode_page():
             for ph, row in placeholders:
                 original_product_name = str(row['Name'])
                 
-                # 去 HKTVmall 找圖 (約需 2~3 秒)
-                img_url = get_hktvmall_image_url(original_product_name)
+                # 🌟 改呼叫 V2 版本的函數，徹底甩開舊的星巴克快取！
+                img_url = get_hktvmall_image_v2(original_product_name)
                 
                 if img_url:
                     final_img_html = f'<img src="{img_url}" alt="Product Image" />'
                 else:
                     final_img_html = '<span class="no-img-text">暫無圖片</span>'
 
-                # 抓到圖後，無縫替換掉原本的「⏳ 載入圖片中...」
                 ph.markdown(generate_card_html(row, final_img_html), unsafe_allow_html=True)
 
         else:
