@@ -14,47 +14,47 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 import streamlit.components.v1 as components
 
-# ================= 匯入追蹤工具 =================
+# ================= 1. 匯入追蹤工具 =================
 try:
     from usage_tracker import log_action 
 except ImportError:
     def log_action(action_name): pass
 
-# ================= 設定固定檔案名稱 =================
+# ================= 2. 設定固定檔案名稱 =================
 DEFAULT_DB_FILE = "Barcode.xlsx.csv"
 
 @st.cache_data
 def load_data():
     if not os.path.exists(DEFAULT_DB_FILE): return None
     try:
+        # 使用 dtype=str 避免 mixed types 警告
         df = pd.read_csv(DEFAULT_DB_FILE, dtype=str)
         cols_to_ensure = ['ProductCode', 'Name', 'Barcode']
         for col in list(df.columns):
             if col in cols_to_ensure:
                 df[col] = df[col].fillna('').astype(str).str.strip()
+                # 統一清除數字欄位的 .0
                 if col in ['ProductCode', 'Barcode']:
                     df[col] = df[col].apply(lambda x: x.replace('.0', '') if x.endswith('.0') else x)
         return df
     except Exception: return None
 
-# ================= 🌟 完整搬運：你的 hktv_scraper 核心邏輯 =================
+# ================= 3. 核心爬蟲：整合原糖與檸檬飲品邏輯 =================
 @st.cache_data(show_spinner=False, ttl=604800)
-def get_hktvmall_product_image_V3(product_name):
-    # 這裡完整保留你提供的爬蟲參數，不作刪減以確保抓取原糖的能力
-    encoded_name = urllib.parse.quote(product_name)
-    search_url = f"https://www.hktvmall.com/hktv/zh/search_a?keyword={encoded_name}"
-    
+def get_hktvmall_image_final(original_product_name):
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--window-size=1920,1080")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
-    # 保留你的 User-Agent
+    # 使用你腳本中成功的 User-Agent
     chrome_options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
     
-    # 🌟 自動適應路徑 (支援本機與 GitHub 雲端)
-    if shutil.which("chromium"): chrome_options.binary_location = shutil.which("chromium")
-    elif shutil.which("chromium-browser"): chrome_options.binary_location = shutil.which("chromium-browser")
+    # 自動適應路徑 (支援本地 Mac 與 GitHub 雲端)
+    if shutil.which("chromium"): 
+        chrome_options.binary_location = shutil.which("chromium")
+    elif shutil.which("chromium-browser"): 
+        chrome_options.binary_location = shutil.which("chromium-browser")
         
     driver_path = shutil.which("chromedriver") or shutil.which("chromedriver-linux64")
     service = Service(driver_path) if driver_path else Service(ChromeDriverManager().install())
@@ -62,28 +62,43 @@ def get_hktvmall_product_image_V3(product_name):
     
     driver = webdriver.Chrome(service=service, options=chrome_options)
     
-    try:
+    def do_search(keyword):
+        if not keyword: return None
+        encoded_name = urllib.parse.quote(str(keyword).strip())
+        search_url = f"https://www.hktvmall.com/hktv/zh/search_a?keyword={encoded_name}"
         driver.get(search_url)
-        # 🌟 保留你要求的 15 秒長等待
-        wait = WebDriverWait(driver, 15)
-        # 🌟 保留你原本的 CSS 選擇器
-        img_element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".product-brief img")))
-        
-        # 加入延遲加載屬性判斷，防止抓到空白佔位符
-        img_url = img_element.get_attribute("data-src") or img_element.get_attribute("src")
-        
-        if img_url:
-            if img_url.startswith("//"): img_url = "https:" + img_url
-            return img_url
-        return None
+        try:
+            # 🌟 保留你要求的 15 秒長等待，確保澳洲原糖加載成功
+            wait = WebDriverWait(driver, 15)
+            # 🌟 強化選擇器：涵蓋你原本的路徑以及可能的詳情頁路徑
+            css_selectors = ".product-brief img, img[itemprop='image'], .productImage, .item-image img, [class*='product-img'] img"
+            img_element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, css_selectors)))
             
-    except Exception:
-        return None
+            # 抓取真實網址 (優先考慮 data-src 防止抓到佔位圖)
+            real_url = img_element.get_attribute("data-src") or img_element.get_attribute("src")
+            if real_url and real_url.startswith("//"):
+                real_url = "https:" + real_url
+            return real_url
+        except:
+            return None
+
+    try:
+        # 第一波：完整原名搜尋 (保證澳洲原糖精準命中)
+        res = do_search(original_product_name)
+        if res: return res
         
+        # 第二波：自動切除數量標記 (保證檸檬飲品 x 6 類商品命中)
+        # 正則表達式：切掉結尾的 " x 6", "x12", "*2" 等
+        clean_name = re.sub(r'\s*[xX*]\s*\d+\s*$', '', original_product_name).strip()
+        if clean_name != original_product_name:
+            res = do_search(clean_name)
+            if res: return res
+            
+        return None
     finally:
         driver.quit()
 
-# ================= HTML 卡片產生器 =================
+# ================= 4. HTML 卡片渲染器 =================
 def generate_card_html(row, img_html):
     name = row.get('Name', 'Unknown')
     sku = row.get('ProductCode', 'N/A')
@@ -101,8 +116,9 @@ def generate_card_html(row, img_html):
     </div>
     """
 
-# ================= 頁面主邏輯 =================
+# ================= 5. 搜尋頁面主邏輯 =================
 def show_search_barcode_page():
+    # 注入 CSS 樣式
     st.markdown("""
         <style>
             .result-card { display: flex; flex-direction: row; align-items: center; background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: transform 0.2s; }
@@ -122,12 +138,15 @@ def show_search_barcode_page():
     
     df = load_data()
     if df is None:
-        st.error("❌ 找不到 Barcode.xlsx.csv")
+        st.error("❌ 找不到 Barcode.xlsx.csv 檔案")
         return
 
+    st.caption(f"📚 Inventory Ready：Total {len(df)} Data")
+    
+    # 搜尋輸入框
     user_input = st.text_input("Please Enter Keywords:", placeholder="SKU / Barcode / Name")
 
-    # 搜尋框樣式轉化
+    # 搜尋框自動聚焦與類型轉換
     components.html("""<script>
         const parentDoc = window.parent.document;
         const input = parentDoc.querySelector('input[placeholder="SKU / Barcode / Name"]');
@@ -145,28 +164,28 @@ def show_search_barcode_page():
         if not results.empty:
             st.success(f"✅ Found {len(results)} Data")
             
-            # 1. 建立空區塊，秒速顯示文字資料
+            # 1. 秒速顯示文字資料佔位符
             placeholders = []
-            for _, row in results.iterrows():
+            for idx, row in results.iterrows():
                 ph = st.empty()
                 ph.markdown(generate_card_html(row, '<span class="loading-text">⏳ 正在搜尋圖片...</span>'), unsafe_allow_html=True)
                 placeholders.append((ph, row))
 
-            # 2. 背景逐一抓圖，更新畫面
+            # 2. 背景逐一爬取圖片
             for ph, row in placeholders:
                 target_name = str(row['Name'])
-                
-                # 🌟 使用 V3 版本的函數 (即你的原版邏輯)
-                img_url = get_hktvmall_product_image_V3(target_name)
+                img_url = get_hktvmall_image_final(target_name)
                 
                 if img_url:
                     final_img_html = f'<img src="{img_url}" alt="Product Image" />'
                 else:
                     final_img_html = '<span style="color:#aaa; font-size:12px;">無圖片</span>'
 
+                # 更新 UI 顯示圖片
                 ph.markdown(generate_card_html(row, final_img_html), unsafe_allow_html=True)
         else:
             st.warning("❌ No Data Found")
 
+# 獨立執行判斷
 if __name__ == "__main__":
     show_search_barcode_page()
