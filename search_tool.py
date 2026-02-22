@@ -5,6 +5,8 @@ import urllib.parse
 import re
 import shutil
 import time
+import base64
+import requests
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -68,13 +70,12 @@ def get_hktvmall_image_final(original_product_name):
         search_url = f"https://www.hktvmall.com/hktv/zh/search_a?keyword={encoded_name}"
         driver.get(search_url)
         try:
-            # 🌟 保留你要求的 15 秒長等待，確保澳洲原糖加載成功
-            wait = WebDriverWait(driver, 10)
-            # 🌟 強化選擇器：涵蓋你原本的路徑以及可能的詳情頁路徑
-            css_selectors = ".product-brief img, img[itemprop='image'], .productImage, .item-image img, [class*='product-img'] img"
-            img_element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, css_selectors)))
+            # 🌟 還原為你原本成功的 15 秒長等待
+            wait = WebDriverWait(driver, 15)
+            # 🌟 回歸最單純且精準的選擇器，避免抓到無關圖片
+            img_element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".product-brief img")))
             
-            # 抓取真實網址 (優先考慮 data-src 防止抓到佔位圖)
+            # 優先抓取真實網址，兼容 data-src 與 src
             real_url = img_element.get_attribute("data-src") or img_element.get_attribute("src")
             if real_url and real_url.startswith("//"):
                 real_url = "https:" + real_url
@@ -171,13 +172,31 @@ def show_search_barcode_page():
                 ph.markdown(generate_card_html(row, '<span class="loading-text">⏳ 正在搜尋圖片...</span>'), unsafe_allow_html=True)
                 placeholders.append((ph, row))
 
-            # 2. 背景逐一爬取圖片
+            # 2. 背景逐一爬取圖片並轉換為 Base64
             for ph, row in placeholders:
                 target_name = str(row['Name'])
                 img_url = get_hktvmall_image_final(target_name)
                 
                 if img_url:
-                    final_img_html = f'<img src="{img_url}" alt="Product Image" />'
+                    try:
+                        # 🌟 模擬正常瀏覽器發送請求，繞過 HKTVmall 的防盜鏈
+                        headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+                        img_response = requests.get(img_url, headers=headers, timeout=10)
+                        img_response.raise_for_status()
+                        
+                        # 🌟 將圖片轉換為 Base64 編碼，直接嵌入 HTML
+                        b64_img = base64.b64encode(img_response.content).decode('utf-8')
+                        
+                        # 粗略判斷圖片格式
+                        mime_type = "image/jpeg"
+                        if ".png" in img_url.lower(): mime_type = "image/png"
+                        elif ".gif" in img_url.lower(): mime_type = "image/gif"
+                        elif ".webp" in img_url.lower(): mime_type = "image/webp"
+                        
+                        final_img_html = f'<img src="data:{mime_type};base64,{b64_img}" alt="Product Image" />'
+                    except Exception as e:
+                        print(f"下載圖片失敗: {e}")
+                        final_img_html = '<span style="color:#aaa; font-size:12px;">圖片被阻擋</span>'
                 else:
                     final_img_html = '<span style="color:#aaa; font-size:12px;">無圖片</span>'
 
