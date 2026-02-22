@@ -15,7 +15,6 @@ if str(current_dir) not in sys.path:
     sys.path.append(str(current_dir))
 
 try:
-    # 確保名稱與您的檔名完全一致 (repack_lable.py)
     import repack_lable
 except ImportError as e:
     st.error(f"❌ 模組匯入失敗: {e}")
@@ -49,7 +48,6 @@ def load_master_data():
 # ================= 2. 主頁面顯示 (由 main.py 呼叫) =================
 
 def show_hellobear_page():
-    # 保持原本所有的 CSS 樣式、按鈕幾何形狀、寬度、高度與位移
     st.markdown("""
         <style>
             .logo-container { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
@@ -145,7 +143,6 @@ def show_hellobear_page():
     uploaded_file = st.file_uploader("Please Upload Hello bear 3PL (PDF)", type=["pdf"], key="hellobear_pdf")
 
     if uploaded_file:
-        # ⭐ 記錄使用次數 (避免重複記錄)
         if 'last_hb_file' not in st.session_state or st.session_state.last_hb_file != uploaded_file.name:
             st.session_state.last_hb_file = uploaded_file.name
             log_action("HelloBear_Upload")
@@ -211,7 +208,7 @@ def show_hellobear_page():
                 elif excel_label and excel_label != "nan" and excel_label.strip() != "":
                     final_label = excel_label
                 else:
-                    final_label = "普通Lable"
+                    final_label = "普通Label"
 
                 valid_rows.append({
                     "id": f"{p_no}_{i}", 
@@ -230,7 +227,6 @@ def show_hellobear_page():
                 duplicated_pnos = df_result[df_result.duplicated('Product No', keep=False)]['Product No'].unique().tolist()
                 duplicate_count = len(duplicated_pnos)
 
-                # --- [新增：重新加入統計指標區塊] ---
                 c1, c2, c3, c4 = st.columns(4)
                 c1.metric("📄 Original Pages", total_pages)
                 c2.metric("✅ Valid Pages", valid_page_count)
@@ -280,7 +276,6 @@ def show_hellobear_page():
                             
                             if needs_print:
                                 if st.button("打印", key=f"btn_hb_{index}"):
-                                    # ⭐ 記錄使用次數 (Hello Bear 列印)
                                     log_action("HelloBear_Print")
 
                                     if repack_lable:
@@ -291,9 +286,10 @@ def show_hellobear_page():
                                         )
                                         repack_lable.js_instant_print(final_html)
                                     else:
-                                        st.error("找不到 repack_label.py")
+                                        st.error("找不到 repack_lable.py")
                             else:
-                                st.markdown(f"<div style='{row_wrapper_style}'><div class='cell-badge-normal'>普通注意</div></div>", unsafe_allow_html=True)
+                                # 這裡改為顯示實際的 Label Type 文字！不再是寫死「普通注意」
+                                st.markdown(f"<div style='{row_wrapper_style}'><div class='cell-badge-normal'>{row['Label Type']}</div></div>", unsafe_allow_html=True)
 
                 st.markdown("---")
                 csv = df_result.to_csv(index=True).encode('utf-8-sig')
