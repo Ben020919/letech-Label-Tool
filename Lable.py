@@ -1,10 +1,8 @@
-# Lable.py (模組化版本)
+# Lable.py (模組化版本 - 更新整合版)
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import mm
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import Paragraph, Table, TableStyle
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
 from io import BytesIO
 import pandas as pd
 import base64
@@ -12,7 +10,6 @@ import base64
 # ================= 1. 精確設定 (固定參數) =================
 LABEL_WIDTH = 70 * mm
 LABEL_HEIGHT = 50 * mm
-# ... (保留您原本所有的 FIXED_ 參數) ...
 FIXED_BC_X = 2
 FIXED_BC_Y = 47
 FIXED_BC_FONT = 5
@@ -55,8 +52,6 @@ FIXED_BB_FS = 4.50
 
 # ================= 2. 畫布生成函數 (單頁) =================
 def create_single_label_canvas(c, barcode_text, desc_text, nutri_dict, ing_text, mfr_text, date_format, font_name="Helvetica"):
-    # 注意：這裡我們接受一個已經建立好的 canvas 物件 'c'
-    
     # --- 1. Barcode ---
     if barcode_text:
         bc_font = "Helvetica-Bold" if font_name == "Helvetica" else font_name
@@ -163,3 +158,84 @@ def create_single_label_canvas(c, barcode_text, desc_text, nutri_dict, ing_text,
     p_bb.wrapOn(c, FIXED_BB_W * mm, LABEL_HEIGHT)
     w, h = p_bb.wrap(FIXED_BB_W * mm, LABEL_HEIGHT)
     p_bb.drawOn(c, FIXED_BB_X * mm, FIXED_BB_Y * mm - h)
+
+# ================= 3. 新增：匯出 HTML 用於列印 =================
+def generate_food_label_html(item_data, master_df_row, qty):
+    """
+    產生包含 PDF Base64 內容的 HTML，透過 iframe 直接調用瀏覽器列印
+    """
+    buffer = BytesIO()
+    
+    # 建立 ReportLab Canvas
+    c = canvas.Canvas(buffer, pagesize=(LABEL_WIDTH, LABEL_HEIGHT))
+    
+    # 準備資料
+    barcode_text = item_data.get('Barcode', '')
+    desc_text = item_data.get('商品名稱', '')
+    date_format = "YY-MM-DD" # 若有特定欄位可替換
+
+    # 從 master_df 讀取營養標籤資料
+    nutri_dict = {}
+    ing_text = ""
+    mfr_text = ""
+
+    if master_df_row is not None and not master_df_row.empty:
+        row = master_df_row.iloc[0]
+        nutri_dict = {
+            'Serving_Size': row.get('Serving_Size', ''),
+            'Energy': row.get('Energy', ''),
+            'Protein': row.get('Protein', ''),
+            'Total_Fat': row.get('Total_Fat', ''),
+            'Sat_Fat': row.get('Sat_Fat', ''),
+            'Trans_Fat': row.get('Trans_Fat', ''),
+            'Carb': row.get('Carb', ''),
+            'Sugar': row.get('Sugar', ''),
+            'Sodium': row.get('Sodium', ''),
+            'Net_Content': row.get('Net_Content', ''),
+            'Country_Of_Origin': row.get('Country_Of_Origin', '')
+        }
+        ing_text = row.get('Ingredients', '')
+        mfr_text = f"{row.get('Madeby_Prefix', '')} {row.get('Madeby', '')}".strip()
+
+    # 根據數量生成多頁
+    for _ in range(qty):
+        create_single_label_canvas(
+            c=c, 
+            barcode_text=barcode_text, 
+            desc_text=desc_text, 
+            nutri_dict=nutri_dict, 
+            ing_text=ing_text, 
+            mfr_text=mfr_text, 
+            date_format=date_format
+        )
+        c.showPage()
+    
+    c.save()
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+
+    # 轉成 Base64 HTML 供列印使用
+    b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
+    
+    html = f"""
+    <html>
+        <head>
+            <style>
+                body, html {{ margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }}
+            </style>
+        </head>
+        <body>
+            <iframe id="pdfFrame" src="data:application/pdf;base64,{b64_pdf}" style="width:100%; height:100%; border:none;"></iframe>
+            <script>
+                window.onload = function() {{
+                    var iframe = document.getElementById('pdfFrame');
+                    iframe.contentWindow.focus();
+                    iframe.contentWindow.print();
+                    // 延遲關閉視窗，確保列印對話框彈出
+                    setTimeout(function() {{ window.close(); }}, 1000);
+                }};
+            </script>
+        </body>
+    </html>
+    """
+    return html
