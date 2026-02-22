@@ -69,7 +69,7 @@ def get_hktvmall_image_final(original_product_name):
         driver.get(search_url)
         try:
             # 🌟 保留你要求的 15 秒長等待，確保澳洲原糖加載成功
-            wait = WebDriverWait(driver, 2)
+            wait = WebDriverWait(driver, 10)
             # 🌟 強化選擇器：涵蓋你原本的路徑以及可能的詳情頁路徑
             css_selectors = ".product-brief img, img[itemprop='image'], .productImage, .item-image img, [class*='product-img'] img"
             img_element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, css_selectors)))
