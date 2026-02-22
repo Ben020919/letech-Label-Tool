@@ -37,6 +37,8 @@ def load_master_data():
     try:
         df = pd.read_excel(MASTER_FILE)
         df.columns = [str(c).strip() for c in df.columns]
+        
+        # 保留所有欄位供 Food Lable 使用，但統一小寫檢查索引
         return df
     except Exception as e:
         st.error(f"❌ 讀取 {MASTER_FILE} 失敗: {e}")
@@ -45,6 +47,7 @@ def load_master_data():
 def get_master_row(master_df, p_no):
     """根據 Product No 找出對應的 Excel 資料列"""
     if master_df is None: return None
+    # 假設 Excel 中欄位名稱為 Product_No 或 Product No
     if 'Product_No' in master_df.columns:
         return master_df[master_df['Product_No'].astype(str).str.strip() == p_no]
     elif 'Product No' in master_df.columns:
@@ -53,19 +56,19 @@ def get_master_row(master_df, p_no):
 
 def create_simple_text_html(text, qty):
     """生成簡單的純文字標籤 (用於普通注意等)"""
-    single_label_html = f"""
+    single_lable_html = f"""
     <div style="width: 70mm; height: 50mm; box-sizing: border-box; padding: 2mm; page-break-after: always; display: flex; align-items: center; justify-content: center; text-align: center;">
         <div style="font-size: 15pt; font-weight: 900; line-height: 1.2; font-family: sans-serif;">{text}</div>
     </div>
     """
     full_html = f"""
     <html><head><style>@page {{ size: 70mm 50mm; margin: 0; }} body {{ margin: 0; padding: 0; }}</style></head>
-    <body>{single_label_html * qty}</body></html>
+    <body>{single_lable_html * qty}</body></html>
     """
     return full_html
 
 def js_instant_print(full_html_content):
-    """通用的 JS 列印觸發器"""
+    """通用的 JS 列印觸發器 (給 repack 或 simple text 用)"""
     b64_html = base64.b64encode(full_html_content.encode('utf-8')).decode('utf-8')
     js_code = f"""
     <script>
@@ -89,6 +92,7 @@ def js_instant_print(full_html_content):
 
 
 def show_homey_page():
+    # ================= LOGO / BRANDING / CSS AREA =================
     st.markdown("""
         <style>
             .logo-container { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
@@ -132,18 +136,6 @@ def show_homey_page():
             
             div.stButton { width: 100% !important; display: flex !important; justify-content: center !important; margin: 0 !important; }
 
-            .cell-text { font-size: 15px; color: #333; padding: 0 5px; width: 100%; text-align: left; }
-            .cell-qty { font-weight: bold; font-size: 15px; color: #000; text-align: center; display: block; width: 100%; }
-            div[data-testid="column"] { display: flex; flex-direction: column; justify-content: center; }
-            div[data-testid="column"]:nth-of-type(7) > div {
-                display: flex !important;
-                flex-direction: row !important;
-                justify-content: center !important; 
-                align-items: center !important;     
-                width: 100% !important;
-                height: 100% !important;
-            }
-            
             .cell-badge-normal { 
                 width: 100px !important;       
                 height: 37px !important;      
@@ -160,6 +152,18 @@ def show_homey_page():
                 font-weight: bold !important;
                 line-height: 1 !important;
                 transform: translateX(1px) !important;
+            }
+
+            .cell-text { font-size: 15px; color: #333; padding: 0 5px; width: 100%; text-align: left; }
+            .cell-qty { font-weight: bold; font-size: 15px; color: #000; text-align: center; display: block; width: 100%; }
+            div[data-testid="column"] { display: flex; flex-direction: column; justify-content: center; }
+            div[data-testid="column"]:nth-of-type(7) > div {
+                display: flex !important;
+                flex-direction: row !important;
+                justify-content: center !important; 
+                align-items: center !important;     
+                width: 100% !important;
+                height: 100% !important;
             }
         </style>
         <div class="logo-container">
@@ -202,6 +206,7 @@ def show_homey_page():
                 
                 text = page.extract_text()
                 
+                # --- Step 1: 去除空白頁 ---
                 clean_text = re.sub(r'\[Image \d+\]', '', text).strip()
                 if not clean_text: continue 
                 
@@ -210,6 +215,7 @@ def show_homey_page():
                 lines = [l for l in lines if not l.startswith("[Image")]
                 if not lines: continue
 
+                # 提取資訊
                 p_no = lines[0].strip()
                 qty = 0
                 qty_line_index = -1
@@ -234,32 +240,32 @@ def show_homey_page():
                 if qty_line_index > 1:
                     p_name = " ".join(lines[1:qty_line_index])
 
-                # 提取 Excel Label
+                # --- Step 2: 邏輯判斷 Lable Type ---
                 master_row = get_master_row(master_df, p_no)
-                excel_label = ""
+                excel_lable = ""
                 if master_row is not None and not master_row.empty:
                     if 'Label_Type' in master_row.columns:
-                        excel_label = str(master_row.iloc[0]['Label_Type'])
+                        excel_lable = str(master_row.iloc[0]['Label_Type'])
                     elif 'Label Type' in master_row.columns:
-                        excel_label = str(master_row.iloc[0]['Label Type'])
+                        excel_lable = str(master_row.iloc[0]['Label Type'])
                     elif 'Lable_Type' in master_row.columns:
-                        excel_label = str(master_row.iloc[0]['Lable_Type'])
+                        excel_lable = str(master_row.iloc[0]['Lable_Type'])
                     elif 'Lable Type' in master_row.columns:
-                        excel_label = str(master_row.iloc[0]['Lable Type'])
+                        excel_lable = str(master_row.iloc[0]['Lable Type'])
 
-                final_label = ""
+                final_lable = ""
                 
-                # 判斷邏輯
-                if "food" in excel_label.lower():
-                    final_label = excel_label
+                # 判斷邏輯調整：
+                if "food" in excel_lable.lower():
+                    final_lable = excel_lable
                 elif not barcode_val or barcode_val.strip() == "" or barcode_val == p_no:
-                    final_label = "Print SKU Barcode"
+                    final_lable = "Print SKU Barcode"
                 elif barcode_val and barcode_val[-1].isalpha():
-                    final_label = "Print Repack Lable"
-                elif excel_label and excel_label != "nan" and excel_label.strip() != "":
-                    final_label = excel_label
+                    final_lable = "Print Repack Lable"
+                elif excel_lable and excel_lable != "nan" and excel_lable.strip() != "":
+                    final_lable = excel_lable
                 else:
-                    final_label = "普通Label"
+                    final_lable = "普通Label"
 
                 valid_rows.append({
                     "id": f"{p_no}_{i}", 
@@ -267,7 +273,7 @@ def show_homey_page():
                     "Barcode": barcode_val if barcode_val else "(N/A)",
                     "商品名稱": p_name,
                     "數量": qty,
-                    "Label Type": final_label,
+                    "Lable Type": final_lable,
                     "master_row": master_row 
                 })
 
@@ -276,6 +282,8 @@ def show_homey_page():
 
             if valid_rows:
                 df_result = pd.DataFrame(valid_rows)
+
+                # --- 重複檢查 ---
                 duplicated_pnos = df_result[df_result.duplicated('Product No', keep=False)]['Product No'].unique().tolist()
                 duplicate_count = len(duplicated_pnos)
 
@@ -290,6 +298,7 @@ def show_homey_page():
 
                 st.write("#### 📋 PDF Details")
                 
+                # --- 自訂 Grid 表格渲染 ---
                 col_ratios = [0.5, 1.1, 1.1, 4.0, 0.8, 1.2, 1.2]
                 headers = ["No", "Product No", "Barcode", "Product Name", "Qty", "Label Type", "Action"]
                 
@@ -300,12 +309,12 @@ def show_homey_page():
                 for index, row in enumerate(valid_rows):
                     p_no = row['Product No']
                     barcode_clean = row['Barcode'].strip()
-                    label_type = row['Label Type']
+                    lable_type = row['Lable Type']
                     
                     pno_style = 'color: #CC5500; font-weight: bold;' if p_no in duplicated_pnos else ""
                     
                     highlight_style = ""
-                    if any(k in str(label_type).lower() for k in ["repack", "sku", "蟲", "food"]):
+                    if any(k in str(lable_type).lower() for k in ["repack", "sku", "蟲", "food"]):
                         highlight_style = "background-color: #FFFFAA; color: #B30000; font-weight: bold;"
 
                     with st.container():
@@ -316,46 +325,41 @@ def show_homey_page():
                         c2.markdown(f"<div class='grid-row'><div class='cell-text'>{row['Barcode']}</div></div>", unsafe_allow_html=True)
                         c3.markdown(f"<div class='grid-row' style='{highlight_style}'><div class='cell-text'>{row['商品名稱']}</div></div>", unsafe_allow_html=True)
                         c4.markdown(f"<div class='grid-row'><span class='cell-qty'>{row['數量']}</span></div>", unsafe_allow_html=True)
-                        c5.markdown(f"<div class='grid-row' style='{highlight_style}'><div class='cell-text'>{label_type}</div></div>", unsafe_allow_html=True)
+                        c5.markdown(f"<div class='grid-row' style='{highlight_style}'><div class='cell-text'>{lable_type}</div></div>", unsafe_allow_html=True)
                         
                         with c6:
-                            # 判斷是否顯示列印按鈕
-                            needs_print = False
-                            v_label_lower = str(label_type).lower()
-                            
-                            if "food" in v_label_lower:
-                                needs_print = True
-                            elif not barcode_clean or barcode_clean == "(N/A)":
-                                needs_print = True
-                            elif re.search(r'[a-zA-Z]$', barcode_clean) or barcode_clean == p_no:
-                                needs_print = True
-                                
-                            row_wrapper_style = "display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;"
-                            
-                            if needs_print:
-                                if st.button("打印", key=f"btn_hm_{index}"):
-                                    log_action("Homey_Print")
+                            # 一律顯示打印按鈕
+                            if st.button("打印", key=f"btn_hm_{index}"):
+                                log_action("Homey_Print")
 
-                                    if "food" in v_label_lower:
-                                        if Lable:
-                                            # 注意這裡的拼寫：修正為 label_html
-                                            html = Lable.generate_food_label_html(row, row['master_row'], row['數量'])
-                                            components.html(html, height=0)
-                                        else:
-                                            st.error("找不到 Lable.py")
+                                v_lable_lower = str(lable_type).lower()
+
+                                # 1. 判斷是否為 Food Lable
+                                if "food" in v_lable_lower:
+                                    if Lable:
+                                        # ✨ 修正：確保正確呼叫 Lable 裡面的 generate_food_label_html
+                                        html = Lable.generate_food_label_html(row, row['master_row'], row['數量'])
+                                        components.html(html, height=0)
                                     else:
-                                        if repack_lable:
-                                            print_barcode = p_no if not barcode_clean or barcode_clean == "(N/A)" else barcode_clean
-                                            # 注意這裡的拼寫：修正為 label_html
-                                            html = repack_lable.create_repack_label_html(row['商品名稱'], print_barcode, row['數量'])
-                                            js_instant_print(html)
-                                        else:
-                                            st.error("找不到 repack_lable.py")
-                            else:
-                                # 這裡改為顯示實際的 Label Type 文字！
-                                st.markdown(f"<div style='{row_wrapper_style}'><div class='cell-badge-normal'>{label_type}</div></div>", unsafe_allow_html=True)
+                                        st.error("找不到 Lable.py")
+
+                                # 2. 判斷是否為 Repack Lable / SKU
+                                elif "repack" in v_lable_lower or "sku" in v_lable_lower:
+                                    if repack_lable:
+                                        print_barcode = p_no if not barcode_clean or barcode_clean == "(N/A)" else barcode_clean
+                                        # ✨ 修正：確保正確呼叫 repack_lable 裡面的 create_repack_label_html
+                                        html = repack_lable.create_repack_label_html(row['商品名稱'], print_barcode, row['數量'])
+                                        js_instant_print(html)
+                                    else:
+                                        st.error("找不到 repack_lable.py")
+
+                                # 3. 其他 (普通標籤，直接印出 Lable Type 的文字)
+                                else:
+                                    html = create_simple_text_html(lable_type, row['數量'])
+                                    js_instant_print(html)
 
                 st.markdown("---")
+                # 排除掉 master_row 這個 DataFrame 欄位再匯出 CSV
                 df_export = df_result.drop(columns=['master_row'])
                 csv = df_export.to_csv(index=True).encode('utf-8-sig')
                 st.download_button(
