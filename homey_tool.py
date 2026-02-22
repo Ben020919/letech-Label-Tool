@@ -9,7 +9,7 @@ import base64
 from usage_tracker import log_action
 import streamlit.components.v1 as components
 
-# ================= 新增：強制路徑並匯入標籤格式模組 =================
+# ================= 新增：強制路徑並匯入 repack_lable 模組 =================
 current_dir = Path(__file__).parent.absolute()
 if str(current_dir) not in sys.path:
     sys.path.append(str(current_dir))
@@ -20,25 +20,20 @@ except ImportError as e:
     st.error(f"❌ 模組匯入失敗 (repack_lable): {e}")
     repack_lable = None
 
-try:
-    import Lable
-except ImportError as e:
-    st.error(f"❌ 模組匯入失敗 (Lable): {e}")
-    Lable = None
+# 注意：我們已經不需要 Lable.py 了，因為我們直接使用下面移植過來的 HTML 產生器！
 
-# ================= 設定固定主檔名稱 =================
+# ================= 設定預設檔案名稱 =================
 MASTER_FILE = "data.xlsx"
+DEFAULT_FONT_PATH = "font.ttf"
 
+# ================= 1. 資料庫與字體讀取函數 =================
 @st.cache_data
 def load_master_data():
     """自動讀取固定的 Excel 主檔"""
-    if not os.path.exists(MASTER_FILE):
-        return None
+    if not os.path.exists(MASTER_FILE): return None
     try:
         df = pd.read_excel(MASTER_FILE)
         df.columns = [str(c).strip() for c in df.columns]
-        
-        # 保留所有欄位供 Food Lable 使用，但統一小寫檢查索引
         return df
     except Exception as e:
         st.error(f"❌ 讀取 {MASTER_FILE} 失敗: {e}")
@@ -47,15 +42,127 @@ def load_master_data():
 def get_master_row(master_df, p_no):
     """根據 Product No 找出對應的 Excel 資料列"""
     if master_df is None: return None
-    # 假設 Excel 中欄位名稱為 Product_No 或 Product No
     if 'Product_No' in master_df.columns:
         return master_df[master_df['Product_No'].astype(str).str.strip() == p_no]
     elif 'Product No' in master_df.columns:
         return master_df[master_df['Product No'].astype(str).str.strip() == p_no]
     return None
 
+@st.cache_data
+def load_local_font_bytes(file_path):
+    if not os.path.exists(file_path): return None
+    with open(file_path, "rb") as f:
+        return f.read()
+
+def font_to_base64_css(font_bytes, file_name):
+    if not font_bytes: return ""
+    try:
+        b64_str = base64.b64encode(font_bytes).decode('utf-8')
+        mime_type = "font/ttf"
+        if file_name.endswith(".otf"): mime_type = "font/otf"
+        elif file_name.endswith(".woff"): mime_type = "font/woff"
+        return f"""
+        @font-face {{ font-family: 'CustomLabelFont'; src: url(data:{mime_type};base64,{b64_str}) format('truetype'); font-weight: bold; font-style: normal; }}
+        body, .label-container, div, span {{ font-family: 'CustomLabelFont', Helvetica, Arial, sans-serif !important; }}
+        """
+    except Exception: return ""
+
+# ================= 2. 標籤 HTML 生成核心 =================
+def clean_val(val):
+    if pd.isna(val) or str(val).lower() == 'nan': return ""
+    return str(val).strip()
+
+def get_nutri_val(data, key):
+    val = data.get(key)
+    if pd.isna(val) or str(val).lower() == 'nan': return "0"
+    return str(val).strip()
+
+# ✨ 完美移植自 excel_tool.py 的 Food Label 生成器 ✨
+def create_food_label_html(item_name, barcode_text, matched_data, font_css, qty):
+    data = matched_data if matched_data is not None and not matched_data.empty else {}
+    if isinstance(data, pd.DataFrame):
+        data = data.iloc[0].to_dict()
+    elif not isinstance(data, dict):
+        data = {}
+
+    desc_text = clean_val(data.get('Description', item_name))
+    b_text = barcode_text if barcode_text and barcode_text != "(N/A)" else clean_val(data.get('Barcode', ''))
+
+    nutri = {
+        'Serving_Size': get_nutri_val(data, 'Serving_Size'),
+        'Energy': get_nutri_val(data, 'Energy'),
+        'Protein': get_nutri_val(data, 'Protein'),
+        'Total_Fat': get_nutri_val(data, 'Total_Fat'),
+        'Sat_Fat': get_nutri_val(data, 'Sat_Fat'),
+        'Trans_Fat': get_nutri_val(data, 'Trans_Fat'),
+        'Carb': get_nutri_val(data, 'Carb'),
+        'Sugar': get_nutri_val(data, 'Sugar'),
+        'Sodium': get_nutri_val(data, 'Sodium'),
+        'Net_Content': get_nutri_val(data, 'Net_Content') or get_nutri_val(data, 'Net Content'),
+        'Country_Of_Origin': get_nutri_val(data, 'Country_Of_Origin'),
+    }
+    ing_text = clean_val(data.get('Ingredients', ''))
+    mfr_text = f"{clean_val(data.get('Madeby_Prefix', ''))} {clean_val(data.get('Madeby', ''))}".strip()
+    if "Manufacturer" not in mfr_text: mfr_text = "Manufacturer: " + mfr_text
+
+    single_label_html = f"""
+    <html><head><style>
+        {font_css}
+        @page {{ size: auto; margin: 0mm; }}
+        body {{ margin: 0; padding: 0; font-family: Helvetica, Arial, sans-serif; }}
+        .label-container {{ width: 70mm; height: 50mm; position: relative; box-sizing: border-box; border: 1px solid #ddd; page-break-after: always; overflow: hidden; font-weight: bold; }}
+        .barcode-text {{ position: absolute; left: 2mm; top: 2mm; font-size: 5pt; font-weight: bold; }}
+        .desc-text {{ position: absolute; left: 2mm; top: 4.5mm; width: 59mm; font-size: 5pt; line-height: 1.2; font-weight: bold; }}
+        .line1 {{ position: absolute; left: 0; top: 9mm; width: 70mm; border-top: 1.42pt solid black; }}
+        .nutri-box {{ position: absolute; left: 2mm; top: 10mm; width: 23mm; font-size: 3.5pt; line-height: 4.5pt; font-weight: bold; }}
+        .nutri-title {{ font-weight: bold; margin-bottom: 1px; }}
+        .nutri-row {{ display: flex; justify-content: space-between; }}
+        .indent {{ padding-left: 3px; }}
+        .vline {{ position: absolute; left: 26mm; top: 9mm; height: 29mm; border-left: 1.42pt solid black; }}
+        .ing-box {{ position: absolute; left: 27mm; top: 10mm; width: 41mm; height: 28mm; font-size: 3.5pt; line-height: 1.1; overflow: hidden; text-align: justify; font-weight: bold; }}
+        .line2 {{ position: absolute; left: 0; top: 38mm; width: 70mm; border-top: 1.42pt solid black; }}
+        .mfr-box {{ position: absolute; left: 2mm; top: 40mm; width: 35mm; font-size: 4.76pt; line-height: 1.2; font-weight: bold; }}
+        .bb-box {{ position: absolute; left: 47mm; top: 40mm; width: 27mm; font-size: 4.2pt; line-height: 1.2; font-weight: bold; white-space: nowrap; }}
+    </style></head><body>
+        <div class="label-container">
+            <div class="barcode-text">{b_text}</div>
+            <div class="desc-text">{desc_text}</div>
+            <div class="line1"></div>
+            <div class="nutri-box">
+                <div class="nutri-title">Nutrition Information</div>
+                <div class="nutri-row"><span>Serving Size:</span><span>{nutri['Serving_Size']}</span></div>
+                <div class="nutri-row"><span>Energy:</span><span>{nutri['Energy']}</span></div>
+                <div class="nutri-row"><span>Protein:</span><span>{nutri['Protein']}</span></div>
+                <div class="nutri-row"><span>Total fat:</span><span>{nutri['Total_Fat']}</span></div>
+                <div class="nutri-row indent"><span>- Saturated fat:</span><span>{nutri['Sat_Fat']}</span></div>
+                <div class="nutri-row indent"><span>- Trans fat:</span><span>{nutri['Trans_Fat']}</span></div>
+                <div class="nutri-row"><span>Carbohydrates:</span><span>{nutri['Carb']}</span></div>
+                <div class="nutri-row indent"><span>- Sugars:</span><span>{nutri['Sugar']}</span></div>
+                <div class="nutri-row"><span>Sodium:</span><span>{nutri['Sodium']}</span></div>
+                <div class="nutri-row"><span>Net Content:</span><span>{nutri['Net_Content']}</span></div>
+                <div class="nutri-row"><span>Country Of Origin:</span><span>{nutri['Country_Of_Origin']}</span></div>
+            </div>
+            <div class="vline"></div>
+            <div class="ing-box">Ingredients: {ing_text}</div>
+            <div class="line2"></div>
+            <div class="mfr-box">{mfr_text}</div>
+            <div class="bb-box">Best before(Date Format):<br>Show on package(見包裝)<br>此日期前最佳(Format CHI)</div>
+        </div>
+    </body></html>
+    """
+    import re as regex
+    match = regex.search(r'<body>(.*?)</body>', single_label_html, regex.DOTALL)
+    if match:
+        div_content = match.group(1)
+        full_body = div_content * qty
+        final_html = single_label_html.replace(div_content, full_body)
+    else:
+        final_html = single_label_html
+        
+    return final_html
+
 def create_simple_text_html(text, qty):
-    """生成簡單的純文字標籤 (用於普通注意等)"""
+    """生成簡單的純文字標籤"""
     single_label_html = f"""
     <div style="width: 70mm; height: 50mm; box-sizing: border-box; padding: 2mm; page-break-after: always; display: flex; align-items: center; justify-content: center; text-align: center;">
         <div style="font-size: 15pt; font-weight: 900; line-height: 1.2; font-family: sans-serif;">{text}</div>
@@ -68,7 +175,7 @@ def create_simple_text_html(text, qty):
     return full_html
 
 def js_instant_print(full_html_content):
-    """通用的 JS 列印觸發器"""
+    """通用的 JS 彈出視窗並列印觸發器"""
     b64_html = base64.b64encode(full_html_content.encode('utf-8')).decode('utf-8')
     js_code = f"""
     <script>
@@ -84,15 +191,15 @@ def js_instant_print(full_html_content):
                     win.print(); 
                     win.onfocus = function() {{ setTimeout(()=>{{ win.close(); }}, 500); }}; 
                 }};
-            }}
+            }} else {{ alert("請允許彈出視窗！(Please allow popups)"); }}
         }})();
     </script>
     """
     components.html(js_code, height=0)
 
 
+# ================= 3. 主頁面 =================
 def show_homey_page():
-    # ================= LOGO / BRANDING / CSS AREA =================
     st.markdown("""
         <style>
             .logo-container { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
@@ -101,70 +208,33 @@ def show_homey_page():
             .logo-sub { font-size: 14px; color: #888; font-weight: 400; margin-left: 15px; padding-left: 15px; border-left: 1px solid #ddd; height: 20px; line-height: 20px; }
             
             .grid-header { background-color: #f8f9fa; padding: 12px 10px; border-top: 2px solid #e9ecef; border-bottom: 2px solid #e9ecef; font-weight: 600; color: #495057; font-size: 14px; }
-            .grid-row { 
-                padding: 8px 0; border-bottom: 1px solid #f1f3f5; 
-                transition: background-color 0.2s; 
-                display: flex; align-items: center; height: 100%; 
-                min-height: 45px; 
-            }
+            .grid-row { padding: 8px 0; border-bottom: 1px solid #f1f3f5; transition: background-color 0.2s; display: flex; align-items: center; height: 100%; min-height: 45px; }
             .grid-row:hover { background-color: #f8f9fa; }
             
             div.stButton > button { 
-                width: 100px !important;       
-                height: 38px !important;      
-                min-height: 32px !important;
-                border-radius: 6px !important; 
-                padding: 0px !important;      
-                background-color: #e7f5ff !important; 
-                color: #004085 !important; 
-                border: none !important; 
-                display: flex !important; 
-                justify-content: center !important; 
-                align-items: center !important;
-                margin: 0 auto !important;    
-                transform: translateX(19px) !important;
+                width: 100px !important; height: 38px !important; min-height: 32px !important;
+                border-radius: 6px !important; padding: 0px !important;      
+                background-color: #e7f5ff !important; color: #004085 !important; border: none !important; 
+                display: flex !important; justify-content: center !important; align-items: center !important;
+                margin: 0 auto !important; transform: translateX(19px) !important;
             }
             div.stButton > button:hover { background-color: #d0ebff !important; color: #002752 !important; }
-            
-            div.stButton > button p {
-                font-size: 13px !important;
-                font-weight: bold !important;
-                line-height: 1 !important;
-                margin: 0 !important;
-                padding: 0 !important;
-            }
-            
+            div.stButton > button p { font-size: 13px !important; font-weight: bold !important; line-height: 1 !important; margin: 0 !important; padding: 0 !important; }
             div.stButton { width: 100% !important; display: flex !important; justify-content: center !important; margin: 0 !important; }
 
             .cell-badge-normal { 
-                width: 100px !important;       
-                height: 37px !important;      
-                min-height: 32px !important;
-                border-radius: 6px !important; 
-                padding: 0px !important;
-                background-color: #eee !important; 
-                color: #666 !important; 
-                display: flex !important; 
-                justify-content: center !important; 
-                align-items: center !important;
-                margin: 0 auto !important;
-                font-size: 13px !important;    
-                font-weight: bold !important;
-                line-height: 1 !important;
-                transform: translateX(1px) !important;
+                width: 100px !important; height: 37px !important; min-height: 32px !important;
+                border-radius: 6px !important; padding: 0px !important;
+                background-color: #eee !important; color: #666 !important; 
+                display: flex !important; justify-content: center !important; align-items: center !important;
+                margin: 0 auto !important; font-size: 13px !important; font-weight: bold !important;
+                line-height: 1 !important; transform: translateX(1px) !important;
             }
 
             .cell-text { font-size: 15px; color: #333; padding: 0 5px; width: 100%; text-align: left; }
             .cell-qty { font-weight: bold; font-size: 15px; color: #000; text-align: center; display: block; width: 100%; }
             div[data-testid="column"] { display: flex; flex-direction: column; justify-content: center; }
-            div[data-testid="column"]:nth-of-type(7) > div {
-                display: flex !important;
-                flex-direction: row !important;
-                justify-content: center !important; 
-                align-items: center !important;     
-                width: 100% !important;
-                height: 100% !important;
-            }
+            div[data-testid="column"]:nth-of-type(7) > div { display: flex !important; flex-direction: row !important; justify-content: center !important; align-items: center !important; width: 100% !important; height: 100% !important; }
         </style>
         <div class="logo-container">
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#007bff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -175,6 +245,10 @@ def show_homey_page():
         </div>
     """, unsafe_allow_html=True)
     st.markdown("### 🏠 Homey 3PL System")
+
+    # 預載字體 (用於 Food Label)
+    font_bytes = load_local_font_bytes(DEFAULT_FONT_PATH)
+    font_css = font_to_base64_css(font_bytes, DEFAULT_FONT_PATH) if font_bytes else ""
 
     master_df = load_master_data()
     if master_df is not None:
@@ -214,7 +288,6 @@ def show_homey_page():
                 lines = [l for l in lines if not l.startswith("[Image")]
                 if not lines: continue
 
-                # 提取資訊
                 p_no = lines[0].strip()
                 qty = 0
                 qty_line_index = -1
@@ -239,7 +312,6 @@ def show_homey_page():
                 if qty_line_index > 1:
                     p_name = " ".join(lines[1:qty_line_index])
 
-                # 提取 Excel Label
                 master_row = get_master_row(master_df, p_no)
                 excel_label = ""
                 if master_row is not None and not master_row.empty:
@@ -247,10 +319,6 @@ def show_homey_page():
                         excel_label = str(master_row.iloc[0]['Label_Type'])
                     elif 'Label Type' in master_row.columns:
                         excel_label = str(master_row.iloc[0]['Label Type'])
-                    elif 'Lable_Type' in master_row.columns:
-                        excel_label = str(master_row.iloc[0]['Lable_Type'])
-                    elif 'Lable Type' in master_row.columns:
-                        excel_label = str(master_row.iloc[0]['Lable Type'])
 
                 final_label = ""
                 
@@ -281,6 +349,7 @@ def show_homey_page():
 
             if valid_rows:
                 df_result = pd.DataFrame(valid_rows)
+
                 duplicated_pnos = df_result[df_result.duplicated('Product No', keep=False)]['Product No'].unique().tolist()
                 duplicate_count = len(duplicated_pnos)
 
@@ -324,7 +393,6 @@ def show_homey_page():
                         c5.markdown(f"<div class='grid-row' style='{highlight_style}'><div class='cell-text'>{label_type}</div></div>", unsafe_allow_html=True)
                         
                         with c6:
-                            # 判斷是否顯示列印按鈕
                             needs_print = False
                             v_label_lower = str(label_type).lower()
                             
@@ -341,20 +409,21 @@ def show_homey_page():
                                 if st.button("打印", key=f"btn_hm_{index}"):
                                     log_action("Homey_Print")
 
+                                    # ✨ 完全使用 HTML 列印，不依賴 Lable.py
                                     if "food" in v_label_lower:
-                                        if Lable:
-                                            html = Lable.generate_food_label_html(row, row['master_row'], row['數量'])
-                                            # ✨ 這裡已加上 height=30，讓 iframe 不會被完全隱藏而阻擋列印
-                                            components.html(html, height=30)
-                                        else:
-                                            st.error("找不到 Lable.py")
-                                    else:
+                                        html = create_food_label_html(row['商品名稱'], barcode_clean, row['master_row'], font_css, row['數量'])
+                                        js_instant_print(html)
+                                        
+                                    elif "repack" in v_label_lower or "sku" in v_label_lower:
                                         if repack_lable:
                                             print_barcode = p_no if not barcode_clean or barcode_clean == "(N/A)" else barcode_clean
                                             html = repack_lable.create_repack_label_html(row['商品名稱'], print_barcode, row['數量'])
                                             js_instant_print(html)
                                         else:
                                             st.error("找不到 repack_lable.py")
+                                    else:
+                                        html = create_simple_text_html(label_type, row['數量'])
+                                        js_instant_print(html)
                             else:
                                 st.markdown(f"<div style='{row_wrapper_style}'><div class='cell-badge-normal'>{label_type}</div></div>", unsafe_allow_html=True)
 
