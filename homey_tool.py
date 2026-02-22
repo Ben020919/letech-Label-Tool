@@ -5,7 +5,9 @@ import re
 import os
 import sys
 from pathlib import Path
+import base64
 from usage_tracker import log_action
+import streamlit.components.v1 as components
 
 # ================= 新增：強制路徑並匯入標籤格式模組 =================
 current_dir = Path(__file__).parent.absolute()
@@ -13,42 +15,81 @@ if str(current_dir) not in sys.path:
     sys.path.append(str(current_dir))
 
 try:
-    # 確保名稱與您的檔名完全一致 (repack_lable.py)
     import repack_lable
 except ImportError as e:
-    st.error(f"❌ 模組匯入失敗: {e}")
+    st.error(f"❌ 模組匯入失敗 (repack_lable): {e}")
     repack_lable = None
 
+try:
+    import Lable
+except ImportError as e:
+    st.error(f"❌ 模組匯入失敗 (Lable): {e}")
+    Lable = None
 
 # ================= 設定固定主檔名稱 =================
 MASTER_FILE = "data.xlsx"
 
 @st.cache_data
 def load_master_data():
-    """
-    自動讀取固定的 Excel 主檔
-    """
+    """自動讀取固定的 Excel 主檔"""
     if not os.path.exists(MASTER_FILE):
         return None
-    
     try:
         df = pd.read_excel(MASTER_FILE)
         df.columns = [str(c).strip() for c in df.columns]
         
-        col_map = {c.replace('_', '').replace(' ', '').lower(): c for c in df.columns}
-        p_no_col = col_map.get('productno')
-        label_col = col_map.get('labeltype')
-        
-        if p_no_col and label_col:
-            df[p_no_col] = df[p_no_col].astype(str).str.strip()
-            df[label_col] = df[label_col].astype(str).str.strip()
-            return df[[p_no_col, label_col]].rename(columns={p_no_col: 'Product_No', label_col: 'Label_Type'})
-        else:
-            st.error(f"❌ 在 {MASTER_FILE} 中找不到 `Product_No` 或 `Label_Type` 欄位。")
-            return None
+        # 保留所有欄位供 Food Lable 使用，但統一小寫檢查索引
+        return df
     except Exception as e:
         st.error(f"❌ 讀取 {MASTER_FILE} 失敗: {e}")
         return None
+
+def get_master_row(master_df, p_no):
+    """根據 Product No 找出對應的 Excel 資料列"""
+    if master_df is None: return None
+    # 假設 Excel 中欄位名稱為 Product_No 或 Product No
+    if 'Product_No' in master_df.columns:
+        return master_df[master_df['Product_No'].astype(str).str.strip() == p_no]
+    elif 'Product No' in master_df.columns:
+        return master_df[master_df['Product No'].astype(str).str.strip() == p_no]
+    return None
+
+def create_simple_text_html(text, qty):
+    """生成簡單的純文字標籤 (用於普通注意等)"""
+    single_label_html = f"""
+    <div style="width: 70mm; height: 50mm; box-sizing: border-box; padding: 2mm; page-break-after: always; display: flex; align-items: center; justify-content: center; text-align: center;">
+        <div style="font-size: 15pt; font-weight: 900; line-height: 1.2; font-family: sans-serif;">{text}</div>
+    </div>
+    """
+    full_html = f"""
+    <html><head><style>@page {{ size: 70mm 50mm; margin: 0; }} body {{ margin: 0; padding: 0; }}</style></head>
+    <body>{single_label_html * qty}</body></html>
+    """
+    return full_html
+
+def js_instant_print(full_html_content):
+    """通用的 JS 列印觸發器 (給 repack 或 simple text 用)"""
+    b64_html = base64.b64encode(full_html_content.encode('utf-8')).decode('utf-8')
+    js_code = f"""
+    <script>
+        (function() {{
+            const b64 = "{b64_html}";
+            const htmlContent = decodeURIComponent(escape(window.atob(b64)));
+            const win = window.open('', '_blank', 'width=400,height=400');
+            if (win) {{
+                win.document.write(htmlContent); win.document.close();
+                win.onload = function() {{ 
+                    win.focus(); 
+                    win.onafterprint = function() {{ win.close(); }}; 
+                    win.print(); 
+                    win.onfocus = function() {{ setTimeout(()=>{{ win.close(); }}, 500); }}; 
+                }};
+            }}
+        }})();
+    </script>
+    """
+    components.html(js_code, height=0)
+
 
 def show_homey_page():
     # ================= LOGO / BRANDING / CSS AREA =================
@@ -95,24 +136,6 @@ def show_homey_page():
             
             div.stButton { width: 100% !important; display: flex !important; justify-content: center !important; margin: 0 !important; }
 
-            .cell-badge-normal { 
-                width: 100px !important;       
-                height: 37px !important;      
-                min-height: 32px !important;
-                border-radius: 6px !important; 
-                padding: 0px !important;
-                background-color: #eee !important; 
-                color: #666 !important; 
-                display: flex !important; 
-                justify-content: center !important; 
-                align-items: center !important;
-                margin: 0 auto !important;
-                font-size: 13px !important;    
-                font-weight: bold !important;
-                line-height: 1 !important;
-                transform: translateX(1px) !important;
-            }
-
             .cell-text { font-size: 15px; color: #333; padding: 0 5px; width: 100%; text-align: left; }
             .cell-qty { font-weight: bold; font-size: 15px; color: #000; text-align: center; display: block; width: 100%; }
             div[data-testid="column"] { display: flex; flex-direction: column; justify-content: center; }
@@ -146,7 +169,6 @@ def show_homey_page():
     uploaded_file = st.file_uploader("Please Upload Homey 3PL (PDF)", type=["pdf"], key="homey_pdf")
 
     if uploaded_file:
-        # ⭐ 記錄使用次數 (避免重複記錄)
         if 'last_homey_file' not in st.session_state or st.session_state.last_homey_file != uploaded_file.name:
             st.session_state.last_homey_file = uploaded_file.name
             log_action("Homey_Upload")
@@ -166,10 +188,9 @@ def show_homey_page():
                 
                 text = page.extract_text()
                 
-                # --- Step 1: 去除空白頁邏輯 ---
+                # --- Step 1: 去除空白頁 ---
                 clean_text = re.sub(r'\[Image \d+\]', '', text).strip()
-                if not clean_text:
-                    continue 
+                if not clean_text: continue 
                 
                 valid_page_count += 1
                 lines = [line.strip() for line in text.split('\n') if line.strip()]
@@ -202,19 +223,30 @@ def show_homey_page():
                     p_name = " ".join(lines[1:qty_line_index])
 
                 # --- Step 2: 邏輯判斷 Label Type ---
+                master_row = get_master_row(master_df, p_no)
                 excel_label = ""
-                if master_df is not None:
-                    found = master_df[master_df['Product_No'] == p_no]
-                    if not found.empty:
-                        excel_label = str(found.iloc[0]['Label_Type'])
+                if master_row is not None and not master_row.empty:
+                    if 'Label_Type' in master_row.columns:
+                        excel_label = str(master_row.iloc[0]['Label_Type'])
+                    elif 'Label Type' in master_row.columns:
+                        excel_label = str(master_row.iloc[0]['Label Type'])
 
                 final_label = ""
-                if not barcode_val or barcode_val.strip() == "" or barcode_val == p_no:
+                
+                # 判斷邏輯調整：
+                # 1. 優先看資料庫是否指定 Food Lable
+                if "food" in excel_label.lower():
+                    final_label = excel_label
+                # 2. 如果沒有 Barcode 或顯示為 (N/A) -> 需要 Print Repack Lable (用 Product No 印)
+                elif not barcode_val or barcode_val.strip() == "" or barcode_val == p_no:
                     final_label = "Print SKU Barcode"
+                # 3. Barcode 結尾有英文字母 -> Print Repack Lable
                 elif barcode_val and barcode_val[-1].isalpha():
                     final_label = "Print Repack Lable"
+                # 4. 其他根據資料庫
                 elif excel_label and excel_label != "nan" and excel_label.strip() != "":
                     final_label = excel_label
+                # 5. 預設
                 else:
                     final_label = "普通Lable"
 
@@ -224,7 +256,8 @@ def show_homey_page():
                     "Barcode": barcode_val if barcode_val else "(N/A)",
                     "商品名稱": p_name,
                     "數量": qty,
-                    "Label Type": final_label
+                    "Label Type": final_label,
+                    "master_row": master_row # 將找到的 Excel 資料存起來，印 Food Lable 時會用到
                 })
 
             prog_bar.empty()
@@ -233,7 +266,7 @@ def show_homey_page():
             if valid_rows:
                 df_result = pd.DataFrame(valid_rows)
 
-                # --- 重複檢查邏輯 ---
+                # --- 重複檢查 ---
                 duplicated_pnos = df_result[df_result.duplicated('Product No', keep=False)]['Product No'].unique().tolist()
                 duplicate_count = len(duplicated_pnos)
 
@@ -259,12 +292,12 @@ def show_homey_page():
                 for index, row in enumerate(valid_rows):
                     p_no = row['Product No']
                     barcode_clean = row['Barcode'].strip()
+                    label_type = row['Label Type']
                     
                     pno_style = 'color: #CC5500; font-weight: bold;' if p_no in duplicated_pnos else ""
                     
                     highlight_style = ""
-                    v_label = str(row['Label Type']).lower()
-                    if any(k in v_label for k in ["repack", "sku", "蟲", "food"]):
+                    if any(k in str(label_type).lower() for k in ["repack", "sku", "蟲", "food"]):
                         highlight_style = "background-color: #FFFFAA; color: #B30000; font-weight: bold;"
 
                     with st.container():
@@ -275,42 +308,43 @@ def show_homey_page():
                         c2.markdown(f"<div class='grid-row'><div class='cell-text'>{row['Barcode']}</div></div>", unsafe_allow_html=True)
                         c3.markdown(f"<div class='grid-row' style='{highlight_style}'><div class='cell-text'>{row['商品名稱']}</div></div>", unsafe_allow_html=True)
                         c4.markdown(f"<div class='grid-row'><span class='cell-qty'>{row['數量']}</span></div>", unsafe_allow_html=True)
-                        c5.markdown(f"<div class='grid-row' style='{highlight_style}'><div class='cell-text'>{row['Label Type']}</div></div>", unsafe_allow_html=True)
+                        c5.markdown(f"<div class='grid-row' style='{highlight_style}'><div class='cell-text'>{label_type}</div></div>", unsafe_allow_html=True)
                         
                         with c6:
-                            # ====== Action 列印邏輯 ======
-                            needs_print = False
-                            print_barcode = barcode_clean # 預設使用原本的 Barcode
-                            
-                            # 1. 如果完全沒有 Barcode 或顯示為 (N/A) -> 需要打印，並將 Product No 當作 Barcode
-                            if not barcode_clean or barcode_clean == "(N/A)":
-                                needs_print = True
-                                print_barcode = p_no 
-                            # 2. 如果 Barcode 結尾有英文字母，或是 Barcode 數字與 Product No 相同 -> 需要打印
-                            elif re.search(r'[a-zA-Z]$', barcode_clean) or barcode_clean == p_no:
-                                needs_print = True
-                            
-                            row_wrapper_style = "display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;"
-                            
-                            if needs_print:
-                                if st.button("打印", key=f"btn_hm_{index}"):
-                                    # 記錄使用次數
-                                    log_action("Homey_Print")
+                            # 一律顯示打印按鈕
+                            if st.button("打印", key=f"btn_hm_{index}"):
+                                log_action("Homey_Print")
 
+                                v_label_lower = str(label_type).lower()
+
+                                # 1. 判斷是否為 Food Lable
+                                if "food" in v_label_lower:
+                                    if Lable:
+                                        html = Lable.generate_food_label_html(row, row['master_row'], row['數量'])
+                                        # Lable 生成的是 iframe 套件，可以直接丟給 components.html
+                                        components.html(html, height=0)
+                                    else:
+                                        st.error("找不到 Lable.py")
+
+                                # 2. 判斷是否為 Repack Lable / SKU
+                                elif "repack" in v_label_lower or "sku" in v_label_lower:
                                     if repack_lable:
-                                        final_html = repack_lable.create_repack_label_html(
-                                            row['商品名稱'], 
-                                            print_barcode, # 傳入計算過後的正確條碼 (可能是原始 Barcode，也可能是 Product No)
-                                            row['數量']
-                                        )
-                                        repack_lable.js_instant_print(final_html)
+                                        # 如果沒有 barcode 或 barcode 是 N/A，使用 Product No 作為條碼
+                                        print_barcode = p_no if not barcode_clean or barcode_clean == "(N/A)" else barcode_clean
+                                        html = repack_lable.create_repack_label_html(row['商品名稱'], print_barcode, row['數量'])
+                                        js_instant_print(html)
                                     else:
                                         st.error("找不到 repack_lable.py")
-                            else:
-                                st.markdown(f"<div style='{row_wrapper_style}'><div class='cell-badge-normal'>普通注意</div></div>", unsafe_allow_html=True)
+
+                                # 3. 其他 (普通標籤，直接印出 Label Type 的文字)
+                                else:
+                                    html = create_simple_text_html(label_type, row['數量'])
+                                    js_instant_print(html)
 
                 st.markdown("---")
-                csv = df_result.to_csv(index=True).encode('utf-8-sig')
+                # 排除掉 master_row 這個 DataFrame 欄位再匯出 CSV
+                df_export = df_result.drop(columns=['master_row'])
+                csv = df_export.to_csv(index=True).encode('utf-8-sig')
                 st.download_button(
                     label="📥 下載處理結果 (CSV)",
                     data=csv,
