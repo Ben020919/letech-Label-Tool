@@ -4,6 +4,7 @@ import os
 import urllib.parse
 import base64
 import requests
+import shutil
 from io import BytesIO
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -23,7 +24,8 @@ except ImportError:
 # ================= 2. 設定固定檔案名稱 =================
 DEFAULT_DB_FILE = "Barcode.xlsx.csv"
 
-# @st.cache_data
+# 讀取 Excel 資料 (這個可以保留快取，因為資料庫不常變動)
+@st.cache_data
 def load_data():
     if not os.path.exists(DEFAULT_DB_FILE): return None
     try:
@@ -37,28 +39,43 @@ def load_data():
         return df
     except Exception: return None
 
-# ================= 3. 核心爬蟲 (完全移植你的成功版本) =================
-# @st.cache_data(show_spinner=False, ttl=604800)
+# ================= 3. 核心爬蟲 (雲端無敵版) =================
+# ⚠️ 注意：這裡我把 @st.cache_data 拿掉了！
+# 這樣它每次都會老老實實去抓圖，絕對不會再把你之前失敗的「無圖片」結果記住了！
 def get_hktvmall_image_final(product_name):
-    # 完全使用你 hktv_scraper.py 的設定
     encoded_name = urllib.parse.quote(str(product_name).strip())
     search_url = f"https://www.hktvmall.com/hktv/zh/search_a?keyword={encoded_name}"
     
     chrome_options = Options()
     chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--window-size=1920,1080")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--no-sandbox")               # 雲端必備：繞過沙盒
+    chrome_options.add_argument("--disable-dev-shm-usage")    # 雲端必備：防止記憶體爆掉
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--disable-features=NetworkService")
+    chrome_options.add_argument("--window-size=1920x1080")
     chrome_options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
     
-    service = Service(ChromeDriverManager().install())
+    # 🌟 終極解法：自動偵測 Streamlit Cloud 上的 Chromium 路徑
+    chrome_binary = shutil.which("chromium") or shutil.which("chromium-browser")
+    if chrome_binary:
+        chrome_options.binary_location = chrome_binary
+        
+    driver_path = shutil.which("chromedriver") or shutil.which("chromedriver-linux64")
+    
+    if driver_path:
+        # Streamlit 雲端環境
+        service = Service(executable_path=driver_path)
+    else:
+        # 本地端環境 (例如你的 Mac)
+        service = Service(ChromeDriverManager().install())
+        
     service.log_path = os.devnull
-    driver = webdriver.Chrome(service=service, options=chrome_options)
     
     try:
+        driver = webdriver.Chrome(service=service, options=chrome_options)
         driver.get(search_url)
         wait = WebDriverWait(driver, 15)
-        # 完全使用你成功的精準選擇器
+        # 完美移植你成功的精準選擇器
         img_element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".product-brief img")))
         img_url = img_element.get_attribute("src")
         return img_url
@@ -66,7 +83,10 @@ def get_hktvmall_image_final(product_name):
         print(f"爬蟲抓取失敗 ({product_name}): {e}")
         return None
     finally:
-        driver.quit()
+        try:
+            driver.quit()
+        except:
+            pass
 
 # ================= 4. HTML 卡片渲染器 =================
 def generate_card_html(row, img_html):
@@ -134,7 +154,7 @@ def show_search_barcode_page():
             placeholders = []
             for idx, row in results.iterrows():
                 ph = st.empty()
-                ph.markdown(generate_card_html(row, '<span class="loading-text">⏳ 正在搜尋圖片...</span>'), unsafe_allow_html=True)
+                ph.markdown(generate_card_html(row, '<span class="loading-text">⏳ 正在啟動爬蟲抓取圖片...</span>'), unsafe_allow_html=True)
                 placeholders.append((ph, row))
 
             for ph, row in placeholders:
@@ -158,7 +178,7 @@ def show_search_barcode_page():
                         
                         final_img_html = f'<img src="data:{mime_type};base64,{b64_img}" alt="Product Image" />'
                     except Exception as e:
-                        final_img_html = f'<span style="color:red; font-size:12px;">圖片下載失敗</span>'
+                        final_img_html = f'<span style="color:red; font-size:12px;">圖片被阻擋下載失敗</span>'
                 else:
                     final_img_html = '<span style="color:#aaa; font-size:12px;">無圖片</span>'
 
