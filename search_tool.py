@@ -23,7 +23,7 @@ except ImportError:
 # ================= 2. 設定固定檔案名稱 =================
 DEFAULT_DB_FILE = "Barcode.xlsx.csv"
 
-@st.cache_data
+# @st.cache_data
 def load_data():
     if not os.path.exists(DEFAULT_DB_FILE): return None
     try:
@@ -38,7 +38,7 @@ def load_data():
     except Exception: return None
 
 # ================= 3. 核心爬蟲 (完全移植你的成功版本) =================
-@st.cache_data(show_spinner=False, ttl=604800)
+# @st.cache_data(show_spinner=False, ttl=604800)
 def get_hktvmall_image_final(product_name):
     # 完全使用你 hktv_scraper.py 的設定
     encoded_name = urllib.parse.quote(str(product_name).strip())
