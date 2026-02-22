@@ -3,7 +3,14 @@ import pandas as pd
 import os
 import urllib.parse
 import re
-import requests
+import shutil
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 import streamlit.components.v1 as components
 
 # ================= 匯入追蹤工具 =================
@@ -30,53 +37,85 @@ def load_data():
         return df
     except Exception: return None
 
-# ================= 🌟 革命性升級：極速雙引擎圖片搜尋 =================
+# ================= 100% 純 HKTVmall 爬蟲 (文字秒出，圖片背景抓) =================
 @st.cache_data(show_spinner=False, ttl=86400)
-def get_product_image_url(original_name):
-    # 1. 基礎清理：砍掉結尾的 "x 2", "x10" 等干擾
+def get_hktvmall_image_url(original_name):
+    # 🌟 1. 基礎清理：精準切掉結尾的 "x 2", "x10" 等數量干擾
     clean_name = re.sub(r'\s*[xX*]\s*\d+\s*$', '', original_name).strip()
     
-    # 偽裝成真人瀏覽器的標頭檔
-    headers_modern = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-    # 偽裝成舊版瀏覽器 (用來觸發 Google 吐出最簡單的圖片源碼)
-    headers_old = {"User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:40.0) Gecko/20100101 Firefox/40.1"}
-
-    # 🚀 引擎 A：HKTVmall 直連 (極速 0.5 秒)
-    try:
-        url_hktv = f"https://www.hktvmall.com/hktv/zh/search_a?keyword={urllib.parse.quote(clean_name)}"
-        res = requests.get(url_hktv, headers=headers_modern, timeout=3)
-        # 直接從 HTML 原始碼挖出圖片網址
-        imgs = re.findall(r'src="(//images\.hktvmall\.com/[^"]+)"', res.text)
-        if imgs: return "https:" + imgs[0]
-    except: pass
-
-    # 🚀 引擎 A-2：HKTVmall 直連 (拔除前方括號再試一次)
-    simp_name = re.sub(r'^[\(（].*?[\)）]\s*', '', clean_name).strip()
-    if simp_name != clean_name:
+    # 🌟 2. 啟動瀏覽器設定 (針對 HKTVmall 優化)
+    chrome_options = Options()
+    chrome_options.add_argument("--headless=new") 
+    chrome_options.add_argument("--no-sandbox") 
+    chrome_options.add_argument("--disable-dev-shm-usage") 
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+    chrome_options.page_load_strategy = 'eager' # 急躁模式，不等廣告加載
+    
+    if shutil.which("chromium"): chrome_options.binary_location = shutil.which("chromium")
+    elif shutil.which("chromium-browser"): chrome_options.binary_location = shutil.which("chromium-browser")
+        
+    driver_path = shutil.which("chromedriver") or shutil.which("chromedriver-linux64")
+    service = Service(driver_path) if driver_path else Service(ChromeDriverManager().install())
+    service.log_path = os.devnull
+    
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    
+    def do_search(keyword):
+        if not keyword: return None
+        encoded_name = urllib.parse.quote(str(keyword).strip())
+        search_url = f"https://www.hktvmall.com/hktv/zh/search_a?keyword={encoded_name}"
+        driver.get(search_url)
         try:
-            url_hktv2 = f"https://www.hktvmall.com/hktv/zh/search_a?keyword={urllib.parse.quote(simp_name)}"
-            res2 = requests.get(url_hktv2, headers=headers_modern, timeout=3)
-            imgs2 = re.findall(r'src="(//images\.hktvmall\.com/[^"]+)"', res2.text)
-            if imgs2: return "https:" + imgs2[0]
-        except: pass
+            wait = WebDriverWait(driver, 4) 
+            css_selectors = ".product-brief img, img[itemprop='image'], .productImage, .item-image img"
+            img_element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, css_selectors)))
+            return img_element.get_attribute("src")
+        except:
+            return None
 
-    # 🚀 引擎 B：Yahoo 圖片搜尋 (最強語意理解，無視錯字與特殊括號)
     try:
-        url_yahoo = f"https://images.search.yahoo.com/search/images?p={urllib.parse.quote(clean_name)}"
-        res_yahoo = requests.get(url_yahoo, headers=headers_modern, timeout=3)
-        imgs_yahoo = re.findall(r"src=['\"](https://tse\d+\.mm\.bing\.net/th\?id=[^'\"]+)['\"]", res_yahoo.text)
-        if imgs_yahoo: return imgs_yahoo[0]
-    except: pass
+        # 【波段 1】：原汁原味 (已去除 x 2)
+        res = do_search(clean_name)
+        if res: return res
+            
+        # 【波段 2】：拔除前方括號
+        step2 = re.sub(r'^[\(（].*?[\)）]\s*', '', clean_name).strip()
+        if step2 != clean_name:
+            res = do_search(step2)
+            if res: return res
 
-    # 🚀 引擎 C：Google 圖片搜尋 (終極保底)
-    try:
-        url_google = f"https://www.google.com/search?q={urllib.parse.quote(clean_name)}&tbm=isch"
-        res_google = requests.get(url_google, headers=headers_old, timeout=3)
-        imgs_google = re.findall(r'<img[^>]+src="(https://encrypted-tbn0\.gstatic\.com/images[^"]+)"', res_google.text)
-        if imgs_google: return imgs_google[0]
-    except: pass
+        # 【波段 3】：拔除後方括號
+        step3 = re.sub(r'\s*[\(（][^()（）]*[\)）]$', '', step2).strip()
+        if step3 != step2:
+            res = do_search(step3)
+            if res: return res
 
-    return None
+        # 【波段 4】：砍掉連字號 (-) 後面的口味款式
+        step4 = re.sub(r'\s*[-－].*$', '', step3).strip()
+        if step4 != step3:
+            res = do_search(step4)
+            if res: return res
+
+        # 【波段 5】：砍掉國家名、容量 (解決「澳洲 SUNSHINE 健康原糖 3kg」)
+        step5 = re.sub(r'^(韓國|日本|美國|澳洲|英國|德國|法國|台灣|泰國|紐西蘭)\s*', '', step4)
+        step5 = re.sub(r'\s*\d+(\.\d+)?\s*(ml|g|kg|l|oz|毫升|克|件|片|樽|罐|包|人份).*$', '', step5, flags=re.IGNORECASE).strip()
+        if step5 != step4:
+            res = do_search(step5)
+            if res: return res
+                
+        # 【波段 6】：純中文精準打擊 (解決特殊英文品牌干擾)
+        chinese_chars = "".join(re.findall(r'[\u4e00-\u9fff]+', step5))
+        if len(chinese_chars) >= 3: 
+            res = do_search(chinese_chars)
+            if res: return res
+
+        return None
+    except Exception as e:
+        print(f"Scraping error: {e}")
+        return None
+    finally:
+        driver.quit()
 
 # ================= HTML 卡片產生器 =================
 def generate_card_html(row, img_html):
@@ -84,7 +123,7 @@ def generate_card_html(row, img_html):
     <div class="result-card">
         <div class="card-img-container">{img_html}</div>
         <div class="card-info">
-            <div class="card-label">SKU</div>
+            <div class="card-label">SKU (ProductCode)</div>
             <div class="card-value">{row['ProductCode']}</div>
             <div class="card-label">Barcode</div>
             <div class="card-value">{row['Barcode']}</div>
@@ -163,7 +202,7 @@ def show_search_barcode_page():
         if not results.empty:
             st.success(f"✅ Found {len(results)} Data")
 
-            # 1. 建立空區塊，秒速顯示文字資料
+            # 🌟 1. 建立空區塊，秒速顯示所有文字資料
             placeholders = []
             for _, row in results.iterrows():
                 ph = st.empty()
@@ -171,17 +210,19 @@ def show_search_barcode_page():
                 ph.markdown(generate_card_html(row, loading_html), unsafe_allow_html=True)
                 placeholders.append((ph, row))
 
-            # 2. 背景極速抓圖，更新畫面
+            # 🌟 2. 背景逐一去 HKTVmall 抓圖，更新畫面
             for ph, row in placeholders:
                 original_product_name = str(row['Name'])
                 
-                img_url = get_product_image_url(original_product_name)
+                # 去 HKTVmall 找圖 (約需 2~3 秒)
+                img_url = get_hktvmall_image_url(original_product_name)
                 
                 if img_url:
                     final_img_html = f'<img src="{img_url}" alt="Product Image" />'
                 else:
                     final_img_html = '<span class="no-img-text">暫無圖片</span>'
 
+                # 抓到圖後，無縫替換掉原本的「⏳ 載入圖片中...」
                 ph.markdown(generate_card_html(row, final_img_html), unsafe_allow_html=True)
 
         else:
