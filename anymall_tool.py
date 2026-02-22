@@ -172,7 +172,7 @@ def show_anymall_page():
                 font-size: 13px !important;    
                 font-weight: bold !important;
                 line-height: 1 !important;
-                transform: translateX(10px) !important; /* 修正：統一往右平移 20px */
+                transform: translateX(5px) !important; /* 修正：統一往右平移 20px */
             }
 
             .cell-text { font-size: 15px; color: #333; padding: 0 5px; width: 100%; text-align: left; }
