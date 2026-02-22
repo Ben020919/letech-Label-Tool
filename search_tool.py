@@ -40,7 +40,7 @@ def load_data():
     except Exception as e:
         return None
 
-# ================= HKTVmall 圖片爬蟲 (5 段式漸進搜尋) =================
+# ================= HKTVmall 圖片爬蟲 (7 段式全自動變速) =================
 @st.cache_data(show_spinner=False, ttl=86400)
 def get_hktvmall_image_url(original_product_name):
     
@@ -80,35 +80,43 @@ def get_hktvmall_image_url(original_product_name):
             return None
 
     try:
-        # 1. 拔除最前方的括號 (例如: "(瑕疵品)韓國洗髮水(嬰兒香)" -> "韓國洗髮水(嬰兒香)")
-        name_no_prefix = re.sub(r'^[\(（].*?[\)）]\s*', '', original_product_name).strip()
-        
-        # 2. 拔除後方的括號 (例如: "韓國洗髮水(嬰兒香)" -> "韓國洗髮水")
-        name_no_suffix = re.sub(r'\s*[\(（][^()（）]*[\)）]$', '', name_no_prefix).strip()
-
-        # 波段 1：保留後括號，直接搜！(滿足你最新的需求)
-        img_url = do_search(name_no_prefix)
+        # 波段 1：🌟 原汁原味！不管有沒有括號，一字不漏直接搜！
+        search_name = original_product_name.strip()
+        img_url = do_search(search_name)
         if img_url: return img_url
             
-        # 波段 2：如果波段 1 找不到，且名字真的有後括號，就把後括號拔掉再搜一次
+        # 波段 2：拔除最前方的括號 (例如: "(瑕疵品)韓國洗髮水" -> "韓國洗髮水")
+        name_no_prefix = re.sub(r'^[\(（].*?[\)）]\s*', '', search_name).strip()
+        if name_no_prefix and name_no_prefix != search_name:
+            img_url = do_search(name_no_prefix)
+            if img_url: return img_url
+
+        # 波段 3：拔除後方的括號 (例如: "韓國洗髮水(嬰兒香)" -> "韓國洗髮水")
+        name_no_suffix = re.sub(r'\s*[\(（][^()（）]*[\)）]$', '', name_no_prefix).strip()
         if name_no_suffix and name_no_suffix != name_no_prefix:
             img_url = do_search(name_no_suffix)
             if img_url: return img_url
 
-        # 波段 3：砍掉連字號 (-) 後面的所有款式字眼
+        # 波段 4：砍掉連字號 (-) 後面的所有款式字眼
         fallback_1 = re.sub(r'\s*[-－].*$', '', name_no_suffix).strip()
         if fallback_1 and fallback_1 != name_no_suffix:
             img_url = do_search(fallback_1)
             if img_url: return img_url
 
-        # 波段 4：砍掉國家名、容量 (ml, g, 包)
+        # 波段 5：砍掉國家名、容量 (ml, g, 包, 人份)
         fallback_2 = re.sub(r'^(韓國|日本|美國|澳洲|英國|德國|法國|台灣|泰國|紐西蘭)\s*', '', fallback_1)
-        fallback_2 = re.sub(r'\s*\d+(\.\d+)?\s*(ml|g|kg|l|oz|毫升|克|件|片|樽|罐|包).*$', '', fallback_2, flags=re.IGNORECASE).strip()
+        fallback_2 = re.sub(r'\s*\d+(\.\d+)?\s*(ml|g|kg|l|oz|毫升|克|件|片|樽|罐|包|人份).*$', '', fallback_2, flags=re.IGNORECASE).strip()
         if fallback_2 and fallback_2 != fallback_1:
             img_url = do_search(fallback_2)
             if img_url: return img_url
                 
-        # 波段 5：終極大絕，只取名字最前面的兩個詞彙
+        # 波段 6：純中文精準打擊 
+        chinese_chars = "".join(re.findall(r'[\u4e00-\u9fff]+', fallback_2))
+        if len(chinese_chars) >= 3: 
+            img_url = do_search(chinese_chars)
+            if img_url: return img_url
+
+        # 波段 7：如果連中文都沒有，只取名字最前面的兩個詞彙
         words = fallback_2.split()
         if len(words) >= 2:
             fallback_3 = " ".join(words[:2])
