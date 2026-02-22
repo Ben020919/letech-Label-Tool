@@ -16,7 +16,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 import streamlit.components.v1 as components
-from selenium_stealth import stealth  # 🌟 匯入隱形魔法套件
+from selenium_stealth import stealth
 
 # ================= 1. 匯入追蹤工具 =================
 try:
@@ -26,9 +26,8 @@ except ImportError:
 
 # ================= 2. 設定固定檔案名稱與快取 =================
 DEFAULT_DB_FILE = "Barcode.xlsx.csv"
-IMAGE_CACHE_FILE = "image_cache.json"  # 🌟 專門用來記憶成功圖片的小本本
+IMAGE_CACHE_FILE = "image_cache.json"
 
-# 讀取 Excel 資料
 @st.cache_data
 def load_data():
     if not os.path.exists(DEFAULT_DB_FILE): return None
@@ -43,80 +42,66 @@ def load_data():
         return df
     except Exception: return None
 
-# 🌟 讀取圖片記憶庫
 def load_image_cache():
     if os.path.exists(IMAGE_CACHE_FILE):
         try:
             with open(IMAGE_CACHE_FILE, 'r', encoding='utf-8') as f:
                 return json.load(f)
-        except:
-            return {}
+        except: return {}
     return {}
 
-# 🌟 儲存圖片記憶庫
 def save_image_cache(cache_dict):
     try:
         with open(IMAGE_CACHE_FILE, 'w', encoding='utf-8') as f:
             json.dump(cache_dict, f, ensure_ascii=False)
-    except Exception as e:
-        print(f"記憶庫儲存失敗: {e}")
+    except Exception as e: print(f"記憶庫儲存失敗: {e}")
 
-# ================= 3. 核心爬蟲 (隱形斗篷升級版) =================
-def get_hktvmall_image_final(product_name):
-    # 強制停頓一下，模擬人類操作節奏
-    time.sleep(1.5)
-    
-    encoded_name = urllib.parse.quote(str(product_name).strip())
-    search_url = f"https://www.hktvmall.com/hktv/zh/search_a?keyword={encoded_name}"
-    
+# ================= 3. 核心爬蟲 (記憶體極致優化版) =================
+
+# 🌟 新增：統一的瀏覽器啟動器 (只啟動一次)
+def init_driver():
     chrome_options = Options()
     chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--no-sandbox")               # 雲端必備：繞過沙盒
-    chrome_options.add_argument("--disable-dev-shm-usage")    # 雲端必備：防止記憶體爆掉
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--disable-features=NetworkService")
     chrome_options.add_argument("--window-size=1920x1080")
-    # 這裡不再手動寫死 user-agent，因為 stealth 會幫我們生成更真實的
+    # 極致省記憶體設定
+    chrome_options.add_argument("--disable-extensions")
+    chrome_options.add_argument("--disable-infobars")
     
     chrome_binary = shutil.which("chromium") or shutil.which("chromium-browser")
-    if chrome_binary:
-        chrome_options.binary_location = chrome_binary
+    if chrome_binary: chrome_options.binary_location = chrome_binary
         
     driver_path = shutil.which("chromedriver") or shutil.which("chromedriver-linux64")
-    
-    if driver_path:
-        service = Service(executable_path=driver_path)
-    else:
-        service = Service(ChromeDriverManager().install())
-        
+    service = Service(executable_path=driver_path) if driver_path else Service(ChromeDriverManager().install())
     service.log_path = os.devnull
     
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    stealth(driver,
+        languages=["zh-TW", "zh-HK", "en-US", "en"],
+        vendor="Google Inc.",
+        platform="Win32",
+        webgl_vendor="Intel Inc.",
+        renderer="Intel Iris OpenGL Engine",
+        fix_hairline=True,
+    )
+    return driver
+
+# 🌟 修改：不再自己開關瀏覽器，而是接收上面那台「包車」來用
+def get_hktvmall_image_final(product_name, driver):
+    time.sleep(1.5) # 模擬人類停頓
+    encoded_name = urllib.parse.quote(str(product_name).strip())
+    search_url = f"https://www.hktvmall.com/hktv/zh/search_a?keyword={encoded_name}"
+    
     try:
-        driver = webdriver.Chrome(service=service, options=chrome_options)
-        
-        # 🌟 啟動隱形魔法！把雲端機器人偽裝成普通的 Windows 電腦
-        stealth(driver,
-            languages=["zh-TW", "zh-HK", "en-US", "en"],
-            vendor="Google Inc.",
-            platform="Win32",
-            webgl_vendor="Intel Inc.",
-            renderer="Intel Iris OpenGL Engine",
-            fix_hairline=True,
-        )
-        
         driver.get(search_url)
         wait = WebDriverWait(driver, 15)
         img_element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".product-brief img")))
-        img_url = img_element.get_attribute("src")
-        return img_url
+        return img_element.get_attribute("src")
     except Exception as e:
-        print(f"爬蟲抓取失敗 ({product_name}): {e}")
-        return f"ERROR:{str(e).splitlines()[0]}" # 把錯誤訊息傳出去診斷
-    finally:
-        try:
-            driver.quit()
-        except:
-            pass
+        return f"ERROR:{str(e).splitlines()[0]}"
 
 # ================= 4. HTML 卡片渲染器 =================
 def generate_card_html(row, img_html):
@@ -161,7 +146,6 @@ def show_search_barcode_page():
         return
 
     st.caption(f"📚 Inventory Ready：Total {len(df)} Data")
-    
     user_input = st.text_input("Please Enter Keywords:", placeholder="SKU / Barcode / Name")
 
     components.html("""<script>
@@ -181,64 +165,82 @@ def show_search_barcode_page():
         if not results.empty:
             st.success(f"✅ Found {len(results)} Data")
             
-            # 載入目前的記憶庫
             image_cache = load_image_cache()
             cache_updated = False
-            
             placeholders = []
+            
+            # 第一階段：先建立所有的卡片空殼
             for idx, row in results.iterrows():
                 ph = st.empty()
-                target_name = str(row['Name'])
-                
-                # 第一關：檢查記憶庫！如果以前成功抓過，直接秒殺顯示！
-                if target_name in image_cache:
-                    ph.markdown(generate_card_html(row, image_cache[target_name]), unsafe_allow_html=True)
-                else:
-                    # 如果沒記過，先顯示等待動畫，並加入待爬取清單
-                    ph.markdown(generate_card_html(row, '<span class="loading-text">⏳ 正在啟動爬蟲抓取圖片...</span>'), unsafe_allow_html=True)
-                    placeholders.append((ph, row))
+                placeholders.append((ph, row))
 
-            # 第二關：只有沒被記住的商品，才真的去啟動爬蟲
+            # 🌟 第二階段：判斷是不是有需要真正去爬網頁的商品
+            items_to_scrape = [row for ph, row in placeholders if str(row['Name']) not in image_cache]
+            driver = None
+            
+            if items_to_scrape:
+                try:
+                    # 只有在真的需要抓新圖的時候，才叫一台「包車 (瀏覽器)」過來
+                    driver = init_driver()
+                except Exception as e:
+                    st.error("伺服器記憶體過載，請稍後再試或清除記憶。")
+
+            # 第三階段：依序填入圖片 (讀取記憶 or 使用包車去抓)
             for ph, row in placeholders:
                 target_name = str(row['Name'])
-                img_url = get_hktvmall_image_final(target_name)
                 
-                if img_url and img_url.startswith("ERROR:"):
-                     # 如果爬蟲失敗，把簡短的錯誤原因顯示出來幫助診斷
-                     error_msg = img_url.replace("ERROR:", "")
-                     if "TimeoutException" in error_msg:
-                         final_img_html = '<span style="color:red; font-size:11px; text-align:center;">15秒超時<br>(被 HKTVmall 阻擋)</span>'
-                     else:
-                         final_img_html = '<span style="color:red; font-size:11px; text-align:center;">伺服器崩潰或記憶體不足</span>'
-                elif img_url:
-                    try:
-                        headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
-                        img_response = requests.get(img_url, headers=headers, timeout=10)
-                        img_response.raise_for_status()
-                        
-                        b64_img = base64.b64encode(img_response.content).decode('utf-8')
-                        mime_type = "image/jpeg"
-                        if ".png" in img_url.lower(): mime_type = "image/png"
-                        elif ".gif" in img_url.lower(): mime_type = "image/gif"
-                        elif ".webp" in img_url.lower(): mime_type = "image/webp"
-                        
-                        final_img_html = f'<img src="data:{mime_type};base64,{b64_img}" alt="Product Image" />'
-                        
-                        # 成功抓取並轉換後，把它寫進記憶庫！
-                        image_cache[target_name] = final_img_html
-                        cache_updated = True
-                        
-                    except Exception as e:
-                        final_img_html = f'<span style="color:red; font-size:12px;">防盜鏈阻擋下載失敗</span>'
+                # 1. 記憶庫裡有，直接秒出！
+                if target_name in image_cache:
+                    ph.markdown(generate_card_html(row, image_cache[target_name]), unsafe_allow_html=True)
+                
+                # 2. 記憶庫沒有，開始抓
                 else:
-                    final_img_html = '<span style="color:#aaa; font-size:12px;">無圖片</span>'
+                    if driver is None:
+                        # 瀏覽器啟動失敗的防呆機制
+                        final_img_html = '<span style="color:red; font-size:11px; text-align:center;">瀏覽器啟動失敗</span>'
+                        ph.markdown(generate_card_html(row, final_img_html), unsafe_allow_html=True)
+                        continue
+                        
+                    ph.markdown(generate_card_html(row, '<span class="loading-text">⏳ 正在抓取圖片...</span>'), unsafe_allow_html=True)
+                    
+                    img_url = get_hktvmall_image_final(target_name, driver)
+                    
+                    if img_url and img_url.startswith("ERROR:"):
+                         error_msg = img_url.replace("ERROR:", "")
+                         if "TimeoutException" in error_msg:
+                             final_img_html = '<span style="color:red; font-size:11px; text-align:center;">15秒超時<br>(被防護阻擋)</span>'
+                         else:
+                             final_img_html = '<span style="color:red; font-size:11px; text-align:center;">尋找圖片失敗</span>'
+                    elif img_url:
+                        try:
+                            headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+                            img_response = requests.get(img_url, headers=headers, timeout=10)
+                            img_response.raise_for_status()
+                            
+                            b64_img = base64.b64encode(img_response.content).decode('utf-8')
+                            mime_type = "image/jpeg"
+                            if ".png" in img_url.lower(): mime_type = "image/png"
+                            elif ".gif" in img_url.lower(): mime_type = "image/gif"
+                            elif ".webp" in img_url.lower(): mime_type = "image/webp"
+                            
+                            final_img_html = f'<img src="data:{mime_type};base64,{b64_img}" alt="Product Image" />'
+                            
+                            # 寫進記憶庫
+                            image_cache[target_name] = final_img_html
+                            cache_updated = True
+                        except Exception as e:
+                            final_img_html = f'<span style="color:red; font-size:12px;">防盜鏈阻擋下載</span>'
+                    else:
+                        final_img_html = '<span style="color:#aaa; font-size:12px;">無圖片</span>'
 
-                # 更新畫面
-                ph.markdown(generate_card_html(row, final_img_html), unsafe_allow_html=True)
+                    ph.markdown(generate_card_html(row, final_img_html), unsafe_allow_html=True)
             
-            # 迴圈結束後，如果有新記住的圖片，就把小本本存檔
-            if cache_updated:
-                save_image_cache(image_cache)
+            # 🌟 任務全部結束，把這台唯一的「包車」徹底關閉銷毀，釋放珍貴的記憶體！
+            if driver:
+                try: driver.quit()
+                except: pass
+
+            if cache_updated: save_image_cache(image_cache)
                 
         else:
             st.warning("❌ No Data Found")
