@@ -49,7 +49,7 @@ def load_local_font_bytes(file_path):
     if not os.path.exists(file_path): return None
     with open(file_path, "rb") as f: return f.read()
 
-# ================= 2. 標籤生成函數 (完美移植自 Yummy Tool) =================
+# ================= 2. 標籤生成函數 =================
 def clean_val(val):
     if pd.isna(val) or str(val).lower() == 'nan': return ""
     return str(val).strip()
@@ -169,28 +169,78 @@ def js_instant_print(full_html_content):
 
 # ================= 3. 頁面主邏輯 =================
 def show_food_label_page():
+    # ================= ✨ UI 與 CSS 美化 ✨ =================
     st.markdown("""
         <style>
+            /* 保留 Logo 樣式 */
             .logo-container { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
             .logo-text { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 28px; font-weight: 800; color: #2c3e50; letter-spacing: -0.5px; margin-left: 10px; line-height: 1; }
             .logo-dot { color: #007bff; }
             .logo-sub { font-size: 14px; color: #888; font-weight: 400; margin-left: 15px; padding-left: 15px; border-left: 1px solid #ddd; height: 20px; line-height: 20px; }
             
-            .result-card { background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 20px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); transition: all 0.2s; }
-            .result-card:hover { border-color: #007bff; box-shadow: 0 6px 12px rgba(0,123,255,0.1); }
+            /* 高質感搜尋結果卡片 */
+            .result-card { 
+                background: linear-gradient(145deg, #ffffff, #fcfcfc);
+                border: 1px solid #e2e8f0; 
+                border-radius: 16px; 
+                padding: 24px; 
+                margin-bottom: 20px; 
+                box-shadow: 0 4px 10px rgba(0,0,0,0.03); 
+                transition: all 0.3s ease; 
+            }
+            .result-card:hover { 
+                border-color: #b3d4ff; 
+                box-shadow: 0 10px 20px rgba(0, 123, 255, 0.1); 
+                transform: translateY(-2px);
+            }
             
-            .item-title { font-size: 18px; font-weight: bold; color: #2c3e50; margin-bottom: 5px; }
-            .item-code { font-family: monospace; background: #f1f3f5; padding: 2px 8px; border-radius: 4px; color: #d63384; font-size: 14px; margin-right: 10px; }
-            .item-label { font-size: 13px; color: #666; font-weight: bold; }
+            /* 商品名稱字體 */
+            .item-title { 
+                font-size: 20px; 
+                font-weight: 800; 
+                color: #1e293b; 
+                margin-bottom: 15px; 
+                line-height: 1.4;
+            }
             
-            div[data-testid="stNumberInput"] label { display: none; }
-            .print-btn-container button { width: 100% !important; height: 45px !important; background-color: #e7f5ff !important; color: #004085 !important; border: 1px solid #b8daff !important; border-radius: 8px !important; font-weight: bold !important; font-size: 16px !important; transition: all 0.2s !important; }
-            .print-btn-container button:hover { background-color: #007bff !important; color: white !important; }
+            /* 精緻的小標籤 (Badges) */
+            .info-badges-container { display: flex; flex-wrap: wrap; gap: 10px; }
+            .item-badge { 
+                display: flex; align-items: center; background-color: #f8fafc; 
+                border: 1px solid #e2e8f0; border-radius: 8px; padding: 4px 10px; 
+                font-size: 13px; color: #64748b; font-weight: 600; 
+            }
+            .item-badge-value { 
+                color: #0369a1; background-color: #f0f9ff; margin-left: 8px; 
+                padding: 2px 6px; border-radius: 4px; font-family: 'Courier New', monospace; font-weight: bold; 
+            }
             
+            /* 調整數量輸入框外觀，讓它與按鈕對齊 */
+            div[data-testid="stNumberInput"] label { 
+                font-size: 14px !important; color: #475569 !important; font-weight: 600 !important; 
+            }
+            
+            /* 打印按鈕高質感美化 (對齊高度) */
+            div.stButton { margin-top: 28px !important; } /* 與 Qty 標籤對齊的魔法 */
+            div.stButton > button { 
+                width: 100% !important; height: 42px !important; 
+                background: linear-gradient(135deg, #007bff, #0056b3) !important; 
+                color: white !important; border: none !important; border-radius: 8px !important; 
+                font-weight: bold !important; font-size: 15px !important; 
+                box-shadow: 0 4px 6px rgba(0, 123, 255, 0.2) !important;
+                transition: all 0.2s ease !important; 
+            }
+            div.stButton > button:hover { 
+                box-shadow: 0 6px 12px rgba(0, 123, 255, 0.3) !important; 
+                transform: translateY(-1px) !important; filter: brightness(1.1);
+            }
+            
+            /* Search Input X 按鈕 */
             input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: searchfield-cancel-button; cursor: pointer; height: 16px; width: 16px; opacity: 0.6; }
         </style>
     """, unsafe_allow_html=True)
 
+    # --- Logo 區塊 ---
     st.markdown("""
         <div class="logo-container">
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#007bff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -278,37 +328,32 @@ def show_food_label_page():
                 
                 with st.container():
                     st.markdown('<div class="result-card">', unsafe_allow_html=True)
-                    c_info, c_qty, c_print = st.columns([3, 1, 1.5])
+                    
+                    # 使用 Columns 排版: 左邊是資訊(3.5)，右邊是數量(1)與列印(1.2)
+                    c_info, c_qty, c_print = st.columns([3.5, 1, 1.2])
                     
                     with c_info:
                         st.markdown(f"<div class='item-title'>{desc}</div>", unsafe_allow_html=True)
                         st.markdown(f"""
-                            <div style='margin-top: 10px;'>
-                                <span class='item-label'>SKU:</span> <span class='item-code'>{p_no}</span>
-                                <span class='item-label'>Barcode:</span> <span class='item-code'>{barcode}</span>
+                            <div class='info-badges-container'>
+                                <div class='item-badge'>SKU <span class='item-badge-value'>{p_no}</span></div>
+                                <div class='item-badge'>Barcode <span class='item-badge-value'>{barcode}</span></div>
                             </div>
                         """, unsafe_allow_html=True)
                         
                     with c_qty:
-                        st.markdown("<div style='font-size: 13px; font-weight: bold; color: #666; margin-bottom: 5px; text-align: center;'>列印數量</div>", unsafe_allow_html=True)
-                        qty = st.number_input("Qty", min_value=1, max_value=500, value=1, step=1, key=f"qty_{idx}")
+                        # 讓 Streamlit 內建的 label 顯示，配合 CSS 對齊
+                        qty = st.number_input("列印數量 (Qty)", min_value=1, max_value=500, value=1, step=1, key=f"qty_{idx}")
                         
                     with c_print:
-                        st.markdown("<div style='margin-bottom: 23px;'></div>", unsafe_allow_html=True) 
-                        st.markdown('<div class="print-btn-container">', unsafe_allow_html=True)
-                        if st.button("🖨️ 打印 Food Label", key=f"print_{idx}", use_container_width=True):
+                        if st.button("🖨️ 打印標籤", key=f"print_{idx}", use_container_width=True):
                             log_action("FoodLabel_Print")
-                            
-                            # 準備傳遞給 HTML 生成器的資料
                             item_data = {'Barcode': barcode, '商品名稱': desc}
-                            matched_data = row.to_dict() # 將整行轉為字典
+                            matched_data = row.to_dict()
                             
-                            # ✨ 這裡直接使用內建的 HTML 生成器，不再依賴 Lable.py
                             html_content = create_food_label_html(item_data, matched_data, st.session_state['font_css'], qty)
-                            
                             js_instant_print(html_content)
                             
-                        st.markdown('</div>', unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
