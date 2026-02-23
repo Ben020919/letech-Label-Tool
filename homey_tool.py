@@ -20,8 +20,6 @@ except ImportError as e:
     st.error(f"❌ 模組匯入失敗 (repack_lable): {e}")
     repack_lable = None
 
-# 注意：我們已經不需要 Lable.py 了，因為我們直接使用下面移植過來的 HTML 產生器！
-
 # ================= 設定預設檔案名稱 =================
 MASTER_FILE = "data.xlsx"
 DEFAULT_FONT_PATH = "font.ttf"
@@ -77,7 +75,7 @@ def get_nutri_val(data, key):
     if pd.isna(val) or str(val).lower() == 'nan': return "0"
     return str(val).strip()
 
-# ✨ 完美移植自 excel_tool.py 的 Food Label 生成器 ✨
+# ✨ Food Label 生成器 ✨
 def create_food_label_html(item_name, barcode_text, matched_data, font_css, qty):
     data = matched_data if matched_data is not None and not matched_data.empty else {}
     if isinstance(data, pd.DataFrame):
@@ -160,6 +158,67 @@ def create_food_label_html(item_name, barcode_text, matched_data, font_css, qty)
         final_html = single_label_html
         
     return final_html
+
+# ✨ 新增：蟲蟲 Label 生成器 ✨
+def create_insects_label_html(matched_data, qty):
+    data = matched_data if matched_data is not None and not matched_data.empty else {}
+    if isinstance(data, pd.DataFrame):
+        data = data.iloc[0].to_dict()
+    elif not isinstance(data, dict):
+        data = {}
+        
+    barcode = clean_val(data.get('Barcode', ''))         
+    desc = clean_val(data.get('Description', ''))        
+    features = clean_val(data.get('FEATURES', ''))       
+    cautions = clean_val(data.get('Cautions', ''))       
+    
+    net_content = clean_val(data.get('Net Content', '')) 
+    if not net_content: net_content = clean_val(data.get('Net_Content', ''))
+        
+    ingredients = clean_val(data.get('Ingredients', '')) 
+    warnings = clean_val(data.get('警告字眼', ''))         
+    
+    css = """
+    <style>
+        @page { size: 70mm 50mm; margin: 0; }
+        body { margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: white;}
+        .label-box {
+            width: 70mm;
+            height: 50mm;
+            box-sizing: border-box;
+            padding: 3mm 4mm;
+            overflow: hidden;
+            background-color: white;
+            color: black;
+            font-size: 7pt;
+            line-height: 1.1;
+            page-break-after: always;
+        }
+        .line-section {
+            margin-bottom: 7pt; 
+            word-wrap: break-word;
+            font-weight: bold;
+            min-height: 7pt; 
+        }
+        .line-section:last-child {
+            margin-bottom: 0;
+        }
+    </style>
+    """
+    
+    label_content = f"""
+        <div class="line-section">{barcode}</div>
+        <div class="line-section">{desc}</div>
+        <div class="line-section">{features}</div>
+        <div class="line-section">{cautions}</div>
+        <div class="line-section">{net_content}</div>
+        <div class="line-section">{ingredients}</div>
+        <div class="line-section">{warnings}</div>
+    """
+    
+    single_label = f'<div class="label-box">{label_content}</div>'
+    html = f"<html><head>{css}</head><body>{single_label * qty}</body></html>"
+    return html
 
 def create_simple_text_html(text, qty):
     """生成簡單的純文字標籤"""
@@ -325,6 +384,8 @@ def show_homey_page():
                 # 判斷邏輯
                 if "food" in excel_label.lower():
                     final_label = excel_label
+                elif "蟲" in excel_label or "insect" in excel_label.lower():  # ✨ 新增：判斷蟲蟲標籤
+                    final_label = "蟲蟲label"
                 elif not barcode_val or barcode_val.strip() == "" or barcode_val == p_no:
                     final_label = "Print SKU Barcode"
                 elif barcode_val and barcode_val[-1].isalpha():
@@ -398,6 +459,8 @@ def show_homey_page():
                             
                             if "food" in v_label_lower:
                                 needs_print = True
+                            elif "蟲" in v_label_lower or "insect" in v_label_lower: # ✨ 新增：蟲蟲標籤需要列印
+                                needs_print = True
                             elif not barcode_clean or barcode_clean == "(N/A)":
                                 needs_print = True
                             elif re.search(r'[a-zA-Z]$', barcode_clean) or barcode_clean == p_no:
@@ -409,9 +472,13 @@ def show_homey_page():
                                 if st.button("打印", key=f"btn_hm_{index}"):
                                     log_action("Homey_Print")
 
-                                    # ✨ 完全使用 HTML 列印，不依賴 Lable.py
                                     if "food" in v_label_lower:
                                         html = create_food_label_html(row['商品名稱'], barcode_clean, row['master_row'], font_css, row['數量'])
+                                        js_instant_print(html)
+                                        
+                                    elif "蟲" in v_label_lower or "insect" in v_label_lower: # ✨ 新增：呼叫蟲蟲標籤生成器
+                                        log_action("InsectsLabel_Print")
+                                        html = create_insects_label_html(row['master_row'], row['數量'])
                                         js_instant_print(html)
                                         
                                     elif "repack" in v_label_lower or "sku" in v_label_lower:
