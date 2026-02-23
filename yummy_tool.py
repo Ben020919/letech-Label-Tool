@@ -237,7 +237,7 @@ def show_yummy_page():
             div[data-testid="column"] { display: flex; flex-direction: column; justify-content: center; }
             
             /* 統一按鈕與標籤對齊 */
-            div.stButton > button { width: 100px !important; height: 38px !important; min-height: 38px !important; border-radius: 6px !important; padding: 0px !important; background-color: #e7f5ff !important; color: #004085 !important; border: none !important; display: flex !important; justify-content: center !important; align-items: center !important; margin: 0 auto !important; transform: translateX(20px) !important; }
+            div.stButton > button { width: 100px !important; height: 38px !important; min-height: 38px !important; border-radius: 6px !important; padding: 0px !important; background-color: #e7f5ff !important; color: #004085 !important; border: none !important; display: flex !important; justify-content: center !important; align-items: center !important; margin: 0 auto !important; transform: translateX(18px) !important; }
             div.stButton > button:hover { background-color: #d0ebff !important; color: #002752 !important; }
             div.stButton > button p { font-size: 13px !important; font-weight: bold !important; line-height: 1 !important; margin: 0 !important; padding: 0 !important; }
             div.stButton { width: 100% !important; display: flex !important; justify-content: center !important; align-items: center !important; height: 100% !important; min-height: 45px !important; margin: 0 !important; }
