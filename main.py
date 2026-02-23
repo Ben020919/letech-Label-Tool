@@ -42,6 +42,13 @@ except ImportError as e:
     def show_hellobear_page(): 
         st.error(f"❌ 無法載入 Hello Bear 工具: {hb_err}")
 
+# --- Food Label Tool ---
+try:
+    from food_label_tool import show_food_label_page
+except ImportError as e:
+    food_err = str(e)
+    def show_food_label_page(): st.error(f"❌ 無法載入 Food Label 工具: {food_err}")
+
 # ================= 2. 頁面設定 =================
 st.set_page_config(page_title="Letech 3PL", page_icon="📦", layout="wide", initial_sidebar_state="auto")
 
@@ -94,6 +101,7 @@ st.markdown("""
     .tag-bear { background-color: #f8d7da; color: #721c24; }
     .tag-homey { background-color: #e2e3e5; color: #383d41; }
     .tag-tool { background-color: #d1ecf1; color: #0c5460; }
+    .tag-food { background-color: #f5c6cb; color: #721c24; }
     
     .stat-card-num { font-size: 2.1em; font-weight: 800; color: #007bff; margin: 15px 0; line-height: 1; }
     .stat-card-label { font-size: 1.2em; font-weight: bold; color: #2c3e50; }
@@ -135,8 +143,14 @@ def render_main_header():
 
 # ================= 7. 控制台頁面 =================
 def render_dashboard_page():
-    st.markdown("### 📊 System Dashboard (控制台)")
-    st.markdown("Overview of system usage statistics.")
+    col_title, col_btn = st.columns([0.85, 0.15])
+    with col_title:
+        st.markdown("### 📊 System Dashboard (控制台)")
+        st.markdown("Overview of system usage statistics.")
+    with col_btn:
+        if st.button("🔄 刷新數據", use_container_width=True):
+            st.rerun()
+            
     st.divider()
     
     stats = load_stats()
@@ -161,6 +175,10 @@ def render_dashboard_page():
             "type": "dual", "icon": "🏠", "title": "Homey System", 
             "val1": stats.get("Homey_Upload", 0), "label1": "📄 Uploads",
             "val2": stats.get("Homey_Print", 0), "label2": "🖨️ Prints" 
+        },
+        {
+            "type": "single", "icon": "🍎", "title": "Food Label System", 
+            "count": stats.get("FoodLabel_Print", 0), "desc": "Total Printed Labels"
         },
         {
             "type": "single", "icon": "🔍", "title": "Search Action", 
@@ -203,7 +221,8 @@ def render_home_page():
         {"tag": "Anymall 3PL", "tag_class": "tag-anymall", "icon": "🛍️", "title": "Anymall System", "desc": "自動處理空白頁與表格"},
         {"tag": "Hello Bear 3PL", "tag_class": "tag-bear", "icon": "🐻", "title": "Hello Bear System", "desc": "專屬物流功能"},
         {"tag": "Homey 3PL", "tag_class": "tag-homey", "icon": "🏠", "title": "Homey System", "desc": "資料整合與去除空白"},
-        {"tag": "Mobile Tool", "tag_class": "tag-tool", "icon": "🔍", "title": "Search Barcode", "desc": "快速查詢 SKU"},
+        {"tag": "Nutrition Label", "tag_class": "tag-food", "icon": "🍎", "title": "Food Label", "desc": "搜尋列印專屬食品標籤"},
+        {"tag": "Mobile Tool", "tag_class": "tag-tool", "icon": "🔍", "title": "Search Barcode", "desc": "快速查詢 SKU"}
     ]
     cols = st.columns(3)
     for i, card in enumerate(home_cards):
@@ -226,7 +245,7 @@ def main():
     
     category_selection = st.sidebar.radio(
         "Main Category", 
-        ["🏠 首頁總覽", "📊 控制台", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🔍 Search Barcode"],
+        ["🏠 首頁總覽", "📊 控制台", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🍎 Food Label 打印", "🔍 Search Barcode"],
         label_visibility="collapsed",
         key="main_nav",
         on_change=close_sidebar_callback
@@ -242,7 +261,6 @@ def main():
 
     elif category_selection == "🍔 Yummy 3PL":
         st.sidebar.markdown("---")
-        # 💡 取消子選單，直接呼叫合併後的 yummy_tool
         show_yummy_page()
 
     elif category_selection == "🛍️ Anymall 3PL":
@@ -257,7 +275,12 @@ def main():
         st.sidebar.markdown("---")
         show_homey_page()
 
+    elif category_selection == "🍎 Food Label 打印":
+        st.sidebar.markdown("---")
+        show_food_label_page()
+
     elif category_selection == "🔍 Search Barcode":
+        st.sidebar.markdown("---")
         show_search_barcode_page()
 
 if __name__ == "__main__":
