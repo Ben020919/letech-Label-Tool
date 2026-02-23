@@ -220,9 +220,12 @@ def show_food_label_page():
                 font-size: 14px !important; color: #475569 !important; font-weight: 600 !important; 
             }
             
-            /* 打印按鈕高質感美化 (對齊高度) */
-            div.stButton { margin-top: 28px !important; } /* 與 Qty 標籤對齊的魔法 */
-            div.stButton > button { 
+            /* 隱藏 st.form 預設的醜邊框 */
+            [data-testid="stForm"] { border: none !important; padding: 0 !important; margin: 0 !important; }
+            
+            /* 打印按鈕高質感美化 (對齊高度) 適用於 Form 裡面的按鈕 */
+            div.stButton, div[data-testid="stFormSubmitButton"] { margin-top: 28px !important; } 
+            div.stButton > button, div[data-testid="stFormSubmitButton"] > button { 
                 width: 100% !important; height: 42px !important; 
                 background: linear-gradient(135deg, #007bff, #0056b3) !important; 
                 color: white !important; border: none !important; border-radius: 8px !important; 
@@ -230,7 +233,7 @@ def show_food_label_page():
                 box-shadow: 0 4px 6px rgba(0, 123, 255, 0.2) !important;
                 transition: all 0.2s ease !important; 
             }
-            div.stButton > button:hover { 
+            div.stButton > button:hover, div[data-testid="stFormSubmitButton"] > button:hover { 
                 box-shadow: 0 6px 12px rgba(0, 123, 255, 0.3) !important; 
                 transform: translateY(-1px) !important; filter: brightness(1.1);
             }
@@ -329,31 +332,33 @@ def show_food_label_page():
                 with st.container():
                     st.markdown('<div class="result-card">', unsafe_allow_html=True)
                     
-                    # 使用 Columns 排版: 左邊是資訊(3.5)，右邊是數量(1)與列印(1.2)
-                    c_info, c_qty, c_print = st.columns([3.5, 1, 1.2])
-                    
-                    with c_info:
-                        st.markdown(f"<div class='item-title'>{desc}</div>", unsafe_allow_html=True)
-                        st.markdown(f"""
-                            <div class='info-badges-container'>
-                                <div class='item-badge'>SKU <span class='item-badge-value'>{p_no}</span></div>
-                                <div class='item-badge'>Barcode <span class='item-badge-value'>{barcode}</span></div>
-                            </div>
-                        """, unsafe_allow_html=True)
+                    # 💡 魔法在這裡：用 st.form 將輸入框與按鈕包起來，實現 Enter 提交！
+                    with st.form(key=f"form_print_{idx}", clear_on_submit=False):
+                        c_info, c_qty, c_print = st.columns([3.5, 1, 1.2])
                         
-                    with c_qty:
-                        # 讓 Streamlit 內建的 label 顯示，配合 CSS 對齊
-                        qty = st.number_input("列印數量 (Qty)", min_value=1, max_value=500, value=1, step=1, key=f"qty_{idx}")
-                        
-                    with c_print:
-                        if st.button("🖨️ 打印標籤", key=f"print_{idx}", use_container_width=True):
-                            log_action("FoodLabel_Print")
-                            item_data = {'Barcode': barcode, '商品名稱': desc}
-                            matched_data = row.to_dict()
+                        with c_info:
+                            st.markdown(f"<div class='item-title'>{desc}</div>", unsafe_allow_html=True)
+                            st.markdown(f"""
+                                <div class='info-badges-container'>
+                                    <div class='item-badge'>SKU <span class='item-badge-value'>{p_no}</span></div>
+                                    <div class='item-badge'>Barcode <span class='item-badge-value'>{barcode}</span></div>
+                                </div>
+                            """, unsafe_allow_html=True)
                             
-                            html_content = create_food_label_html(item_data, matched_data, st.session_state['font_css'], qty)
-                            js_instant_print(html_content)
+                        with c_qty:
+                            qty = st.number_input("列印數量 (Qty)", min_value=1, max_value=500, value=1, step=1, key=f"qty_{idx}")
                             
+                        with c_print:
+                            # form 裡面的按鈕必須是 form_submit_button
+                            submitted = st.form_submit_button("🖨️ 打印標籤", use_container_width=True)
+                            if submitted:
+                                log_action("FoodLabel_Print")
+                                item_data = {'Barcode': barcode, '商品名稱': desc}
+                                matched_data = row.to_dict()
+                                
+                                html_content = create_food_label_html(item_data, matched_data, st.session_state['font_css'], qty)
+                                js_instant_print(html_content)
+                                
                     st.markdown('</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
