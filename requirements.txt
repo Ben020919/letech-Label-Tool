@@ -6,4 +6,3 @@ python-barcode
 selenium
 webdriver-manager
 selenium-stealth
-reportlab
