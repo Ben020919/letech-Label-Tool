@@ -1,21 +1,11 @@
 import streamlit as st
 import pandas as pd
 import os
-import sys
+import re
+import base64
 import time
 from pathlib import Path
 import streamlit.components.v1 as components
-
-# ================= 確保能載入 Lable.py =================
-current_dir = Path(__file__).parent.absolute()
-if str(current_dir) not in sys.path:
-    sys.path.append(str(current_dir))
-
-try:
-    import Lable
-except ImportError as e:
-    st.error(f"❌ 模組匯入失敗 (Lable): {e}")
-    Lable = None
 
 try:
     from usage_tracker import log_action
@@ -24,45 +14,161 @@ except ImportError:
 
 # ================= 設定預設檔案名稱 =================
 DEFAULT_EXCEL_PATH = "data.xlsx"
+DEFAULT_FONT_PATH = "font.ttf"
 DB_NAME_FILE = "current_db_name.txt"
 
-# ================= 1. 資料庫讀取與檔名記憶函式 =================
+# ================= 1. 資料庫與字體讀取 =================
 def get_current_db_name():
-    """讀取當前使用的真實資料庫名稱"""
     if os.path.exists(DB_NAME_FILE):
         with open(DB_NAME_FILE, "r", encoding="utf-8") as f:
             return f.read().strip()
     return DEFAULT_EXCEL_PATH
 
 def set_current_db_name(name):
-    """儲存您上傳的真實資料庫名稱"""
     with open(DB_NAME_FILE, "w", encoding="utf-8") as f:
         f.write(name)
 
 @st.cache_data
 def load_database():
-    if not os.path.exists(DEFAULT_EXCEL_PATH):
-        return None
+    if not os.path.exists(DEFAULT_EXCEL_PATH): return None
     try:
-        # 為了相容性，先嘗試讀取 csv，若失敗則讀取 excel
         if DEFAULT_EXCEL_PATH.endswith('.csv'):
             df = pd.read_csv(DEFAULT_EXCEL_PATH, dtype=str, keep_default_na=False)
         else:
             try:
                 df = pd.read_excel(DEFAULT_EXCEL_PATH, dtype=str, keep_default_na=False)
             except:
-                # 容錯處理：如果實際是 csv 但副檔名是 xlsx 
                 df = pd.read_csv(DEFAULT_EXCEL_PATH, dtype=str, keep_default_na=False)
-                
         df.columns = [str(c).strip() for c in df.columns]
         return df
     except Exception as e:
-        st.error(f"資料庫讀取失敗: {e}")
         return None
 
-# ================= 2. 頁面主邏輯 =================
+@st.cache_data
+def load_local_font_bytes(file_path):
+    if not os.path.exists(file_path): return None
+    with open(file_path, "rb") as f: return f.read()
+
+# ================= 2. 標籤生成函數 (完美移植自 Yummy Tool) =================
+def clean_val(val):
+    if pd.isna(val) or str(val).lower() == 'nan': return ""
+    return str(val).strip()
+
+def get_nutri_val(data, key):
+    val = data.get(key)
+    if pd.isna(val) or str(val).lower() == 'nan': return "0"
+    return str(val).strip()
+
+def font_to_base64_css(font_bytes, file_name):
+    if not font_bytes: return ""
+    try:
+        b64_str = base64.b64encode(font_bytes).decode('utf-8')
+        mime_type = "font/ttf"
+        if file_name.endswith(".otf"): mime_type = "font/otf"
+        elif file_name.endswith(".woff"): mime_type = "font/woff"
+        return f"""
+        @font-face {{ font-family: 'CustomLabelFont'; src: url(data:{mime_type};base64,{b64_str}) format('truetype'); font-weight: bold; font-style: normal; }}
+        body, .label-container, div, span {{ font-family: 'CustomLabelFont', Helvetica, Arial, sans-serif !important; }}
+        """
+    except Exception: return ""
+
+def create_food_label_html(item, matched_data, font_css, qty):
+    data = matched_data if matched_data else {}
+    desc_text = clean_val(data.get('Description', item['商品名稱']))
+    barcode_text = item['Barcode'] if item['Barcode'] != "未偵測到" else clean_val(data.get('Barcode', ''))
+    
+    nutri = {
+        'Serving_Size': get_nutri_val(data, 'Serving_Size'),
+        'Energy': get_nutri_val(data, 'Energy'),
+        'Protein': get_nutri_val(data, 'Protein'),
+        'Total_Fat': get_nutri_val(data, 'Total_Fat'),
+        'Sat_Fat': get_nutri_val(data, 'Sat_Fat'),
+        'Trans_Fat': get_nutri_val(data, 'Trans_Fat'),
+        'Carb': get_nutri_val(data, 'Carb'),
+        'Sugar': get_nutri_val(data, 'Sugar'),
+        'Sodium': get_nutri_val(data, 'Sodium'),
+        'Net_Content': get_nutri_val(data, 'Net_Content') or get_nutri_val(data, 'Net Content'),
+        'Country_Of_Origin': get_nutri_val(data, 'Country_Of_Origin'),
+    }
+    ing_text = clean_val(data.get('Ingredients', ''))
+    mfr_text = f"{clean_val(data.get('Madeby_Prefix', ''))} {clean_val(data.get('Madeby', ''))}".strip()
+    if "Manufacturer" not in mfr_text: mfr_text = "Manufacturer: " + mfr_text
+
+    single_label_html = f"""
+    <html><head><style>
+        {font_css}
+        @page {{ size: auto; margin: 0mm; }}
+        body {{ margin: 0; padding: 0; }}
+        .label-container {{ width: 70mm; height: 50mm; position: relative; box-sizing: border-box; border: 1px solid #ddd; page-break-after: always; overflow: hidden; font-weight: bold; }}
+        .barcode-text {{ position: absolute; left: 2mm; top: 2mm; font-size: 5pt; font-weight: bold; }}
+        .desc-text {{ position: absolute; left: 2mm; top: 4.5mm; width: 59mm; font-size: 5pt; line-height: 1.2; font-weight: bold; }}
+        .line1 {{ position: absolute; left: 0; top: 9mm; width: 70mm; border-top: 1.42pt solid black; }}
+        .nutri-box {{ position: absolute; left: 2mm; top: 10mm; width: 23mm; font-size: 3.5pt; line-height: 4.5pt; font-weight: bold; }}
+        .nutri-title {{ font-weight: bold; margin-bottom: 1px; }}
+        .nutri-row {{ display: flex; justify-content: space-between; }}
+        .indent {{ padding-left: 3px; }}
+        .vline {{ position: absolute; left: 26mm; top: 9mm; height: 29mm; border-left: 1.42pt solid black; }}
+        .ing-box {{ position: absolute; left: 27mm; top: 10mm; width: 41mm; height: 28mm; font-size: 3.5pt; line-height: 1.1; overflow: hidden; text-align: justify; font-weight: bold; }}
+        .line2 {{ position: absolute; left: 0; top: 38mm; width: 70mm; border-top: 1.42pt solid black; }}
+        .mfr-box {{ position: absolute; left: 2mm; top: 40mm; width: 35mm; font-size: 4.76pt; line-height: 1.2; font-weight: bold; }}
+        .bb-box {{ position: absolute; left: 47mm; top: 40mm; width: 27mm; font-size: 4.2pt; line-height: 1.2; font-weight: bold; white-space: nowrap; }}
+    </style></head><body>
+        <div class="label-container">
+            <div class="barcode-text">{barcode_text}</div>
+            <div class="desc-text">{desc_text}</div>
+            <div class="line1"></div>
+            <div class="nutri-box">
+                <div class="nutri-title">Nutrition Information</div>
+                <div class="nutri-row"><span>Serving Size:</span><span>{nutri['Serving_Size']}</span></div>
+                <div class="nutri-row"><span>Energy:</span><span>{nutri['Energy']}</span></div>
+                <div class="nutri-row"><span>Protein:</span><span>{nutri['Protein']}</span></div>
+                <div class="nutri-row"><span>Total fat:</span><span>{nutri['Total_Fat']}</span></div>
+                <div class="nutri-row indent"><span>- Saturated fat:</span><span>{nutri['Sat_Fat']}</span></div>
+                <div class="nutri-row indent"><span>- Trans fat:</span><span>{nutri['Trans_Fat']}</span></div>
+                <div class="nutri-row"><span>Carbohydrates:</span><span>{nutri['Carb']}</span></div>
+                <div class="nutri-row indent"><span>- Sugars:</span><span>{nutri['Sugar']}</span></div>
+                <div class="nutri-row"><span>Sodium:</span><span>{nutri['Sodium']}</span></div>
+                <div class="nutri-row"><span>Net Content:</span><span>{nutri['Net_Content']}</span></div>
+                <div class="nutri-row"><span>Country Of Origin:</span><span>{nutri['Country_Of_Origin']}</span></div>
+            </div>
+            <div class="vline"></div>
+            <div class="ing-box">Ingredients: {ing_text}</div>
+            <div class="line2"></div>
+            <div class="mfr-box">{mfr_text}</div>
+            <div class="bb-box">Best before(YY-MM-DD):<br>Show on package(見包裝)<br>此日期前最佳(YY-MM-DD)</div>
+        </div>
+    </body></html>
+    """
+    import re as regex
+    match = regex.search(r'<body>(.*?)</body>', single_label_html, regex.DOTALL)
+    if match:
+        div_content = match.group(1)
+        full_body = div_content * qty
+        final_html = single_label_html.replace(div_content, full_body)
+    else:
+        final_html = single_label_html
+    return final_html
+
+def js_instant_print(full_html_content):
+    b64_html = base64.b64encode(full_html_content.encode('utf-8')).decode('utf-8')
+    js_code = f"""
+    <script>
+        (function() {{
+            const b64 = "{b64_html}";
+            const htmlContent = decodeURIComponent(escape(window.atob(b64)));
+            const win = window.open('', '_blank', 'width=400,height=400');
+            if (win) {{
+                win.document.write(htmlContent); win.document.close();
+                win.onload = function() {{ win.focus(); win.onafterprint = function() {{ win.close(); }}; win.print(); win.onfocus = function() {{ setTimeout(()=>{{ win.close(); }}, 500); }}; }};
+            }} else {{ alert("請允許彈出視窗！"); }}
+        }})();
+    </script>
+    """
+    components.html(js_code, height=0)
+
+
+# ================= 3. 頁面主邏輯 =================
 def show_food_label_page():
-    # --- CSS 與 UI 樣式 ---
     st.markdown("""
         <style>
             .logo-container { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
@@ -77,14 +183,10 @@ def show_food_label_page():
             .item-code { font-family: monospace; background: #f1f3f5; padding: 2px 8px; border-radius: 4px; color: #d63384; font-size: 14px; margin-right: 10px; }
             .item-label { font-size: 13px; color: #666; font-weight: bold; }
             
-            /* 調整數字輸入框外觀 */
             div[data-testid="stNumberInput"] label { display: none; }
-            
-            /* 打印按鈕美化 */
             .print-btn-container button { width: 100% !important; height: 45px !important; background-color: #e7f5ff !important; color: #004085 !important; border: 1px solid #b8daff !important; border-radius: 8px !important; font-weight: bold !important; font-size: 16px !important; transition: all 0.2s !important; }
             .print-btn-container button:hover { background-color: #007bff !important; color: white !important; }
             
-            /* Search Input X 按鈕 */
             input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: searchfield-cancel-button; cursor: pointer; height: 16px; width: 16px; opacity: 0.6; }
         </style>
     """, unsafe_allow_html=True)
@@ -101,7 +203,12 @@ def show_food_label_page():
 
     st.markdown("### 🍎 Food Label 打印系統")
     
-    # ================= 🌟 配置新文件區塊 =================
+    # --- 載入字體 ---
+    font_bytes = load_local_font_bytes(DEFAULT_FONT_PATH)
+    if 'font_css' not in st.session_state:
+        st.session_state['font_css'] = font_to_base64_css(font_bytes, DEFAULT_FONT_PATH) if font_bytes else ""
+    
+    # --- 配置新文件區塊 ---
     with st.expander("⚙️ 配置新資料庫文件 (Database Management)", expanded=False):
         st.info("支援上傳任何檔名的 Excel (.xlsx) 或 CSV (.csv) 檔案。上傳後系統會自動套用！")
         new_db_file = st.file_uploader("上傳新的資料庫檔案", type=["xlsx", "csv"], key="food_new_db_uploader")
@@ -109,7 +216,6 @@ def show_food_label_page():
         if new_db_file:
             if st.button("確認更新資料庫", type="primary", key="food_update_db_btn"):
                 try:
-                    # 檔案轉換邏輯：不管是啥名字，統一轉成 data.xlsx 給系統吃
                     if new_db_file.name.endswith('.csv'):
                         temp_df = pd.read_csv(new_db_file, dtype=str)
                         temp_df.to_excel(DEFAULT_EXCEL_PATH, index=False)
@@ -117,9 +223,7 @@ def show_food_label_page():
                         with open(DEFAULT_EXCEL_PATH, "wb") as f:
                             f.write(new_db_file.getbuffer())
                     
-                    # ⭐ 記錄真實檔名，讓 UI 可以顯示
                     set_current_db_name(new_db_file.name)
-                    
                     st.cache_data.clear()
                     st.success(f"✅ 資料庫已成功更新為：【{new_db_file.name}】！系統將在 2 秒後重新載入...")
                     time.sleep(2)
@@ -127,7 +231,7 @@ def show_food_label_page():
                 except Exception as e:
                     st.error(f"❌ 更新失敗: {e}")
 
-    # ================= 預先載入資料庫 =================
+    # --- 載入資料庫 ---
     df = load_database()
     db_name = get_current_db_name()
     if df is not None:
@@ -139,7 +243,6 @@ def show_food_label_page():
     # --- 搜尋區塊 ---
     search_query = st.text_input("🔍 搜尋商品 (請輸入 Product No. 或 Barcode):", placeholder="例如: GAR-113166")
     
-    # 轉換成 search type 顯示打叉按鈕
     components.html("""
         <script>
         const parentDoc = window.parent.document;
@@ -157,7 +260,6 @@ def show_food_label_page():
     if search_query:
         query = search_query.strip().lower()
         
-        # 精準/模糊搜尋 (針對 Product_No 和 Barcode)
         mask = (
             df['Product_No'].astype(str).str.lower().str.contains(query, na=False) | 
             df['Barcode'].astype(str).str.lower().str.contains(query, na=False)
@@ -176,8 +278,6 @@ def show_food_label_page():
                 
                 with st.container():
                     st.markdown('<div class="result-card">', unsafe_allow_html=True)
-                    
-                    # 使用 Columns 排版: 左邊是資訊，右邊是數量與列印
                     c_info, c_qty, c_print = st.columns([3, 1, 1.5])
                     
                     with c_info:
@@ -194,29 +294,21 @@ def show_food_label_page():
                         qty = st.number_input("Qty", min_value=1, max_value=500, value=1, step=1, key=f"qty_{idx}")
                         
                     with c_print:
-                        st.markdown("<div style='margin-bottom: 23px;'></div>", unsafe_allow_html=True) # 為了對齊
+                        st.markdown("<div style='margin-bottom: 23px;'></div>", unsafe_allow_html=True) 
                         st.markdown('<div class="print-btn-container">', unsafe_allow_html=True)
                         if st.button("🖨️ 打印 Food Label", key=f"print_{idx}", use_container_width=True):
                             log_action("FoodLabel_Print")
                             
-                            if Lable:
-                                # 組合 Lable.py 需要的資料格式
-                                item_data = {
-                                    'Barcode': barcode,
-                                    '商品名稱': desc
-                                }
-                                # 將 pandas row 轉回單行的 DataFrame 交給 Lable.py
-                                master_df_row = pd.DataFrame([row])
-                                
-                                # 呼叫您既有的 Lable.py 產出 HTML
-                                html_content = Lable.generate_food_label_html(item_data, master_df_row, qty)
-                                
-                                # 觸發隱藏的 Iframe 列印
-                                components.html(html_content, height=30)
-                            else:
-                                st.error("找不到 Lable.py 模組，無法列印。")
+                            # 準備傳遞給 HTML 生成器的資料
+                            item_data = {'Barcode': barcode, '商品名稱': desc}
+                            matched_data = row.to_dict() # 將整行轉為字典
+                            
+                            # ✨ 這裡直接使用內建的 HTML 生成器，不再依賴 Lable.py
+                            html_content = create_food_label_html(item_data, matched_data, st.session_state['font_css'], qty)
+                            
+                            js_instant_print(html_content)
+                            
                         st.markdown('</div>', unsafe_allow_html=True)
-                        
                     st.markdown('</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
