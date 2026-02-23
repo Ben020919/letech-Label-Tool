@@ -259,7 +259,7 @@ def show_yummy_page():
         </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("### 🍔 Yummy 3PL System (Integrated)")
+    st.markdown("### 🍔 Yummy 3PL System")
 
     # ================= 🌟 配置新文件區塊 =================
     with st.expander("⚙️ 配置新資料庫文件 (Database Management)", expanded=False):
