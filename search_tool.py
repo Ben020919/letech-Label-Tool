@@ -74,6 +74,18 @@ def show_search_barcode_page():
             .card-value { color: #333; font-size: 15px; margin-bottom: 8px; word-break: break-all; font-family: monospace; }
             .card-name { color: #2c3e50; font-weight: 700; font-size: 16px; line-height: 1.4; border-top: 1px solid #f0f0f0; padding-top: 10px; margin-top: 5px; }
             
+            /* 🌟 強制顯示瀏覽器原生的「清除打叉按鈕」 */
+            input[type="search"]::-webkit-search-cancel-button {
+                -webkit-appearance: searchfield-cancel-button;
+                cursor: pointer;
+                height: 16px;
+                width: 16px;
+                opacity: 0.6;
+            }
+            input[type="search"]::-webkit-search-cancel-button:hover {
+                opacity: 1;
+            }
+
             /* 手機版適應 */
             @media screen and (max-width: 768px) { .result-card { flex-direction: column; align-items: flex-start; } .card-action-container { margin-right: 0; margin-bottom: 15px; width: 100%; height: auto; padding: 12px 0; background: transparent; justify-content: flex-start; } .hktv-btn { width: auto; padding: 8px 20px; display: flex; align-items: center; gap: 8px; } .hktv-btn span { margin-bottom: 0 !important; } }
         </style>
@@ -87,13 +99,28 @@ def show_search_barcode_page():
         return
 
     st.caption(f"📚 Inventory Ready：Total {len(df)} Data")
+    
+    # 輸入框
     user_input = st.text_input("Please Enter Keywords:", placeholder="SKU / Barcode / Name")
 
-    components.html("""<script>
+    # 🪄 注入 JS，將 Streamlit 預設的 text input 轉成 search 類型
+    components.html("""
+        <script>
         const parentDoc = window.parent.document;
-        const input = parentDoc.querySelector('input[placeholder="SKU / Barcode / Name"]');
-        if (input && input.type !== "search") { input.setAttribute('type', 'search'); }
-        </script>""", height=0)
+        function setupSearchBox() {
+            const inputs = parentDoc.querySelectorAll('input[placeholder="SKU / Barcode / Name"]');
+            inputs.forEach(input => {
+                if (input.type !== "search") {
+                    input.setAttribute('type', 'search');
+                }
+            });
+        }
+        // 多次呼叫確保在載入後一定能成功套用
+        setupSearchBox();
+        setTimeout(setupSearchBox, 200);
+        setTimeout(setupSearchBox, 800);
+        </script>
+        """, height=0)
 
     if user_input:
         log_action("Search_Action") 
