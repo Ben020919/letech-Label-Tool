@@ -145,7 +145,7 @@ def render_main_header():
 def render_dashboard_page():
     col_title, col_btn = st.columns([0.85, 0.15])
     with col_title:
-        st.markdown("### 📊 System Dashboard (控制台)")
+        st.markdown("📊 System Dashboard")
         st.markdown("Overview of system usage statistics.")
             
     st.divider()
