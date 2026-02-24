@@ -4,12 +4,12 @@ import pandas as pd
 import re
 import os
 import sys
+import time
 from pathlib import Path
 import base64
 from usage_tracker import log_action
 import streamlit.components.v1 as components
 
-# ================= 新增：強制路徑並匯入 repack_lable 模組 =================
 current_dir = Path(__file__).parent.absolute()
 if str(current_dir) not in sys.path:
     sys.path.append(str(current_dir))
@@ -23,14 +23,30 @@ except ImportError as e:
 # ================= 設定預設檔案名稱 =================
 MASTER_FILE = "data.xlsx"
 DEFAULT_FONT_PATH = "font.ttf"
+DB_NAME_FILE = "homey_current_db_name.txt"
+
+def get_current_db_name():
+    if os.path.exists(DB_NAME_FILE):
+        with open(DB_NAME_FILE, "r", encoding="utf-8") as f:
+            return f.read().strip()
+    return MASTER_FILE
+
+def set_current_db_name(name):
+    with open(DB_NAME_FILE, "w", encoding="utf-8") as f:
+        f.write(name)
 
 # ================= 1. 資料庫與字體讀取函數 =================
 @st.cache_data
 def load_master_data():
-    """自動讀取固定的 Excel 主檔"""
     if not os.path.exists(MASTER_FILE): return None
     try:
-        df = pd.read_excel(MASTER_FILE)
+        if MASTER_FILE.endswith('.csv'):
+            df = pd.read_csv(MASTER_FILE)
+        else:
+            try:
+                df = pd.read_excel(MASTER_FILE)
+            except:
+                df = pd.read_csv(MASTER_FILE)
         df.columns = [str(c).strip() for c in df.columns]
         return df
     except Exception as e:
@@ -38,7 +54,6 @@ def load_master_data():
         return None
 
 def get_master_row(master_df, p_no):
-    """根據 Product No 找出對應的 Excel 資料列"""
     if master_df is None: return None
     if 'Product_No' in master_df.columns:
         return master_df[master_df['Product_No'].astype(str).str.strip() == p_no]
@@ -75,7 +90,6 @@ def get_nutri_val(data, key):
     if pd.isna(val) or str(val).lower() == 'nan': return "0"
     return str(val).strip()
 
-# ✨ Food Label 生成器 ✨
 def create_food_label_html(item_name, barcode_text, matched_data, font_css, qty):
     data = matched_data if matched_data is not None and not matched_data.empty else {}
     if isinstance(data, pd.DataFrame):
@@ -159,7 +173,6 @@ def create_food_label_html(item_name, barcode_text, matched_data, font_css, qty)
         
     return final_html
 
-# ✨ 新增：蟲蟲 Label 生成器 ✨
 def create_insects_label_html(matched_data, qty):
     data = matched_data if matched_data is not None and not matched_data.empty else {}
     if isinstance(data, pd.DataFrame):
@@ -190,15 +203,15 @@ def create_insects_label_html(matched_data, qty):
             overflow: hidden;
             background-color: white;
             color: black;
-            font-size: 3.8pt;
+            font-size: 8.5pt;
             line-height: 1.1;
             page-break-after: always;
         }
         .line-section {
-            margin-bottom: 7pt; 
+            margin-bottom: 6pt; 
             word-wrap: break-word;
             font-weight: bold;
-            min-height: 7pt; 
+            min-height: 6pt; 
         }
         .line-section:last-child {
             margin-bottom: 0;
@@ -221,7 +234,6 @@ def create_insects_label_html(matched_data, qty):
     return html
 
 def create_simple_text_html(text, qty):
-    """生成簡單的純文字標籤"""
     single_label_html = f"""
     <div style="width: 70mm; height: 50mm; box-sizing: border-box; padding: 2mm; page-break-after: always; display: flex; align-items: center; justify-content: center; text-align: center;">
         <div style="font-size: 15pt; font-weight: 900; line-height: 1.2; font-family: sans-serif;">{text}</div>
@@ -234,7 +246,6 @@ def create_simple_text_html(text, qty):
     return full_html
 
 def js_instant_print(full_html_content):
-    """通用的 JS 彈出視窗並列印觸發器"""
     b64_html = base64.b64encode(full_html_content.encode('utf-8')).decode('utf-8')
     js_code = f"""
     <script>
@@ -270,16 +281,17 @@ def show_homey_page():
             .grid-row { padding: 8px 0; border-bottom: 1px solid #f1f3f5; transition: background-color 0.2s; display: flex; align-items: center; height: 100%; min-height: 45px; }
             .grid-row:hover { background-color: #f8f9fa; }
             
-            div.stButton > button { 
+            /* ✨ 修正：只針對 Grid 裡的 Action 欄位按鈕套用排版，避免影響 Popover */
+            div[data-testid="column"]:nth-of-type(7) div.stButton > button { 
                 width: 100px !important; height: 38px !important; min-height: 32px !important;
                 border-radius: 6px !important; padding: 0px !important;      
                 background-color: #e7f5ff !important; color: #004085 !important; border: none !important; 
                 display: flex !important; justify-content: center !important; align-items: center !important;
                 margin: 0 auto !important; transform: translateX(19px) !important;
             }
-            div.stButton > button:hover { background-color: #d0ebff !important; color: #002752 !important; }
-            div.stButton > button p { font-size: 13px !important; font-weight: bold !important; line-height: 1 !important; margin: 0 !important; padding: 0 !important; }
-            div.stButton { width: 100% !important; display: flex !important; justify-content: center !important; margin: 0 !important; }
+            div[data-testid="column"]:nth-of-type(7) div.stButton > button:hover { background-color: #d0ebff !important; color: #002752 !important; }
+            div[data-testid="column"]:nth-of-type(7) div.stButton > button p { font-size: 13px !important; font-weight: bold !important; line-height: 1 !important; margin: 0 !important; padding: 0 !important; }
+            div[data-testid="column"]:nth-of-type(7) div.stButton { width: 100% !important; display: flex !important; justify-content: center !important; margin: 0 !important; }
 
             .cell-badge-normal { 
                 width: 100px !important; height: 37px !important; min-height: 32px !important;
@@ -297,7 +309,7 @@ def show_homey_page():
         </style>
         <div class="logo-container">
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#007bff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v8H6z"></path>
+                <path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2-2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v8H6z"></path>
             </svg>
             <div class="logo-text">Letech<span class="logo-dot">.</span></div>
             <div class="logo-sub">Intelligent Label Solution</div>
@@ -305,15 +317,45 @@ def show_homey_page():
     """, unsafe_allow_html=True)
     st.markdown("### 🏠 Homey 3PL System")
 
-    # 預載字體 (用於 Food Label)
+    # ================= ✨ Homey 專用：配置新文件區塊 (按鈕版) ✨ =================
+    if hasattr(st, "popover"):
+        db_container = st.popover("⚙️ 更新資料庫文件 (Upload New Database)", use_container_width=True)
+    else:
+        db_container = st.expander("⚙️ 更新資料庫文件 (Upload New Database)", expanded=False)
+
+    with db_container:
+        st.markdown("#### 📂 上傳新資料庫")
+        st.caption("支援上傳 Excel (.xlsx) 或 CSV (.csv) 檔案。上傳後會自動套用！")
+        new_db_file = st.file_uploader("", type=["xlsx", "csv"], key="homey_new_db_uploader", label_visibility="collapsed")
+        
+        if new_db_file:
+            if st.button("確認更新資料庫", type="primary", key="homey_update_btn", use_container_width=True):
+                try:
+                    if new_db_file.name.endswith('.csv'):
+                        temp_df = pd.read_csv(new_db_file, dtype=str)
+                        temp_df.to_excel(MASTER_FILE, index=False)
+                    else:
+                        with open(MASTER_FILE, "wb") as f:
+                            f.write(new_db_file.getbuffer())
+                    
+                    set_current_db_name(new_db_file.name)
+                    st.cache_data.clear()
+                    st.success(f"✅ 資料庫已成功更新為：【{new_db_file.name}】！系統將在 2 秒後重新載入...")
+                    time.sleep(2)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ 更新失敗: {e}")
+
     font_bytes = load_local_font_bytes(DEFAULT_FONT_PATH)
     font_css = font_to_base64_css(font_bytes, DEFAULT_FONT_PATH) if font_bytes else ""
 
     master_df = load_master_data()
+    current_db_name = get_current_db_name()
+    
     if master_df is not None:
-        st.success(f"✅ Linked Database：`{MASTER_FILE}`")
+        st.success(f"✅ Linked Database：`{current_db_name}`")
     else:
-        st.warning(f"⚠️ 找不到 `{MASTER_FILE}`")
+        st.warning(f"⚠️ 找不到 `{current_db_name}`，請點擊上方按鈕上傳檔案。")
 
     st.divider()
 
@@ -381,10 +423,9 @@ def show_homey_page():
 
                 final_label = ""
                 
-                # 判斷邏輯
                 if "food" in excel_label.lower():
                     final_label = excel_label
-                elif "蟲" in excel_label or "insect" in excel_label.lower():  # ✨ 新增：判斷蟲蟲標籤
+                elif "蟲" in excel_label or "insect" in excel_label.lower():
                     final_label = "蟲蟲label"
                 elif not barcode_val or barcode_val.strip() == "" or barcode_val == p_no:
                     final_label = "Print SKU Barcode"
@@ -459,7 +500,7 @@ def show_homey_page():
                             
                             if "food" in v_label_lower:
                                 needs_print = True
-                            elif "蟲" in v_label_lower or "insect" in v_label_lower: # ✨ 新增：蟲蟲標籤需要列印
+                            elif "蟲" in v_label_lower or "insect" in v_label_lower: 
                                 needs_print = True
                             elif not barcode_clean or barcode_clean == "(N/A)":
                                 needs_print = True
@@ -476,7 +517,7 @@ def show_homey_page():
                                         html = create_food_label_html(row['商品名稱'], barcode_clean, row['master_row'], font_css, row['數量'])
                                         js_instant_print(html)
                                         
-                                    elif "蟲" in v_label_lower or "insect" in v_label_lower: # ✨ 新增：呼叫蟲蟲標籤生成器
+                                    elif "蟲" in v_label_lower or "insect" in v_label_lower: 
                                         log_action("InsectsLabel_Print")
                                         html = create_insects_label_html(row['master_row'], row['數量'])
                                         js_instant_print(html)
