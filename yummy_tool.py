@@ -87,39 +87,49 @@ def font_to_base64_css(font_bytes, file_name):
         """
     except Exception: return ""
 
-# ✨ 智能判定是否為純警告標籤 ✨
-def is_caution_only(data_dict):
-    """如果沒有任何食品成分或營養標示數據，就判定為警告標籤"""
-    food_keys = ['Ingredients', 'Energy', 'Protein', 'Total_Fat', 'Carb', 'Sodium']
-    for k in food_keys:
-        val = clean_val(data_dict.get(k, ''))
-        # 只要有一個欄位有資料且不為 "0"，就代表它是食品標籤
-        if val and val != "0":
-            return False
-    # 全部為空或 0，判定為 Caution Label
-    return True
+# ✨ 新增：三階段智能判定器 (食品標籤 / 警告標籤 / 無資料)
+def check_data_status(data_dict):
+    """回傳: 'food', 'caution', 或 'empty'"""
+    if not data_dict:
+        return 'empty'
+        
+    # 1. 檢查是否有 Food 欄位 (只要有一個非空且非0)
+    food_keywords = ['ingredient', 'energy', 'protein', 'fat', 'carb', 'sodium', 'serving']
+    for k, v in data_dict.items():
+        k_lower = str(k).lower()
+        if any(fw in k_lower for fw in food_keywords):
+            val = str(v).strip().lower()
+            if val and val not in ['nan', '0', 'none']:
+                return 'food'
+                
+    # 2. 如果沒有 Food，檢查是否有 Caution 欄位
+    caution_keywords = ['caution', 'warning']
+    for k, v in data_dict.items():
+        k_lower = str(k).lower()
+        if any(cw in k_lower for cw in caution_keywords):
+            val = str(v).strip().lower()
+            if val and val not in ['nan', 'none', '']:
+                return 'caution'
+                
+    # 3. 如果都沒有，就是空資料
+    return 'empty'
 
-# ✨ 智能資料過濾器（解決多個重複結果）✨
 def get_best_results(results_df):
     if results_df.empty: 
         return results_df
     
     scores = []
     for _, row in results_df.iterrows():
-        score = 0
-        if str(row.get('Ingredients', '')).strip() not in ['', 'nan', '0', 'None']: score += 2
-        if str(row.get('Energy', '')).strip() not in ['', 'nan', '0', 'None']: score += 1
-        
-        for k in row.keys():
-            if 'caution' in str(k).lower() or 'warning' in str(k).lower():
-                if str(row[k]).strip() not in ['', 'nan', '0', 'None']: 
-                    score += 2
-                    break
-        scores.append(score)
-        
+        status = check_data_status(row.to_dict())
+        if status == 'food':
+            scores.append(2)
+        elif status == 'caution':
+            scores.append(1)
+        else:
+            scores.append(0)
+            
     results_df = results_df.copy()
     results_df['__score'] = scores
-    # 根據分數從高到低排序，然後刪除重複的 Product_No，只保留分數最高的那一筆
     results_df = results_df.sort_values(by='__score', ascending=False)
     results_df = results_df.drop_duplicates(subset=['Product_No'], keep='first')
     return results_df
@@ -205,7 +215,7 @@ def create_label_html_on_the_fly(item, matched_data, font_css, qty):
 def create_caution_html(text, qty):
     formatted_text = str(text).replace('\n', '<br/>')
     if not formatted_text or formatted_text == "nan": formatted_text = ""
-    # ✨ 這裡已將 border: 4px solid black 移除 ✨
+    # ✨ 這裡已將 border 徹底移除 ✨
     single_label_html = f"""
     <html><head><style>
         @page {{ size: auto; margin: 0mm; }}
@@ -337,7 +347,7 @@ def show_yummy_page():
         
         <div class="logo-container">
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#007bff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v8H6z"></path>
+                <path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2-2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v8H6z"></path>
             </svg>
             <div class="logo-text">Letech<span class="logo-dot">.</span></div>
             <div class="logo-sub">Intelligent Label Solution</div>
@@ -578,23 +588,19 @@ def show_yummy_page():
                     c5.markdown(f"<div class='grid-row'><span class='cell-qty'>{item['數量']}</span></div>", unsafe_allow_html=True)
                     
                     with c6:
-                        # ✨ 智能判斷：是否為警告標籤
-                        is_caution_item = is_caution_only(item['matched_data'])
+                        # ✨ 使用新的三階段智能判定器
+                        data_status = check_data_status(item['matched_data'])
                         
                         row_wrapper_style = "display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; min-height: 45px;"
                         
-                        if item['has_match'] or is_caution_item:
+                        if data_status == 'food' or data_status == 'caution':
                             if st.button("打印", key=f"btn_{item['id']}_{index}"):
                                 log_action("Yummy_Print")
                                 
-                                if is_caution_item:
+                                if data_status == 'caution':
                                     caution_text = smart_get_caution_text(item['matched_data'])
-                                    if caution_text is None:
-                                        available_cols = ", ".join(item['matched_data'].keys())
-                                        caution_text = f"Cautions Column Missing!<br>Available: {available_cols}"
-                                    elif caution_text == "":
+                                    if not caution_text:
                                         caution_text = "Caution Column Empty"
-                                        
                                     final_html = create_caution_html(caution_text, item['數量'])
                                 else:
                                     final_html = create_label_html_on_the_fly(
@@ -605,6 +611,7 @@ def show_yummy_page():
                                     )
                                 js_instant_print(final_html, item['id'])
                         else:
+                            # 確定完全是空的，直接顯示紅色「無資料」，不會有打印按鈕！
                             st.markdown(f"<div style='{row_wrapper_style}'><div class='cell-badge-err'>無資料</div></div>", unsafe_allow_html=True)
 
 if __name__ == "__main__":
