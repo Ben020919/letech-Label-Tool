@@ -84,39 +84,53 @@ def show_search_barcode_page():
             input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: searchfield-cancel-button !important; display: block !important; cursor: pointer; height: 16px; width: 16px; opacity: 0.6; margin-left: 5px; }
             input[type="search"]::-webkit-search-cancel-button:hover { opacity: 1; }
             @media screen and (max-width: 768px) { .result-card { flex-direction: column; align-items: flex-start; } .card-action-container { margin-right: 0; margin-bottom: 15px; width: 100%; height: auto; padding: 12px 0; background: transparent; justify-content: flex-start; } .hktv-btn { width: auto; padding: 8px 20px; display: flex; align-items: center; gap: 8px; } .hktv-btn span { margin-bottom: 0 !important; } }
+            
+            /* ✨ 讓 popover 按鈕變成綠色 */
+            div[data-testid="stPopover"] > button {
+                background-color: #28a745 !important;
+                color: white !important;
+                border: none !important;
+                font-weight: bold !important;
+                border-radius: 6px !important;
+                padding: 8px 16px !important;
+            }
+            div[data-testid="stPopover"] > button:hover {
+                background-color: #218838 !important;
+                box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3) !important;
+            }
         </style>
     """, unsafe_allow_html=True)
     
     st.markdown("### 🔍 Search Barcode System")
     
-    # ================= ✨ 搜尋專用：配置新文件區塊 (按鈕版) ✨ =================
-    if hasattr(st, "popover"):
-        db_container = st.popover("⚙️ 更新資料庫文件 (Upload New Database)", use_container_width=True)
-    else:
-        db_container = st.expander("⚙️ 更新資料庫文件 (Upload New Database)", expanded=False)
-
-    with db_container:
-        st.markdown("#### 📂 上傳新資料庫")
-        st.caption("支援上傳 Excel (.xlsx) 或 CSV (.csv) 檔案。上傳後會自動套用！")
-        new_db_file = st.file_uploader("", type=["xlsx", "csv"], key="search_new_db_uploader", label_visibility="collapsed")
-        
-        if new_db_file:
-            if st.button("確認更新資料庫", type="primary", key="search_update_btn", use_container_width=True):
-                try:
-                    if new_db_file.name.endswith('.xlsx') or new_db_file.name.endswith('.xls'):
-                        temp_df = pd.read_excel(new_db_file, dtype=str)
-                        temp_df.to_csv(DEFAULT_DB_FILE, index=False)
-                    else:
-                        with open(DEFAULT_DB_FILE, "wb") as f:
-                            f.write(new_db_file.getbuffer())
-                    
-                    set_current_db_name(new_db_file.name)
-                    st.cache_data.clear()
-                    st.success(f"✅ 資料庫已成功更新為：【{new_db_file.name}】！系統將在 2 秒後重新載入...")
-                    time.sleep(2)
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"❌ 更新失敗: {e}")
+    # ================= ✨ 綠色彈出式配置文件按鈕 ✨ =================
+    col1, col2 = st.columns([0.8, 0.2])
+    with col2:
+        if hasattr(st, "popover"):
+            with st.popover("⚙️ 配置文件"):
+                st.markdown("#### 📂 上傳新資料庫")
+                st.caption("支援上傳 Excel (.xlsx) 或 CSV (.csv) 檔案。上傳後會自動套用！")
+                new_db_file = st.file_uploader("", type=["xlsx", "csv"], key="search_new_db_uploader", label_visibility="collapsed")
+                
+                if new_db_file:
+                    if st.button("確認更新資料庫", type="primary", key="search_update_btn", use_container_width=True):
+                        try:
+                            if new_db_file.name.endswith('.xlsx') or new_db_file.name.endswith('.xls'):
+                                temp_df = pd.read_excel(new_db_file, dtype=str)
+                                temp_df.to_csv(DEFAULT_DB_FILE, index=False)
+                            else:
+                                with open(DEFAULT_DB_FILE, "wb") as f:
+                                    f.write(new_db_file.getbuffer())
+                            
+                            set_current_db_name(new_db_file.name)
+                            st.cache_data.clear()
+                            st.success(f"✅ 資料庫已成功更新為：【{new_db_file.name}】！系統將在 2 秒後重新載入...")
+                            time.sleep(2)
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ 更新失敗: {e}")
+        else:
+            st.info("請更新 Streamlit 以支援彈出按鈕。")
 
     df = load_data()
     current_db_name = get_current_db_name()
