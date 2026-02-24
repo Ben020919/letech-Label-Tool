@@ -4,6 +4,7 @@ import pandas as pd
 import re
 import os
 import base64
+import time
 import streamlit.components.v1 as components
 import sys
 import io
@@ -20,14 +21,33 @@ except ImportError as e:
     st.error(f"❌ 模組匯入失敗: {e}")
     repack_lable = None
 
+# ================= 設定固定主檔名稱 =================
 MASTER_FILE = "data.xlsx"
+DB_NAME_FILE = "hello_current_db_name.txt"
 
+def get_current_db_name():
+    if os.path.exists(DB_NAME_FILE):
+        with open(DB_NAME_FILE, "r", encoding="utf-8") as f:
+            return f.read().strip()
+    return MASTER_FILE
+
+def set_current_db_name(name):
+    with open(DB_NAME_FILE, "w", encoding="utf-8") as f:
+        f.write(name)
+
+# ================= 1. 資料讀取函數 =================
 @st.cache_data
 def load_master_data():
-    if not os.path.exists(MASTER_FILE):
-        return None
+    if not os.path.exists(MASTER_FILE): return None
     try:
-        df = pd.read_excel(MASTER_FILE)
+        if MASTER_FILE.endswith('.csv'):
+            df = pd.read_csv(MASTER_FILE)
+        else:
+            try:
+                df = pd.read_excel(MASTER_FILE)
+            except:
+                df = pd.read_csv(MASTER_FILE)
+                
         df.columns = [str(c).strip() for c in df.columns]
         col_map = {c.replace('_', '').replace(' ', '').lower(): c for c in df.columns}
         p_no_col = col_map.get('productno')
@@ -38,9 +58,9 @@ def load_master_data():
             return df[[p_no_col, label_col]].rename(columns={p_no_col: 'Product_No', label_col: 'Label_Type'})
         else:
             return None
-    except Exception:
-        return None
+    except Exception: return None
 
+# ================= 2. 主頁面顯示 =================
 def show_hellobear_page():
     st.markdown("""
         <style>
@@ -90,11 +110,36 @@ def show_hellobear_page():
     
     st.markdown("### 🐻 Hello Bear 3PL System")
 
+    # ================= ✨ 配置新文件區塊 ✨ =================
+    with st.expander("⚙️ 配置新資料庫文件 (Database Management)", expanded=False):
+        st.info("支援上傳任何檔名的 Excel (.xlsx) 或 CSV (.csv) 檔案。上傳後系統會自動套用！")
+        new_db_file = st.file_uploader("上傳新的資料庫檔案", type=["xlsx", "csv"], key="hello_new_db_uploader")
+        
+        if new_db_file:
+            if st.button("確認更新資料庫", type="primary", key="hello_update_btn"):
+                try:
+                    if new_db_file.name.endswith('.csv'):
+                        temp_df = pd.read_csv(new_db_file, dtype=str)
+                        temp_df.to_excel(MASTER_FILE, index=False)
+                    else:
+                        with open(MASTER_FILE, "wb") as f:
+                            f.write(new_db_file.getbuffer())
+                    
+                    set_current_db_name(new_db_file.name)
+                    st.cache_data.clear()
+                    st.success(f"✅ 資料庫已成功更新為：【{new_db_file.name}】！系統將在 2 秒後重新載入...")
+                    time.sleep(2)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ 更新失敗: {e}")
+
     master_df = load_master_data()
+    current_db_name = get_current_db_name()
+    
     if master_df is not None:
-        st.success(f"✅ Linked Database：`{MASTER_FILE}`")
+        st.success(f"✅ Linked Database：`{current_db_name}`")
     else:
-        st.warning(f"⚠️ 找不到 `{MASTER_FILE}`")
+        st.warning(f"⚠️ 找不到 `{current_db_name}`，請在上方上傳檔案。")
 
     st.divider()
 
