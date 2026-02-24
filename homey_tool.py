@@ -174,6 +174,7 @@ def create_food_label_html(item_name, barcode_text, matched_data, font_css, qty)
         
     return final_html
 
+# ✨ 蟲蟲標籤：恢復字體 8.5pt，並將 Barcode 與 Name 合併同一段 ✨
 def create_insects_label_html(matched_data, qty):
     data = matched_data if matched_data is not None and not matched_data.empty else {}
     if isinstance(data, pd.DataFrame):
@@ -270,7 +271,6 @@ def js_instant_print(full_html_content):
     """
     components.html(js_code, height=0)
 
-
 def show_homey_page():
     st.markdown("""
         <style>
@@ -283,17 +283,17 @@ def show_homey_page():
             .grid-row { padding: 8px 0; border-bottom: 1px solid #f1f3f5; transition: background-color 0.2s; display: flex; align-items: center; height: 100%; min-height: 45px; }
             .grid-row:hover { background-color: #f8f9fa; }
             
-            /* 完全還原您原本的按鈕 CSS */
-            div[data-testid="column"]:nth-of-type(7) div.stButton > button { 
+            /* ✨ 打印按鈕：完全還原您最原始的 CSS，完美對齊 */
+            div.stButton > button { 
                 width: 100px !important; height: 38px !important; min-height: 32px !important;
                 border-radius: 6px !important; padding: 0px !important;      
                 background-color: #e7f5ff !important; color: #004085 !important; border: none !important; 
                 display: flex !important; justify-content: center !important; align-items: center !important;
                 margin: 0 auto !important; transform: translateX(19px) !important;
             }
-            div[data-testid="column"]:nth-of-type(7) div.stButton > button:hover { background-color: #d0ebff !important; color: #002752 !important; }
-            div[data-testid="column"]:nth-of-type(7) div.stButton > button p { font-size: 13px !important; font-weight: bold !important; line-height: 1 !important; margin: 0 !important; padding: 0 !important; }
-            div[data-testid="column"]:nth-of-type(7) div.stButton { width: 100% !important; display: flex !important; justify-content: center !important; margin: 0 !important; }
+            div.stButton > button:hover { background-color: #d0ebff !important; color: #002752 !important; }
+            div.stButton > button p { font-size: 13px !important; font-weight: bold !important; line-height: 1 !important; margin: 0 !important; padding: 0 !important; }
+            div.stButton { width: 100% !important; display: flex !important; justify-content: center !important; margin: 0 !important; }
 
             .cell-badge-normal { 
                 width: 100px !important; height: 37px !important; min-height: 32px !important;
@@ -309,29 +309,31 @@ def show_homey_page():
             div[data-testid="column"] { display: flex; flex-direction: column; justify-content: center; }
             div[data-testid="column"]:nth-of-type(7) > div { display: flex !important; flex-direction: row !important; justify-content: center !important; align-items: center !important; width: 100% !important; height: 100% !important; }
 
-            /* ✨ 保護下載按鈕的專屬樣式，避免被上面全局覆蓋 */
+            /* ✨ 保護下載按鈕與綠色配置按鈕，不受打印按鈕的樣式影響 */
             div[data-testid="stDownloadButton"] > button {
-                width: auto !important; 
-                height: 32px !important; 
-                min-height: 32px !important; 
+                width: 100% !important; 
+                height: 38px !important; 
+                min-height: 38px !important; 
                 padding: 0 15px !important; 
-                transform: none !important;
+                transform: translateX(0) !important;
                 background-color: #f1f3f5 !important;
                 color: #495057 !important;
                 border: 1px solid #ced4da !important;
-                border-radius: 4px !important;
+                border-radius: 6px !important;
             }
             div[data-testid="stDownloadButton"] > button:hover { background-color: #e9ecef !important; color: #212529 !important; }
             
-            /* ✨ 讓 popover 按鈕變成綠色 */
             div[data-testid="stPopover"] > button {
+                width: 100% !important;
+                height: 38px !important;
+                min-height: 38px !important;
                 background-color: #28a745 !important;
                 color: white !important;
                 border: none !important;
                 font-weight: bold !important;
                 border-radius: 6px !important;
-                padding: 8px 16px !important;
-                transform: none !important; /* 確保不被 translateX 影響 */
+                padding: 0 15px !important;
+                transform: translateX(0) !important; 
             }
             div[data-testid="stPopover"] > button:hover {
                 background-color: #218838 !important;
@@ -340,7 +342,7 @@ def show_homey_page():
         </style>
         <div class="logo-container">
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#007bff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v8H6z"></path>
+                <path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2-2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v8H6z"></path>
             </svg>
             <div class="logo-text">Letech<span class="logo-dot">.</span></div>
             <div class="logo-sub">Intelligent Label Solution</div>
@@ -349,7 +351,7 @@ def show_homey_page():
     st.markdown("### 🏠 Homey 3PL System")
 
     # ================= ✨ 綠色彈出式配置文件按鈕 ✨ =================
-    col1, col2 = st.columns([0.8, 0.2])
+    col1, col2 = st.columns([0.85, 0.15])
     with col2:
         if hasattr(st, "popover"):
             with st.popover("⚙️ 配置文件"):
@@ -358,7 +360,7 @@ def show_homey_page():
                 new_db_file = st.file_uploader("", type=["xlsx", "csv"], key="homey_new_db_uploader", label_visibility="collapsed")
                 
                 if new_db_file:
-                    if st.button("確認更新資料庫", type="primary", key="homey_update_btn", use_container_width=True):
+                    if st.button("確認更新", type="primary", key="homey_update_btn", use_container_width=True):
                         try:
                             if new_db_file.name.endswith('.csv'):
                                 temp_df = pd.read_csv(new_db_file, dtype=str)
@@ -369,13 +371,13 @@ def show_homey_page():
                             
                             set_current_db_name(new_db_file.name)
                             st.cache_data.clear()
-                            st.success(f"✅ 資料庫已成功更新為：【{new_db_file.name}】！系統將在 2 秒後重新載入...")
+                            st.success(f"✅ 更新為：【{new_db_file.name}】！即將重新載入...")
                             time.sleep(2)
                             st.rerun()
                         except Exception as e:
                             st.error(f"❌ 更新失敗: {e}")
         else:
-            st.info("請更新 Streamlit 以支援彈出按鈕。")
+            st.info("請更新 Streamlit。")
 
     font_bytes = load_local_font_bytes(DEFAULT_FONT_PATH)
     font_css = font_to_base64_css(font_bytes, DEFAULT_FONT_PATH) if font_bytes else ""
@@ -502,7 +504,7 @@ def show_homey_page():
                 c3.metric("🗑️ Remove Blanks", total_pages - valid_page_count)
                 c4.metric("⚠️ Duplicate SKU", duplicate_count, delta=None, delta_color="inverse")
                 
-                # ✨ 加入下載乾淨 PDF 按鈕 (不要太大)
+                # ✨ 加入下載乾淨 PDF 按鈕
                 st.download_button(
                     label="📥 下載去除空白頁的 PDF",
                     data=cleaned_pdf_bytes,
