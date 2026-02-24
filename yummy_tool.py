@@ -13,7 +13,7 @@ from usage_tracker import log_action
 # ================= 設定預設檔案名稱 =================
 DEFAULT_EXCEL_PATH = "data.xlsx"
 DEFAULT_FONT_PATH = "font.ttf"
-DB_NAME_FILE = "current_db_name.txt" # 用來記憶您上傳的真實檔名
+DB_NAME_FILE = "yummy_current_db_name.txt" # 用來記憶您上傳的真實檔名
 
 # ================= 設定特殊警告標籤清單 =================
 CAUTION_PRODUCT_LIST = [
@@ -27,14 +27,12 @@ CAUTION_PRODUCT_LIST = [
 
 # ================= 1. 快取讀取與檔名記憶函式 =================
 def get_current_db_name():
-    """讀取當前使用的真實資料庫名稱"""
     if os.path.exists(DB_NAME_FILE):
         with open(DB_NAME_FILE, "r", encoding="utf-8") as f:
             return f.read().strip()
     return "data.xlsx"
 
 def set_current_db_name(name):
-    """儲存您上傳的真實資料庫名稱"""
     with open(DB_NAME_FILE, "w", encoding="utf-8") as f:
         f.write(name)
 
@@ -236,11 +234,12 @@ def show_yummy_page():
             .grid-row:hover { background-color: #f8f9fa; }
             div[data-testid="column"] { display: flex; flex-direction: column; justify-content: center; }
             
-            /* 統一按鈕與標籤對齊 */
-            div.stButton > button { width: 100px !important; height: 38px !important; min-height: 38px !important; border-radius: 6px !important; padding: 0px !important; background-color: #e7f5ff !important; color: #004085 !important; border: none !important; display: flex !important; justify-content: center !important; align-items: center !important; margin: 0 auto !important; transform: translateX(20px) !important; }
-            div.stButton > button:hover { background-color: #d0ebff !important; color: #002752 !important; }
-            div.stButton > button p { font-size: 13px !important; font-weight: bold !important; line-height: 1 !important; margin: 0 !important; padding: 0 !important; }
-            div.stButton { width: 100% !important; display: flex !important; justify-content: center !important; align-items: center !important; height: 100% !important; min-height: 45px !important; margin: 0 !important; }
+            /* ✨ 修正：只針對 Grid 裡的 Action 欄位按鈕套用排版，避免影響 Popover */
+            div[data-testid="column"]:nth-of-type(7) div.stButton > button { width: 100px !important; height: 38px !important; min-height: 38px !important; border-radius: 6px !important; padding: 0px !important; background-color: #e7f5ff !important; color: #004085 !important; border: none !important; display: flex !important; justify-content: center !important; align-items: center !important; margin: 0 auto !important; transform: translateX(20px) !important; }
+            div[data-testid="column"]:nth-of-type(7) div.stButton > button:hover { background-color: #d0ebff !important; color: #002752 !important; }
+            div[data-testid="column"]:nth-of-type(7) div.stButton > button p { font-size: 13px !important; font-weight: bold !important; line-height: 1 !important; margin: 0 !important; padding: 0 !important; }
+            div[data-testid="column"]:nth-of-type(7) div.stButton { width: 100% !important; display: flex !important; justify-content: center !important; align-items: center !important; height: 100% !important; min-height: 45px !important; margin: 0 !important; }
+            
             .cell-badge-err { width: 100px !important; height: 38px !important; min-height: 38px !important; border-radius: 6px !important; padding: 0px !important; background-color: #ffe6e6 !important; color: #dc3545 !important; display: flex !important; justify-content: center !important; align-items: center !important; margin: 0 auto !important; font-size: 13px !important; font-weight: bold !important; line-height: 1 !important; transform: translateX(-1px) !important; }
             
             .cell-text { font-size: 15px; color: #333; padding: 0 5px; width: 100%; text-align: left; }
@@ -261,15 +260,20 @@ def show_yummy_page():
 
     st.markdown("### 🍔 Yummy 3PL System")
 
-    # ================= 🌟 配置新文件區塊 =================
-    with st.expander("⚙️ 配置新資料庫文件 (Database Management)", expanded=False):
-        st.info("支援上傳任何檔名的 Excel (.xlsx) 或 CSV (.csv) 檔案。上傳後系統會自動套用！")
-        new_db_file = st.file_uploader("上傳新的資料庫檔案", type=["xlsx", "csv"], key="new_db_uploader")
+    # ================= ✨ Yummy 專用：配置新文件區塊 (按鈕版) ✨ =================
+    if hasattr(st, "popover"):
+        db_container = st.popover("⚙️ 更新資料庫文件 (Upload New Database)", use_container_width=True)
+    else:
+        db_container = st.expander("⚙️ 更新資料庫文件 (Upload New Database)", expanded=False)
+
+    with db_container:
+        st.markdown("#### 📂 上傳新資料庫")
+        st.caption("支援上傳 Excel (.xlsx) 或 CSV (.csv) 檔案。上傳後會自動套用！")
+        new_db_file = st.file_uploader("", type=["xlsx", "csv"], key="yummy_new_db_uploader", label_visibility="collapsed")
         
         if new_db_file:
-            if st.button("確認更新資料庫", type="primary"):
+            if st.button("確認更新資料庫", type="primary", key="yummy_update_btn", use_container_width=True):
                 try:
-                    # 檔案轉換邏輯：不管是啥名字，統一轉成 data.xlsx 給系統吃
                     if new_db_file.name.endswith('.csv'):
                         temp_df = pd.read_csv(new_db_file, dtype=str)
                         temp_df.to_excel(DEFAULT_EXCEL_PATH, index=False)
@@ -277,9 +281,7 @@ def show_yummy_page():
                         with open(DEFAULT_EXCEL_PATH, "wb") as f:
                             f.write(new_db_file.getbuffer())
                     
-                    # ⭐ 記錄真實檔名，讓 UI 可以顯示
                     set_current_db_name(new_db_file.name)
-                    
                     st.cache_data.clear()
                     st.success(f"✅ 資料庫已成功更新為：【{new_db_file.name}】！系統將在 2 秒後重新載入...")
                     time.sleep(2)
@@ -290,13 +292,13 @@ def show_yummy_page():
     # ================= 預先載入資料庫 =================
     df_master = load_local_excel(DEFAULT_EXCEL_PATH)
     font_bytes = load_local_font_bytes(DEFAULT_FONT_PATH)
-    current_db_name = get_current_db_name() # 讀取顯示用的真實檔名
+    current_db_name = get_current_db_name() 
     
     if df_master is not None:
         df_master.columns = df_master.columns.str.strip()
         st.success(f"✅ Linked Database：`{current_db_name}` (最新版本)")
     else:
-        st.warning(f"⚠️ 找不到 `{current_db_name}`，請在上方「配置新資料庫文件」上傳檔案。")
+        st.warning(f"⚠️ 找不到 `{current_db_name}`，請點擊上方按鈕上傳檔案。")
 
     st.divider()
 
