@@ -73,13 +73,14 @@ def show_hellobear_page():
             .grid-row { padding: 8px 0; border-bottom: 1px solid #f1f3f5; transition: background-color 0.2s; display: flex; align-items: center; height: 100%; min-height: 45px; }
             .grid-row:hover { background-color: #f8f9fa; }
             
-            div.stButton > button { width: 100px !important; height: 38px !important; min-height: 32px !important; border-radius: 6px !important; padding: 0px !important; background-color: #e7f5ff !important; color: #004085 !important; border: none !important; display: flex !important; justify-content: center !important; align-items: center !important; margin: 0 auto !important; transform: translateX(19px) !important; }
-            div.stButton > button:hover { background-color: #d0ebff !important; color: #002752 !important; }
-            div.stButton > button p { font-size: 13px !important; font-weight: bold !important; line-height: 1 !important; margin: 0 !important; padding: 0 !important; }
-            div.stButton { width: 100% !important; display: flex !important; justify-content: center !important; margin: 0 !important; }
-
+            /* ✨ 修正：只針對 Grid 裡的 Action 欄位按鈕套用排版，避免影響下載按鈕 */
+            div[data-testid="column"]:nth-of-type(7) div.stButton > button { width: 100px !important; height: 38px !important; min-height: 32px !important; border-radius: 6px !important; padding: 0px !important; background-color: #e7f5ff !important; color: #004085 !important; border: none !important; display: flex !important; justify-content: center !important; align-items: center !important; margin: 0 auto !important; transform: translateX(19px) !important; }
+            div[data-testid="column"]:nth-of-type(7) div.stButton > button:hover { background-color: #d0ebff !important; color: #002752 !important; }
+            div[data-testid="column"]:nth-of-type(7) div.stButton > button p { font-size: 13px !important; font-weight: bold !important; line-height: 1 !important; margin: 0 !important; padding: 0 !important; }
+            div[data-testid="column"]:nth-of-type(7) div.stButton { width: 100% !important; display: flex !important; justify-content: center !important; margin: 0 !important; }
+            
             .cell-badge-normal { width: 100px !important; height: 37px !important; min-height: 32px !important; border-radius: 6px !important; padding: 0px !important; background-color: #eee !important; color: #666 !important; display: flex !important; justify-content: center !important; align-items: center !important; margin: 0 auto !important; font-size: 13px !important; font-weight: bold !important; line-height: 1 !important; transform: translateX(1px) !important; }
-
+            
             .cell-text { font-size: 15px; color: #333; padding: 0 5px; width: 100%; text-align: left; }
             .cell-qty { font-weight: bold; font-size: 15px; color: #000; text-align: center; display: block; width: 100%; }
             div[data-testid="column"] { display: flex; flex-direction: column; justify-content: center; }
@@ -98,6 +99,20 @@ def show_hellobear_page():
                 border-radius: 4px !important;
             }
             div[data-testid="stDownloadButton"] > button:hover { background-color: #e9ecef !important; color: #212529 !important; }
+            
+            /* ✨ 讓 popover 按鈕變成綠色 */
+            div[data-testid="stPopover"] > button {
+                background-color: #28a745 !important;
+                color: white !important;
+                border: none !important;
+                font-weight: bold !important;
+                border-radius: 6px !important;
+                padding: 8px 16px !important;
+            }
+            div[data-testid="stPopover"] > button:hover {
+                background-color: #218838 !important;
+                box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3) !important;
+            }
         </style>
         <div class="logo-container">
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#007bff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -110,28 +125,34 @@ def show_hellobear_page():
     
     st.markdown("### 🐻 Hello Bear 3PL System")
 
-    # ================= ✨ 配置新文件區塊 ✨ =================
-    with st.expander("⚙️ 配置新資料庫文件 (Database Management)", expanded=False):
-        st.info("支援上傳任何檔名的 Excel (.xlsx) 或 CSV (.csv) 檔案。上傳後系統會自動套用！")
-        new_db_file = st.file_uploader("上傳新的資料庫檔案", type=["xlsx", "csv"], key="hello_new_db_uploader")
-        
-        if new_db_file:
-            if st.button("確認更新資料庫", type="primary", key="hello_update_btn"):
-                try:
-                    if new_db_file.name.endswith('.csv'):
-                        temp_df = pd.read_csv(new_db_file, dtype=str)
-                        temp_df.to_excel(MASTER_FILE, index=False)
-                    else:
-                        with open(MASTER_FILE, "wb") as f:
-                            f.write(new_db_file.getbuffer())
-                    
-                    set_current_db_name(new_db_file.name)
-                    st.cache_data.clear()
-                    st.success(f"✅ 資料庫已成功更新為：【{new_db_file.name}】！系統將在 2 秒後重新載入...")
-                    time.sleep(2)
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"❌ 更新失敗: {e}")
+    # ================= ✨ 綠色彈出式配置文件按鈕 ✨ =================
+    col1, col2 = st.columns([0.8, 0.2])
+    with col2:
+        if hasattr(st, "popover"):
+            with st.popover("⚙️ 配置文件"):
+                st.markdown("#### 📂 上傳新資料庫")
+                st.caption("支援上傳 Excel (.xlsx) 或 CSV (.csv) 檔案。上傳後會自動套用！")
+                new_db_file = st.file_uploader("", type=["xlsx", "csv"], key="hello_new_db_uploader", label_visibility="collapsed")
+                
+                if new_db_file:
+                    if st.button("確認更新資料庫", type="primary", key="hello_update_btn", use_container_width=True):
+                        try:
+                            if new_db_file.name.endswith('.csv'):
+                                temp_df = pd.read_csv(new_db_file, dtype=str)
+                                temp_df.to_excel(MASTER_FILE, index=False)
+                            else:
+                                with open(MASTER_FILE, "wb") as f:
+                                    f.write(new_db_file.getbuffer())
+                            
+                            set_current_db_name(new_db_file.name)
+                            st.cache_data.clear()
+                            st.success(f"✅ 資料庫已成功更新為：【{new_db_file.name}】！系統將在 2 秒後重新載入...")
+                            time.sleep(2)
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ 更新失敗: {e}")
+        else:
+            st.info("請更新 Streamlit 以支援彈出按鈕。")
 
     master_df = load_master_data()
     current_db_name = get_current_db_name()
@@ -139,7 +160,7 @@ def show_hellobear_page():
     if master_df is not None:
         st.success(f"✅ Linked Database：`{current_db_name}`")
     else:
-        st.warning(f"⚠️ 找不到 `{current_db_name}`，請在上方上傳檔案。")
+        st.warning(f"⚠️ 找不到 `{current_db_name}`，請點擊上方按鈕上傳檔案。")
 
     st.divider()
 
