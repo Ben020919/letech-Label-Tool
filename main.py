@@ -161,6 +161,11 @@ def render_dashboard_page():
     stats = load_stats()
     
     dashboard_cards = [
+        # 🌟 新增：掃碼出庫系統專屬卡片
+        {
+            "type": "single", "icon": "📦", "title": "Scanner System", 
+            "count": stats.get("Order_Outbound_Success", 0), "desc": "Total Outbound Orders"
+        },
         {
             "type": "dual", "icon": "🍔", "title": "Yummy System",
             "val1": stats.get("Yummy_Process", 0), "label1": "📄 Uploads",
@@ -222,7 +227,7 @@ def render_dashboard_page():
 def render_home_page():
     render_main_header()
     home_cards = [
-        {"tag": "WMS Tool", "tag_class": "tag-scan", "icon": "📦", "title": "掃碼出庫系統", "desc": "Mobile Barcode Scanning & Outbound System."}, # ✅ 新增了這裡的區塊
+        {"tag": "WMS Tool", "tag_class": "tag-scan", "icon": "📦", "title": "掃碼出庫系統", "desc": "Mobile Barcode Scanning & Outbound System."}, 
         {"tag": "Yummy 3PL", "tag_class": "tag-yummy", "icon": "🍔", "title": "Yummy System", "desc": "PDF Processing and Food Label Printing."},
         {"tag": "Anymall 3PL", "tag_class": "tag-anymall", "icon": "🛍️", "title": "Anymall System", "desc": "PDF Processing and Label Printing."},
         {"tag": "Hello Bear 3PL", "tag_class": "tag-bear", "icon": "🐻", "title": "Hello Bear System", "desc": "PDF Processing and Repack Label Printing."},
@@ -250,7 +255,6 @@ def main():
     render_sidebar_logo()
     st.sidebar.markdown("<div class='sidebar-header'>MAIN MENU</div>", unsafe_allow_html=True)
     
-    # ✅ 在這裡將 "📦 掃碼出庫" 加入到左側選單列表中
     category_selection = st.sidebar.radio(
         "Main Category", 
         ["📊 Dashboard", "🏠 Homepage", "📷 掃碼出庫系統", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🏷️ Label Printing", "🔍 Search Barcode"],
@@ -267,7 +271,6 @@ def main():
     elif category_selection == "🏠 Homepage":
         render_home_page() 
         
-    # ✅ 新增的選項路由
     elif category_selection == "📷 掃碼出庫系統":
         st.sidebar.markdown("---")
         show_scanner_page()
