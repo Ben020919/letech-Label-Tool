@@ -3,7 +3,7 @@ import streamlit.components.v1 as components
 import pandas as pd
 from usage_tracker import load_stats 
 
-# ================= 1. 匯入功能模組 =================
+# ================= 1. 匯入功能模組 =================刷
 
 # --- 合併後的 Yummy Tool ---
 try:
@@ -147,9 +147,6 @@ def render_dashboard_page():
     with col_title:
         st.markdown("### 📊 System Dashboard (控制台)")
         st.markdown("Overview of system usage statistics.")
-    with col_btn:
-        if st.button("🔄 刷新數據", use_container_width=True):
-            st.rerun()
             
     st.divider()
     
