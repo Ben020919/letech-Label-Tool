@@ -14,12 +14,10 @@ def init_supabase():
         key = st.secrets["SUPABASE_KEY"]
         return create_client(url, key)
     except Exception as e:
-        # 如果還沒設定 secrets，先回傳 None，避免程式崩潰
         return None
 
 supabase = init_supabase()
 
-# 輔助函式：寫入資料庫
 def log_to_supabase(order_id, barcode, status):
     if supabase is not None:
         try:
@@ -29,7 +27,7 @@ def log_to_supabase(order_id, barcode, status):
                 "status": status
             }).execute()
         except Exception:
-            pass # 寫入失敗不報錯，不影響現場人員出庫進度
+            pass 
 
 # ==========================================
 # 聲音與震動回饋 (JavaScript)
@@ -53,10 +51,9 @@ def play_error_feedback():
     components.html(js, height=0)
 
 # ==========================================
-# 主功能函式 (給 main.py 呼叫)
+# 主功能函式
 # ==========================================
 def show_scanner_page():
-    # 初始化暫存記憶體
     if 'current_order_id' not in st.session_state:
         st.session_state.current_order_id = None
     if 'order_details' not in st.session_state:
@@ -64,12 +61,11 @@ def show_scanner_page():
 
     st.title("📦 Letech 連續出庫系統")
 
-    # 側邊欄設定
     st.sidebar.markdown("### ⚙️ 出庫系統設定")
     token = st.sidebar.text_input("輸入 Authorization Token：", type="password")
     
     if supabase is None:
-        st.sidebar.warning("⚠️ 尚未設定 Supabase 密鑰，出庫紀錄將不會儲存至資料庫。")
+        st.sidebar.warning("⚠️ 尚未設定 Supabase 密鑰，出庫紀錄將不會儲存。")
     else:
         st.sidebar.success("✅ Supabase 資料庫已連線")
 
@@ -86,7 +82,7 @@ def show_scanner_page():
         st.stop()
 
     # ==========================================
-    # 第一階段：尚未鎖定訂單 (輸入訂單號)
+    # 第一階段：尚未鎖定訂單
     # ==========================================
     if st.session_state.current_order_id is None:
         st.markdown("### 步驟 1：載入訂單")
@@ -108,10 +104,16 @@ def show_scanner_page():
                             total_qty = 0
                             total_scanned = 0
                             
-                            for p in order_json.get("products", []):
+                            # 【防彈修正】: 使用 or [] 避免 API 回傳 null 造成崩潰
+                            main_products = order_json.get("products") or []
+                            
+                            for p in main_products:
                                 total_qty += p.get("quantity", 0)
                                 total_scanned += p.get("scanQty", 0)
-                                for sub_p in p.get("products", []):
+                                
+                                # 【防彈修正】: 子商品同樣加入 or []
+                                sub_products = p.get("products") or []
+                                for sub_p in sub_products:
                                     total_qty += sub_p.get("quantity", 0)
                                     total_scanned += sub_p.get("scanQty", 0)
                                     
@@ -140,11 +142,12 @@ def show_scanner_page():
                         st.error(f"連線錯誤：{e}")
 
     # ==========================================
-    # 第二階段：已鎖定訂單 (顯示資料 + 連續掃貨品 + 重置)
+    # 第二階段：已鎖定訂單
     # ==========================================
     else:
-        order_data = st.session_state.order_details.get("order", {})
-        products_data = st.session_state.order_details.get("products", [])
+        # 【防彈修正】: 使用 or {} 與 or [] 保護資料
+        order_data = st.session_state.order_details.get("order") or {}
+        products_data = st.session_state.order_details.get("products") or []
 
         col1, col2, col3 = st.columns([2, 1, 1])
         with col1:
@@ -156,7 +159,7 @@ def show_scanner_page():
                     res_cancel = requests.post(url_cancel, headers=get_headers())
                     if res_cancel.status_code == 200:
                         st.toast("✅ 紀錄已重置！")
-                        log_to_supabase(st.session_state.current_order_id, "RESET", "Order Reset") # 寫入重置紀錄
+                        log_to_supabase(st.session_state.current_order_id, "RESET", "Order Reset")
                         url_refresh = f"https://api.letech.com.hk/api/dear/scan/order?order_id={st.session_state.current_order_id}"
                         st.session_state.order_details = requests.get(url_refresh, headers=get_headers()).json()
                         st.rerun()
@@ -192,7 +195,8 @@ def show_scanner_page():
                 "狀態": status
             })
             
-            sub_products = p.get('products', [])
+            # 【防彈修正】
+            sub_products = p.get('products') or []
             if sub_products:
                 for sub_p in sub_products:
                     sub_qty = sub_p.get('quantity', 0)
@@ -219,7 +223,7 @@ def show_scanner_page():
             df = pd.DataFrame(table_rows)
             st.dataframe(df, use_container_width=True, hide_index=True)
         else:
-            st.info("此訂單沒有貨品資料。")
+            st.warning("⚠️ 系統回傳：此訂單內沒有貨品資料。")
 
         st.divider()
 
@@ -236,7 +240,6 @@ def show_scanner_page():
                         st.toast(f"✅ {barcode_input} 掃描成功！")
                         play_success_feedback()
                         
-                        # 🌟 寫入成功的紀錄到 Supabase
                         log_to_supabase(st.session_state.current_order_id, barcode_input, "Success")
                         
                         url_refresh = f"https://api.letech.com.hk/api/dear/scan/order?order_id={st.session_state.current_order_id}"
@@ -245,8 +248,6 @@ def show_scanner_page():
                     else:
                         st.error(f"❌ 條碼 {barcode_input} 錯誤或數量已滿！")
                         play_error_feedback()
-                        
-                        # 🌟 寫入失敗的紀錄到 Supabase
                         log_to_supabase(st.session_state.current_order_id, barcode_input, f"Failed: {res_barcode.status_code}")
                 except Exception as e:
                     st.error(f"連線錯誤：{e}")
