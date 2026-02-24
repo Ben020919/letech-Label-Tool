@@ -17,16 +17,6 @@ DEFAULT_EXCEL_PATH = "data.xlsx"
 DEFAULT_FONT_PATH = "font.ttf"
 DB_NAME_FILE = "current_db_name.txt"
 
-# ================= 設定特殊警告標籤清單 =================
-CAUTION_PRODUCT_LIST = [
-    "GAR-113166", "GAR-113167", "GAR-113168",
-    "LT10006114", "LT10006115", "LT10006116",
-    "POPS-106413", "POPS-107836", "SAX-103842",
-    "LT10014114", "LT10011267", "NATV-113301",
-    "LT10013458", "LT10013459", "PRI-111852",
-    "CHE-108483"
-]
-
 # ================= 1. 資料庫與字體讀取 =================
 def get_current_db_name():
     if os.path.exists(DB_NAME_FILE):
@@ -59,7 +49,7 @@ def load_local_font_bytes(file_path):
     if not os.path.exists(file_path): return None
     with open(file_path, "rb") as f: return f.read()
 
-# ================= 2. 標籤生成函數 =================
+# ================= 2. 標籤生成函數與智能判斷 =================
 def clean_val(val):
     if pd.isna(val) or str(val).lower() == 'nan': return ""
     return str(val).strip()
@@ -94,6 +84,18 @@ def smart_get_caution_text(data_dict):
     for k_lower, k_original in lower_keys.items():
         if 'warning' in k_lower: return clean_val(data_dict[k_original])
     return None
+
+# ✨ 新增：智能判定是否為純警告標籤 ✨
+def is_caution_only(data_dict):
+    """如果沒有任何食品成分或營養標示數據，就判定為警告標籤"""
+    food_keys = ['Ingredients', 'Energy', 'Protein', 'Total_Fat', 'Carb', 'Sodium']
+    for k in food_keys:
+        val = clean_val(data_dict.get(k, ''))
+        # 只要有一個欄位有資料且不為 "0"，就代表它是食品標籤
+        if val and val != "0":
+            return False
+    # 全部為空或 0，判定為 Caution Label
+    return True
 
 def create_food_label_html(item, matched_data, font_css, qty):
     data = matched_data if matched_data else {}
@@ -172,7 +174,6 @@ def create_food_label_html(item, matched_data, font_css, qty):
         final_html = single_label_html
     return final_html
 
-# ✨ 新增：警告標籤生成器 ✨
 def create_caution_html(text, qty):
     formatted_text = str(text).replace('\n', '<br/>')
     if not formatted_text or formatted_text == "nan": formatted_text = ""
@@ -180,7 +181,7 @@ def create_caution_html(text, qty):
     <html><head><style>
         @page {{ size: auto; margin: 0mm; }}
         body {{ margin: 0; padding: 0; font-family: Helvetica, Arial, sans-serif; }}
-        .label-container {{ width: 70mm; height: 50mm; box-sizing: border-box; padding: 2mm; page-break-after: always; position: relative; display: flex; align-items: center; justify-content: center; text-align: center; }}
+        .label-container {{ width: 70mm; height: 50mm; box-sizing: border-box; padding: 2mm; page-break-after: always; position: relative; display: flex; align-items: center; justify-content: center; text-align: center; border: 4px solid black; }}
         .caution-text {{ font-size: 15pt; font-weight: 900; line-height: 1.2; word-wrap: break-word; color: black; }}
     </style></head><body>
         <div class="label-container"><div class="caution-text">{formatted_text}</div></div>
@@ -218,13 +219,11 @@ def show_food_label_page():
     # ================= ✨ UI 與 CSS 美化 ✨ =================
     st.markdown("""
         <style>
-            /* 保留 Logo 樣式 */
             .logo-container { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
             .logo-text { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 28px; font-weight: 800; color: #2c3e50; letter-spacing: -0.5px; margin-left: 10px; line-height: 1; }
             .logo-dot { color: #007bff; }
             .logo-sub { font-size: 14px; color: #888; font-weight: 400; margin-left: 15px; padding-left: 15px; border-left: 1px solid #ddd; height: 20px; line-height: 20px; }
             
-            /* 高質感搜尋結果卡片 */
             .result-card { 
                 background: linear-gradient(145deg, #ffffff, #fcfcfc);
                 border: 1px solid #e2e8f0; 
@@ -240,36 +239,16 @@ def show_food_label_page():
                 transform: translateY(-2px);
             }
             
-            /* 商品名稱字體 */
-            .item-title { 
-                font-size: 20px; 
-                font-weight: 800; 
-                color: #1e293b; 
-                margin-bottom: 15px; 
-                line-height: 1.4;
-            }
+            .item-title { font-size: 20px; font-weight: 800; color: #1e293b; margin-bottom: 15px; line-height: 1.4; }
             
-            /* 精緻的小標籤 (Badges) */
             .info-badges-container { display: flex; flex-wrap: wrap; gap: 10px; }
-            .item-badge { 
-                display: flex; align-items: center; background-color: #f8fafc; 
-                border: 1px solid #e2e8f0; border-radius: 8px; padding: 4px 10px; 
-                font-size: 13px; color: #64748b; font-weight: 600; 
-            }
-            .item-badge-value { 
-                color: #0369a1; background-color: #f0f9ff; margin-left: 8px; 
-                padding: 2px 6px; border-radius: 4px; font-family: 'Courier New', monospace; font-weight: bold; 
-            }
+            .item-badge { display: flex; align-items: center; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 4px 10px; font-size: 13px; color: #64748b; font-weight: 600; }
+            .item-badge-value { color: #0369a1; background-color: #f0f9ff; margin-left: 8px; padding: 2px 6px; border-radius: 4px; font-family: 'Courier New', monospace; font-weight: bold; }
             
-            /* 調整數量輸入框外觀，讓它與按鈕對齊 */
-            div[data-testid="stNumberInput"] label { 
-                font-size: 14px !important; color: #475569 !important; font-weight: 600 !important; 
-            }
+            div[data-testid="stNumberInput"] label { font-size: 14px !important; color: #475569 !important; font-weight: 600 !important; }
             
-            /* 隱藏 st.form 預設的醜邊框 */
             [data-testid="stForm"] { border: none !important; padding: 0 !important; margin: 0 !important; }
             
-            /* 打印按鈕高質感美化 (對齊高度) 適用於 Form 裡面的按鈕 */
             div.stButton, div[data-testid="stFormSubmitButton"] { margin-top: 28px !important; } 
             div.stButton > button, div[data-testid="stFormSubmitButton"] > button { 
                 width: 100% !important; height: 42px !important; 
@@ -293,7 +272,7 @@ def show_food_label_page():
                 border-radius: 6px !important;
                 padding: 8px 16px !important;
                 height: 38px !important;
-                margin-top: 0px !important; /* 蓋掉上面強制加的 margin-top */
+                margin-top: 0px !important; 
             }
             div[data-testid="stPopover"] > button:hover {
                 background-color: #218838 !important;
@@ -302,14 +281,13 @@ def show_food_label_page():
                 filter: none !important;
             }
 
-            /* ✨ 讓 Popover 裡面的確認按鈕恢復原本的藍色，避免被吃掉樣式 */
+            /* ✨ 讓 Popover 裡面的確認按鈕恢復原本的藍色 */
             div[data-testid="stPopoverBody"] div.stButton { margin-top: 0px !important; }
             div[data-testid="stPopoverBody"] div.stButton > button {
                 background: #007bff !important;
                 height: 38px !important;
             }
 
-            /* Search Input X 按鈕 */
             input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: searchfield-cancel-button; cursor: pointer; height: 16px; width: 16px; opacity: 0.6; }
         </style>
     """, unsafe_allow_html=True)
@@ -406,9 +384,9 @@ def show_food_label_page():
                 barcode = row.get('Barcode', 'N/A')
                 desc = row.get('Description', '未命名商品')
                 
-                # ✨ 判斷是否為警告標籤 (Caution Label)
-                is_caution_item = str(p_no).strip() in CAUTION_PRODUCT_LIST
+                # ✨ 智能判斷：是否為警告標籤 (Caution Label)
                 matched_data = row.to_dict()
+                is_caution_item = is_caution_only(matched_data)
                 
                 with st.container():
                     st.markdown('<div class="result-card">', unsafe_allow_html=True)
