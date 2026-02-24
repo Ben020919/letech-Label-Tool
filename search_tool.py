@@ -1,4 +1,3 @@
-```python
 import streamlit as st
 import pandas as pd
 import os
@@ -99,8 +98,8 @@ def show_search_barcode_page():
 
             /* ✨ 終極手機版黑色打叉解決方案 ✨ */
             input[type="search"] { 
-                -webkit-appearance: none !important; /* 拔除 Apple 原生限制 */
-                padding-right: 35px !important; /* 確保右邊有空間放叉叉 */
+                -webkit-appearance: none !important; 
+                padding-right: 35px !important; 
             }
             input[type="search"]::-webkit-search-cancel-button { 
                 -webkit-appearance: none !important;
@@ -108,8 +107,7 @@ def show_search_barcode_page():
                 display: inline-block !important;
                 width: 18px !important;
                 height: 18px !important;
-                background-color: #888 !important; /* 叉叉的顏色，深灰色 */
-                /* 利用 SVG 繪製一個絕對不會被隱藏的叉叉 */
+                background-color: #888 !important; 
                 -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'/%3E%3C/svg%3E") !important;
                 mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'/%3E%3C/svg%3E") !important;
                 -webkit-mask-size: contain !important;
@@ -118,7 +116,7 @@ def show_search_barcode_page():
                 pointer-events: auto !important;
             }
             input[type="search"]::-webkit-search-cancel-button:hover { 
-                background-color: #000 !important; /* 滑鼠移過去變純黑 */
+                background-color: #000 !important; 
             }
         </style>
     """, unsafe_allow_html=True)
