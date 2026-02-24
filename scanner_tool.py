@@ -2,6 +2,34 @@ import streamlit as st
 import requests
 import pandas as pd
 import streamlit.components.v1 as components
+from supabase import create_client, Client
+
+# ==========================================
+# 初始化 Supabase 連線
+# ==========================================
+@st.cache_resource
+def init_supabase():
+    try:
+        url = st.secrets["SUPABASE_URL"]
+        key = st.secrets["SUPABASE_KEY"]
+        return create_client(url, key)
+    except Exception as e:
+        # 如果還沒設定 secrets，先回傳 None，避免程式崩潰
+        return None
+
+supabase = init_supabase()
+
+# 輔助函式：寫入資料庫
+def log_to_supabase(order_id, barcode, status):
+    if supabase is not None:
+        try:
+            supabase.table("scan_logs").insert({
+                "order_id": order_id,
+                "barcode": barcode,
+                "status": status
+            }).execute()
+        except Exception:
+            pass # 寫入失敗不報錯，不影響現場人員出庫進度
 
 # ==========================================
 # 聲音與震動回饋 (JavaScript)
@@ -39,6 +67,11 @@ def show_scanner_page():
     # 側邊欄設定
     st.sidebar.markdown("### ⚙️ 出庫系統設定")
     token = st.sidebar.text_input("輸入 Authorization Token：", type="password")
+    
+    if supabase is None:
+        st.sidebar.warning("⚠️ 尚未設定 Supabase 密鑰，出庫紀錄將不會儲存至資料庫。")
+    else:
+        st.sidebar.success("✅ Supabase 資料庫已連線")
 
     def get_headers():
         return {
@@ -67,10 +100,10 @@ def show_scanner_page():
                     url_order = f"https://api.letech.com.hk/api/dear/scan/order?order_id={order_input}"
                     try:
                         res_order = requests.get(url_order, headers=get_headers())
+                        
                         if res_order.status_code == 200:
                             order_json = res_order.json()
                             
-                            # ===== 防呆機制，判斷訂單是否已出庫 =====
                             is_completed = order_json.get("status", False)
                             total_qty = 0
                             total_scanned = 0
@@ -82,19 +115,27 @@ def show_scanner_page():
                                     total_qty += sub_p.get("quantity", 0)
                                     total_scanned += sub_p.get("scanQty", 0)
                                     
-                            # 攔截：如果數量已滿，拒絕進入掃貨品畫面
                             if is_completed or (total_qty > 0 and total_scanned >= total_qty):
                                 st.error(f"🚫 訂單 【{order_input}】 已出庫！請勿重複作業。")
                                 play_error_feedback()
                             else:
-                                # 正常未出庫的單，鎖定並進入第二階段
                                 st.session_state.current_order_id = order_input
                                 st.session_state.order_details = order_json
                                 play_success_feedback()
                                 st.rerun()
-                        else:
-                            st.error(f"❌ 找不到此訂單！(代碼：{res_order.status_code})")
+                                
+                        elif res_order.status_code == 500:
+                            st.error(f"🚫 伺服器拒絕 (代碼：500)\n\n這通常代表：此單號**「不存在」**，或是**「已經出庫很久、被系統歸檔了」**！")
                             play_error_feedback()
+                            
+                        elif res_order.status_code in [401, 403]:
+                            st.error(f"🔒 權限失效 (代碼：{res_order.status_code})\n\n您的 Token 已經過期了，請重新輸入！")
+                            play_error_feedback()
+                            
+                        else:
+                            st.error(f"❌ 發生未知的連線錯誤！(代碼：{res_order.status_code})")
+                            play_error_feedback()
+                            
                     except Exception as e:
                         st.error(f"連線錯誤：{e}")
 
@@ -105,7 +146,6 @@ def show_scanner_page():
         order_data = st.session_state.order_details.get("order", {})
         products_data = st.session_state.order_details.get("products", [])
 
-        # 頂部控制列
         col1, col2, col3 = st.columns([2, 1, 1])
         with col1:
             st.success(f"📌 **{st.session_state.current_order_id}**\n\n🚚 目的地：{order_data.get('deliver_to_warehouse', '未指定')}")
@@ -116,6 +156,7 @@ def show_scanner_page():
                     res_cancel = requests.post(url_cancel, headers=get_headers())
                     if res_cancel.status_code == 200:
                         st.toast("✅ 紀錄已重置！")
+                        log_to_supabase(st.session_state.current_order_id, "RESET", "Order Reset") # 寫入重置紀錄
                         url_refresh = f"https://api.letech.com.hk/api/dear/scan/order?order_id={st.session_state.current_order_id}"
                         st.session_state.order_details = requests.get(url_refresh, headers=get_headers()).json()
                         st.rerun()
@@ -130,7 +171,6 @@ def show_scanner_page():
                 st.session_state.order_details = None
                 st.rerun()
 
-        # 計算進度條與解析表格資料
         table_rows = []
         total_qty = 0
         total_scanned = 0
@@ -183,7 +223,6 @@ def show_scanner_page():
 
         st.divider()
 
-        # 連續掃描貨品區
         st.markdown("#### 🛒 步驟 2：連續掃描貨品")
         with st.form("barcode_form", clear_on_submit=True):
             barcode_input = st.text_input("2️⃣ 請掃描【貨品條碼】(Barcode)：")
@@ -197,13 +236,18 @@ def show_scanner_page():
                         st.toast(f"✅ {barcode_input} 掃描成功！")
                         play_success_feedback()
                         
-                        # 更新畫面上的數字
+                        # 🌟 寫入成功的紀錄到 Supabase
+                        log_to_supabase(st.session_state.current_order_id, barcode_input, "Success")
+                        
                         url_refresh = f"https://api.letech.com.hk/api/dear/scan/order?order_id={st.session_state.current_order_id}"
                         st.session_state.order_details = requests.get(url_refresh, headers=get_headers()).json()
                         st.rerun()
                     else:
                         st.error(f"❌ 條碼 {barcode_input} 錯誤或數量已滿！")
                         play_error_feedback()
+                        
+                        # 🌟 寫入失敗的紀錄到 Supabase
+                        log_to_supabase(st.session_state.current_order_id, barcode_input, f"Failed: {res_barcode.status_code}")
                 except Exception as e:
                     st.error(f"連線錯誤：{e}")
                     play_error_feedback()
