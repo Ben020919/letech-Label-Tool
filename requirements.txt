@@ -7,4 +7,5 @@ selenium
 webdriver-manager
 selenium-stealth
 supabase
-streamlit-zxing
+pyzbar
+Pillow
