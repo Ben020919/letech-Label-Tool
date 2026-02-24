@@ -242,7 +242,7 @@ def main():
     
     category_selection = st.sidebar.radio(
         "Main Category", 
-        ["🏠 首頁總覽", "📊 控制台", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🍎 Food Label 打印", "🔍 Search Barcode"],
+        ["📊 Dashboard", "🏠 Homepage", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🍎 Food Label 打印", "🔍 Search Barcode"],
         label_visibility="collapsed",
         key="main_nav",
         on_change=close_sidebar_callback
@@ -250,11 +250,11 @@ def main():
 
     inject_mobile_sidebar_closer()
 
-    if category_selection == "🏠 首頁總覽":
-        render_home_page()  
+    if category_selection == "📊 Dashboard":
+        render_dashboard_page() 
 
-    elif category_selection == "📊 控制台":
-        render_dashboard_page()
+    elif category_selection == "🏠 Homepage":
+        render_home_page() 
 
     elif category_selection == "🍔 Yummy 3PL":
         st.sidebar.markdown("---")
