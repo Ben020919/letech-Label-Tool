@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit.components.v1 as components
 
 # ==========================================
-# 聲音與震動回饋
+# 聲音與震動回饋 (JavaScript)
 # ==========================================
 def play_success_feedback():
     js = """<script>
@@ -36,7 +36,7 @@ def show_scanner_page():
 
     st.title("📦 Letech 連續出庫系統")
 
-    # 專屬此頁面的側邊欄設定
+    # 側邊欄設定
     st.sidebar.markdown("### ⚙️ 出庫系統設定")
     token = st.sidebar.text_input("輸入 Authorization Token：", type="password")
 
@@ -53,7 +53,7 @@ def show_scanner_page():
         st.stop()
 
     # ==========================================
-    # 第一階段：尚未鎖定訂單
+    # 第一階段：尚未鎖定訂單 (輸入訂單號)
     # ==========================================
     if st.session_state.current_order_id is None:
         st.markdown("### 步驟 1：載入訂單")
@@ -68,18 +68,58 @@ def show_scanner_page():
                     try:
                         res_order = requests.get(url_order, headers=get_headers())
                         if res_order.status_code == 200:
-                            st.session_state.current_order_id = order_input
-                            st.session_state.order_details = res_order.json()
-                            play_success_feedback()
-                            st.rerun()
+                            order_json = res_order.json()
+                            
+                            # ===== 新增：防呆機制，判斷訂單是否已出庫 =====
+                            is_completed = order_json.get("status", False)
+                            total_qty = 0
+                            total_scanned = 0
+                            
+                            for p in order_json.get("products", []):
+                                total_qty += p.get("quantity", 0)
+                                total_scanned += p.get("scanQty", 0)
+                                for sub_p in p.get("products", []):
+                                    total_qty += sub_p.get("quantity", 0)
+                                    total_scanned += sub_p.get("scanQty", 0)
+                                    
+                            # 攔截：如果數量已滿，拒絕進入掃貨品畫面！
+                            if is_completed or (total_qty > 0 and total_scanned >= total_qty):
+                                st.error(f"🚫 訂單 【{order_input}】 已出庫！請勿重複作業。")
+                                play_error_feedback()
+                            else:
+                                # 正常未出庫的單，鎖定並進入第二階段
+                                st.session_state.current_order_id = order_input
+                                st.session_state.order_details = order_json
+                                play_success_feedback()
+                                st.rerun()
+                            # ==============================================
                         else:
                             st.error(f"❌ 找不到此訂單！(代碼：{res_order.status_code})")
                             play_error_feedback()
                     except Exception as e:
                         st.error(f"連線錯誤：{e}")
 
+        # 提供一個外部的強制重置區塊 (給那些已經出庫但想重置的訂單使用)
+        st.write("")
+        with st.expander("🛠️ 異常處理：重置已出庫訂單"):
+            st.caption("如果剛才掃錯了，想把已經出庫的訂單狀態清空，請在此重置：")
+            reset_input = st.text_input("輸入需要重置的訂單號碼：", key="reset_input_out")
+            if st.button("🗑️ 執行重置", use_container_width=True):
+                if reset_input:
+                    url_cancel = f"https://api.letech.com.hk/api/dear/scan/cancel?order_id={reset_input}"
+                    try:
+                        res_cancel = requests.post(url_cancel, headers=get_headers())
+                        if res_cancel.status_code == 200:
+                            st.success(f"✅ 訂單 {reset_input} 重置成功！您可以重新掃描了。")
+                            play_success_feedback()
+                        else:
+                            st.error("❌ 重置失敗！")
+                            play_error_feedback()
+                    except Exception as e:
+                        st.error(f"連線錯誤：{e}")
+
     # ==========================================
-    # 第二階段：已鎖定訂單 (顯示資料 + 連續掃貨品)
+    # 第二階段：已鎖定訂單 (顯示資料 + 連續掃貨品 + 重置)
     # ==========================================
     else:
         order_data = st.session_state.order_details.get("order", {})
@@ -176,6 +216,8 @@ def show_scanner_page():
                     if res_barcode.status_code == 200:
                         st.toast(f"✅ {barcode_input} 掃描成功！")
                         play_success_feedback()
+                        
+                        # 更新畫面上的數字
                         url_refresh = f"https://api.letech.com.hk/api/dear/scan/order?order_id={st.session_state.current_order_id}"
                         st.session_state.order_details = requests.get(url_refresh, headers=get_headers()).json()
                         st.rerun()
