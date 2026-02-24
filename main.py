@@ -218,7 +218,7 @@ def render_home_page():
         {"tag": "Anymall 3PL", "tag_class": "tag-anymall", "icon": "🛍️", "title": "Anymall System", "desc": "PDF Processing and Label Printing."},
         {"tag": "Hello Bear 3PL", "tag_class": "tag-bear", "icon": "🐻", "title": "Hello Bear System", "desc": "PDF Processing and Repack Label Printing."},
         {"tag": "Homey 3PL", "tag_class": "tag-homey", "icon": "🏠", "title": "Homey System", "desc": "PDF Processing and Insects/Repack Label Printing."},
-        {"tag": "Nutrition Label", "tag_class": "tag-food", "icon": "🍎", "title": "Food Label", "desc": "For Yummy 3PL, Search and Print Food Label"},
+        {"tag": "Nutrition Label", "tag_class": "tag-food", "icon": "🍎 🐛", "title": "Label Printing", "desc": "For Yummy/Homey 3PL, Search and Print Label"},
         {"tag": "Mobile Tool", "tag_class": "tag-tool", "icon": "🔍", "title": "Search Barcode", "desc": "Search for Product Images, SKU Number, and Barcode."}
     ]
     cols = st.columns(3)
@@ -242,7 +242,7 @@ def main():
     
     category_selection = st.sidebar.radio(
         "Main Category", 
-        ["📊 Dashboard", "🏠 Homepage", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🍎 Food Label", "🔍 Search Barcode"],
+        ["📊 Dashboard", "🏠 Homepage", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🍎 Food Label/🐛 Insect Lable", "🔍 Search Barcode"],
         label_visibility="collapsed",
         key="main_nav",
         on_change=close_sidebar_callback
@@ -272,7 +272,7 @@ def main():
         st.sidebar.markdown("---")
         show_homey_page()
 
-    elif category_selection == "🍎 Food Label":
+    elif category_selection == "🍎 Food Label/🐛 Insect Lable":
         st.sidebar.markdown("---")
         show_food_label_page()
 
