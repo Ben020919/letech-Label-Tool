@@ -234,8 +234,22 @@ def show_yummy_page():
             .grid-row:hover { background-color: #f8f9fa; }
             div[data-testid="column"] { display: flex; flex-direction: column; justify-content: center; }
             
-            /* ✨ 修正：只針對 Grid 裡的 Action 欄位按鈕套用排版，避免影響 Popover */
-            div[data-testid="column"]:nth-of-type(7) div.stButton > button { width: 100px !important; height: 38px !important; min-height: 38px !important; border-radius: 6px !important; padding: 0px !important; background-color: #e7f5ff !important; color: #004085 !important; border: none !important; display: flex !important; justify-content: center !important; align-items: center !important; margin: 0 auto !important; transform: translateX(20px) !important; }
+            /* ✨ 修正：只針對 Grid 裡的 Action 欄位按鈕套用排版，完美還原原本的樣式 */
+            div[data-testid="column"]:nth-of-type(7) div.stButton > button { 
+                width: 100px !important; 
+                height: 38px !important; 
+                min-height: 38px !important; 
+                border-radius: 6px !important; 
+                padding: 0px !important; 
+                background-color: #e7f5ff !important; 
+                color: #004085 !important; 
+                border: none !important; 
+                display: flex !important; 
+                justify-content: center !important; 
+                align-items: center !important; 
+                margin: 0 auto !important; 
+                transform: translateX(20px) !important; 
+            }
             div[data-testid="column"]:nth-of-type(7) div.stButton > button:hover { background-color: #d0ebff !important; color: #002752 !important; }
             div[data-testid="column"]:nth-of-type(7) div.stButton > button p { font-size: 13px !important; font-weight: bold !important; line-height: 1 !important; margin: 0 !important; padding: 0 !important; }
             div[data-testid="column"]:nth-of-type(7) div.stButton { width: 100% !important; display: flex !important; justify-content: center !important; align-items: center !important; height: 100% !important; min-height: 45px !important; margin: 0 !important; }
@@ -247,6 +261,38 @@ def show_yummy_page():
             .cell-code { font-family: monospace; font-size: 13px; background: #f1f3f5; padding: 2px 6px; border-radius: 4px; color: #333; }
             .cell-qty { font-weight: bold; font-size: 15px; color: #000; text-align: center; display: block; width: 100%; }
             div[data-testid="column"]:nth-of-type(7) > div { display: flex !important; flex-direction: row !important; justify-content: center !important; align-items: center !important; width: 100% !important; height: 100% !important; }
+            
+            /* ✨ 保護下載按鈕，不受打印按鈕的樣式影響 */
+            div[data-testid="stDownloadButton"] > button {
+                width: auto !important; 
+                height: 32px !important; 
+                min-height: 32px !important; 
+                padding: 0 15px !important; 
+                transform: none !important;
+                background-color: #f1f3f5 !important;
+                color: #495057 !important;
+                border: 1px solid #ced4da !important;
+                border-radius: 4px !important;
+            }
+            div[data-testid="stDownloadButton"] > button:hover { background-color: #e9ecef !important; color: #212529 !important; }
+
+            /* ✨ 讓 popover 按鈕變成綠色，且不受打印按鈕影響 */
+            div[data-testid="stPopover"] > button {
+                width: 100% !important;
+                background-color: #28a745 !important;
+                color: white !important;
+                border: none !important;
+                font-weight: bold !important;
+                border-radius: 6px !important;
+                padding: 8px 16px !important;
+                transform: none !important;
+                height: 38px !important;
+                min-height: 38px !important;
+            }
+            div[data-testid="stPopover"] > button:hover {
+                background-color: #218838 !important;
+                box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3) !important;
+            }
         </style>
         
         <div class="logo-container">
@@ -261,33 +307,33 @@ def show_yummy_page():
     st.markdown("### 🍔 Yummy 3PL System")
 
     # ================= ✨ Yummy 專用：配置新文件區塊 (按鈕版) ✨ =================
-    if hasattr(st, "popover"):
-        db_container = st.popover("⚙️ Upload New Database", use_container_width=True)
-    else:
-        db_container = st.expander("⚙️ Upload New Database", expanded=False)
-
-    with db_container:
-        st.markdown("#### 📂 Upload New Database")
-        st.caption("Support Excel (.xlsx) 或 CSV (.csv) File。It will be automatically applied after uploading.！")
-        new_db_file = st.file_uploader("", type=["xlsx", "csv"], key="yummy_new_db_uploader", label_visibility="collapsed")
-        
-        if new_db_file:
-            if st.button("Confirm Database Update", type="primary", key="yummy_update_btn", use_container_width=True):
-                try:
-                    if new_db_file.name.endswith('.csv'):
-                        temp_df = pd.read_csv(new_db_file, dtype=str)
-                        temp_df.to_excel(DEFAULT_EXCEL_PATH, index=False)
-                    else:
-                        with open(DEFAULT_EXCEL_PATH, "wb") as f:
-                            f.write(new_db_file.getbuffer())
-                    
-                    set_current_db_name(new_db_file.name)
-                    st.cache_data.clear()
-                    st.success(f"✅ Database Update to：【{new_db_file.name}】！System will Reload in 2 Seconds...")
-                    time.sleep(2)
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"❌ 更新失敗: {e}")
+    col1, col2 = st.columns([0.8, 0.2])
+    with col2:
+        if hasattr(st, "popover"):
+            with st.popover("⚙️ 配置文件"):
+                st.markdown("#### 📂 Upload New Database")
+                st.caption("Support Excel (.xlsx) 或 CSV (.csv) File。It will be automatically applied after uploading.！")
+                new_db_file = st.file_uploader("", type=["xlsx", "csv"], key="yummy_new_db_uploader", label_visibility="collapsed")
+                
+                if new_db_file:
+                    if st.button("Confirm Database Update", type="primary", key="yummy_update_btn", use_container_width=True):
+                        try:
+                            if new_db_file.name.endswith('.csv'):
+                                temp_df = pd.read_csv(new_db_file, dtype=str)
+                                temp_df.to_excel(DEFAULT_EXCEL_PATH, index=False)
+                            else:
+                                with open(DEFAULT_EXCEL_PATH, "wb") as f:
+                                    f.write(new_db_file.getbuffer())
+                            
+                            set_current_db_name(new_db_file.name)
+                            st.cache_data.clear()
+                            st.success(f"✅ Database Update to：【{new_db_file.name}】！System will Reload in 2 Seconds...")
+                            time.sleep(2)
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ 更新失敗: {e}")
+        else:
+            st.info("請更新 Streamlit。")
 
     # ================= 預先載入資料庫 =================
     df_master = load_local_excel(DEFAULT_EXCEL_PATH)
@@ -298,7 +344,7 @@ def show_yummy_page():
         df_master.columns = df_master.columns.str.strip()
         st.success(f"✅ Linked Database：`{current_db_name}`")
     else:
-        st.warning(f"⚠️ 找不到 `{current_db_name}`，請點擊上方按鈕上傳檔案。")
+        st.warning(f"⚠️ 找不到 `{current_db_name}`，請點擊上方「⚙️ 配置文件」上傳檔案。")
 
     st.divider()
 
