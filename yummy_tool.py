@@ -13,17 +13,7 @@ from usage_tracker import log_action
 # ================= 設定預設檔案名稱 =================
 DEFAULT_EXCEL_PATH = "data.xlsx"
 DEFAULT_FONT_PATH = "font.ttf"
-DB_NAME_FILE = "yummy_current_db_name.txt" # 用來記憶您上傳的真實檔名
-
-# ================= 設定特殊警告標籤清單 =================
-CAUTION_PRODUCT_LIST = [
-    "GAR-113166", "GAR-113167", "GAR-113168",
-    "LT10006114", "LT10006115", "LT10006116",
-    "POPS-106413", "POPS-107836", "SAX-103842",
-    "LT10014114", "LT10011267", "NATV-113301",
-    "LT10013458", "LT10013459", "PRI-111852",
-    "CHE-108483"
-]
+DB_NAME_FILE = "yummy_current_db_name.txt"
 
 # ================= 1. 快取讀取與檔名記憶函式 =================
 def get_current_db_name():
@@ -52,7 +42,7 @@ def load_local_font_bytes(file_path):
     with open(file_path, "rb") as f:
         return f.read()
 
-# ================= 2. 輔助函式 =================
+# ================= 2. 輔助函式與智能判斷 =================
 def clean_val(val):
     if pd.isna(val) or str(val).lower() == 'nan': return ""
     return str(val).strip()
@@ -96,6 +86,43 @@ def font_to_base64_css(font_bytes, file_name):
         body, .label-container, div, span {{ font-family: 'CustomLabelFont', Helvetica, Arial, sans-serif !important; }}
         """
     except Exception: return ""
+
+# ✨ 智能判定是否為純警告標籤 ✨
+def is_caution_only(data_dict):
+    """如果沒有任何食品成分或營養標示數據，就判定為警告標籤"""
+    food_keys = ['Ingredients', 'Energy', 'Protein', 'Total_Fat', 'Carb', 'Sodium']
+    for k in food_keys:
+        val = clean_val(data_dict.get(k, ''))
+        # 只要有一個欄位有資料且不為 "0"，就代表它是食品標籤
+        if val and val != "0":
+            return False
+    # 全部為空或 0，判定為 Caution Label
+    return True
+
+# ✨ 智能資料過濾器（解決多個重複結果）✨
+def get_best_results(results_df):
+    if results_df.empty: 
+        return results_df
+    
+    scores = []
+    for _, row in results_df.iterrows():
+        score = 0
+        if str(row.get('Ingredients', '')).strip() not in ['', 'nan', '0', 'None']: score += 2
+        if str(row.get('Energy', '')).strip() not in ['', 'nan', '0', 'None']: score += 1
+        
+        for k in row.keys():
+            if 'caution' in str(k).lower() or 'warning' in str(k).lower():
+                if str(row[k]).strip() not in ['', 'nan', '0', 'None']: 
+                    score += 2
+                    break
+        scores.append(score)
+        
+    results_df = results_df.copy()
+    results_df['__score'] = scores
+    # 根據分數從高到低排序，然後刪除重複的 Product_No，只保留分數最高的那一筆
+    results_df = results_df.sort_values(by='__score', ascending=False)
+    results_df = results_df.drop_duplicates(subset=['Product_No'], keep='first')
+    return results_df
 
 # ================= 3. HTML 標籤生成器 =================
 def create_label_html_on_the_fly(item, matched_data, font_css, qty):
@@ -178,6 +205,7 @@ def create_label_html_on_the_fly(item, matched_data, font_css, qty):
 def create_caution_html(text, qty):
     formatted_text = str(text).replace('\n', '<br/>')
     if not formatted_text or formatted_text == "nan": formatted_text = ""
+    # ✨ 這裡已將 border: 4px solid black 移除 ✨
     single_label_html = f"""
     <html><head><style>
         @page {{ size: auto; margin: 0mm; }}
@@ -433,21 +461,16 @@ def show_yummy_page():
                                 name_parts.append(line)
                         p_name = " ".join(name_parts)
                         
-                        # 3. 匹配 Excel 資料庫
+                        # 3. 匹配 Excel 資料庫 (✨ 使用智能過濾器過濾空資料)
                         matches = df_master[df_master['Product_No'].astype(str).str.strip() == p_no]
                         matched_data = {}
                         has_match = False
                         
                         if not matches.empty:
                             has_match = True
-                            if 'Cautions' in matches.columns:
-                                valid_rows = matches[matches['Cautions'].notna() & (matches['Cautions'].str.strip() != "")]
-                                if not valid_rows.empty:
-                                    matched_data = valid_rows.iloc[0].to_dict()
-                                else:
-                                    matched_data = matches.iloc[0].to_dict()
-                            else:
-                                matched_data = matches.iloc[0].to_dict()
+                            # 取出分數最高、資料最完整的那一筆
+                            best_match_df = get_best_results(matches)
+                            matched_data = best_match_df.iloc[0].to_dict()
 
                         temp_items.append({
                             "id": f"{p_no}_{i}", 
@@ -555,7 +578,8 @@ def show_yummy_page():
                     c5.markdown(f"<div class='grid-row'><span class='cell-qty'>{item['數量']}</span></div>", unsafe_allow_html=True)
                     
                     with c6:
-                        is_caution_item = str(item['Product No']).strip() in CAUTION_PRODUCT_LIST
+                        # ✨ 智能判斷：是否為警告標籤
+                        is_caution_item = is_caution_only(item['matched_data'])
                         
                         row_wrapper_style = "display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; min-height: 45px;"
                         
