@@ -70,7 +70,7 @@ def show_scanner_page():
                         if res_order.status_code == 200:
                             order_json = res_order.json()
                             
-                            # ===== 新增：防呆機制，判斷訂單是否已出庫 =====
+                            # ===== 防呆機制，判斷訂單是否已出庫 =====
                             is_completed = order_json.get("status", False)
                             total_qty = 0
                             total_scanned = 0
@@ -82,7 +82,7 @@ def show_scanner_page():
                                     total_qty += sub_p.get("quantity", 0)
                                     total_scanned += sub_p.get("scanQty", 0)
                                     
-                            # 攔截：如果數量已滿，拒絕進入掃貨品畫面！
+                            # 攔截：如果數量已滿，拒絕進入掃貨品畫面
                             if is_completed or (total_qty > 0 and total_scanned >= total_qty):
                                 st.error(f"🚫 訂單 【{order_input}】 已出庫！請勿重複作業。")
                                 play_error_feedback()
@@ -92,28 +92,8 @@ def show_scanner_page():
                                 st.session_state.order_details = order_json
                                 play_success_feedback()
                                 st.rerun()
-                            # ==============================================
                         else:
                             st.error(f"❌ 找不到此訂單！(代碼：{res_order.status_code})")
-                            play_error_feedback()
-                    except Exception as e:
-                        st.error(f"連線錯誤：{e}")
-
-        # 提供一個外部的強制重置區塊 (給那些已經出庫但想重置的訂單使用)
-        st.write("")
-        with st.expander("🛠️ 異常處理：重置已出庫訂單"):
-            st.caption("如果剛才掃錯了，想把已經出庫的訂單狀態清空，請在此重置：")
-            reset_input = st.text_input("輸入需要重置的訂單號碼：", key="reset_input_out")
-            if st.button("🗑️ 執行重置", use_container_width=True):
-                if reset_input:
-                    url_cancel = f"https://api.letech.com.hk/api/dear/scan/cancel?order_id={reset_input}"
-                    try:
-                        res_cancel = requests.post(url_cancel, headers=get_headers())
-                        if res_cancel.status_code == 200:
-                            st.success(f"✅ 訂單 {reset_input} 重置成功！您可以重新掃描了。")
-                            play_success_feedback()
-                        else:
-                            st.error("❌ 重置失敗！")
                             play_error_feedback()
                     except Exception as e:
                         st.error(f"連線錯誤：{e}")
