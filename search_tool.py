@@ -89,13 +89,19 @@ def show_search_barcode_page():
     
     st.markdown("### 🔍 Search Barcode System")
     
-    # ================= ✨ 搜尋專用：配置新文件區塊 ✨ =================
-    with st.expander("⚙️ 配置新資料庫文件 (Database Management)", expanded=False):
-        st.info("支援上傳任何檔名的 Excel (.xlsx) 或 CSV (.csv) 檔案。上傳後系統會自動套用！")
-        new_db_file = st.file_uploader("上傳新的資料庫檔案", type=["xlsx", "csv"], key="search_new_db_uploader")
+    # ================= ✨ 搜尋專用：配置新文件區塊 (按鈕版) ✨ =================
+    if hasattr(st, "popover"):
+        db_container = st.popover("⚙️ 更新資料庫文件 (Upload New Database)", use_container_width=True)
+    else:
+        db_container = st.expander("⚙️ 更新資料庫文件 (Upload New Database)", expanded=False)
+
+    with db_container:
+        st.markdown("#### 📂 上傳新資料庫")
+        st.caption("支援上傳 Excel (.xlsx) 或 CSV (.csv) 檔案。上傳後會自動套用！")
+        new_db_file = st.file_uploader("", type=["xlsx", "csv"], key="search_new_db_uploader", label_visibility="collapsed")
         
         if new_db_file:
-            if st.button("確認更新資料庫", type="primary", key="search_update_btn"):
+            if st.button("確認更新資料庫", type="primary", key="search_update_btn", use_container_width=True):
                 try:
                     if new_db_file.name.endswith('.xlsx') or new_db_file.name.endswith('.xls'):
                         temp_df = pd.read_excel(new_db_file, dtype=str)
@@ -116,7 +122,7 @@ def show_search_barcode_page():
     current_db_name = get_current_db_name()
     
     if df is None:
-        st.error(f"❌ 找不到資料庫 `{current_db_name}`，請在上方上傳檔案。")
+        st.error(f"❌ 找不到資料庫 `{current_db_name}`，請點擊上方按鈕上傳檔案。")
         return
 
     st.caption(f"📚 Linked Database: `{current_db_name}` (Total {len(df)} Data)")
