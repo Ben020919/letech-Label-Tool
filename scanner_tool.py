@@ -4,6 +4,13 @@ import pandas as pd
 import streamlit.components.v1 as components
 from supabase import create_client, Client
 
+# 嘗試匯入相機掃碼套件
+try:
+    from streamlit_zxing import st_zxing
+    HAS_ZXING = True
+except ImportError:
+    HAS_ZXING = False
+
 # ==========================================
 # 初始化 Supabase 連線
 # ==========================================
@@ -56,22 +63,17 @@ def delete_log_from_supabase(order_id):
 # 聲音與震動回饋 (JavaScript)
 # ==========================================
 def play_success_feedback():
-    js = """<script>
-        if (navigator.vibrate) window.navigator.vibrate(100);
-        var ctx = new (window.AudioContext || window.webkitAudioContext)();
-        var osc = ctx.createOscillator(); osc.connect(ctx.destination);
-        osc.frequency.value = 1200; osc.start(); setTimeout(function(){ osc.stop(); }, 100);
-    </script>"""
+    # 震動
+    js = """<script>if (navigator.vibrate) window.navigator.vibrate(100);</script>"""
     components.html(js, height=0)
+    # 使用 Streamlit 原生 audio 嘗試繞過手機靜音限制
+    st.audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg", autoplay=True)
 
 def play_error_feedback():
-    js = """<script>
-        if (navigator.vibrate) window.navigator.vibrate([300, 100, 300]);
-        var ctx = new (window.AudioContext || window.webkitAudioContext)();
-        var osc = ctx.createOscillator(); osc.type = 'square'; osc.connect(ctx.destination);
-        osc.frequency.value = 200; osc.start(); setTimeout(function(){ osc.stop(); }, 500);
-    </script>"""
+    # 震動
+    js = """<script>if (navigator.vibrate) window.navigator.vibrate([300, 100, 300]);</script>"""
     components.html(js, height=0)
+    st.audio("https://actions.google.com/sounds/v1/alarms/bugle_tune.ogg", autoplay=True)
 
 # ==========================================
 # 主功能函式
@@ -91,8 +93,6 @@ def show_scanner_page():
     
     if supabase is None:
         st.sidebar.warning("⚠️ 尚未設定 Supabase 密鑰，出庫紀錄將不會儲存。")
-    else:
-        st.sidebar.success("✅ Supabase 資料庫已連線")
 
     def get_headers():
         return {
@@ -114,56 +114,71 @@ def show_scanner_page():
         
         if st.session_state.last_completed_order:
             st.success(f"🌟 訂單 【{st.session_state.last_completed_order}】 已全數出庫完成！請繼續掃描下一張單。")
-            play_success_feedback()
             st.session_state.last_completed_order = None
         
-        with st.form("order_form"):
-            order_input = st.text_input("1️⃣ 請掃描或輸入【訂單號碼】(Order ID)：")
-            submit_order = st.form_submit_button("🔍 查詢並鎖定訂單", use_container_width=True)
-            
-            if submit_order and order_input:
-                with st.spinner("查詢訂單資料中..."):
-                    url_order = f"https://api.letech.com.hk/api/dear/scan/order?order_id={order_input}"
-                    try:
-                        res_order = requests.get(url_order, headers=get_headers())
+        # 選擇輸入模式
+        input_mode = st.radio("選擇輸入方式：", ["⌨️ 鍵盤打字 / 藍牙掃描槍", "📷 開啟手機相機掃碼"], horizontal=True)
+        
+        order_input = None
+        
+        if input_mode == "⌨️ 鍵盤打字 / 藍牙掃描槍":
+            with st.form("order_form"):
+                text_in = st.text_input("1️⃣ 請掃描或輸入【訂單號碼】(Order ID)：")
+                submit_order = st.form_submit_button("🔍 查詢並鎖定訂單", use_container_width=True)
+                if submit_order and text_in:
+                    order_input = text_in
+        else:
+            if HAS_ZXING:
+                st.caption("請將鏡頭對準訂單條碼")
+                camera_val = st_zxing(key="zxing_order")
+                if camera_val:
+                    order_input = camera_val
+            else:
+                st.error("⚠️ 系統缺少相機套件，請在電腦終端機輸入：`pip install streamlit-zxing`")
+
+        # 執行查詢邏輯
+        if order_input:
+            with st.spinner("查詢訂單資料中..."):
+                url_order = f"https://api.letech.com.hk/api/dear/scan/order?order_id={order_input}"
+                try:
+                    res_order = requests.get(url_order, headers=get_headers())
+                    
+                    if res_order.status_code == 200:
+                        order_json = res_order.json()
+                        is_completed = order_json.get("status", False)
+                        total_qty = 0
+                        total_scanned = 0
                         
-                        if res_order.status_code == 200:
-                            order_json = res_order.json()
-                            
-                            is_completed = order_json.get("status", False)
-                            total_qty = 0
-                            total_scanned = 0
-                            
-                            main_products = order_json.get("products") or []
-                            for p in main_products:
-                                total_qty += p.get("quantity", 0)
-                                total_scanned += p.get("scanQty", 0)
-                                sub_products = p.get("products") or []
-                                for sub_p in sub_products:
-                                    total_qty += sub_p.get("quantity", 0)
-                                    total_scanned += sub_p.get("scanQty", 0)
-                                    
-                            if is_completed or (total_qty > 0 and total_scanned >= total_qty):
-                                st.error(f"🚫 訂單 【{order_input}】 已出庫！請勿重複作業。")
-                                play_error_feedback()
-                            else:
-                                st.session_state.current_order_id = order_input
-                                st.session_state.order_details = order_json
-                                play_success_feedback()
-                                st.rerun()
+                        main_products = order_json.get("products") or []
+                        for p in main_products:
+                            total_qty += p.get("quantity", 0)
+                            total_scanned += p.get("scanQty", 0)
+                            sub_products = p.get("products") or []
+                            for sub_p in sub_products:
+                                total_qty += sub_p.get("quantity", 0)
+                                total_scanned += sub_p.get("scanQty", 0)
                                 
-                        elif res_order.status_code == 500:
-                            st.error(f"🚫 伺服器拒絕 (代碼：500)\n\n這通常代表：此單號**「不存在」**，或是**「已經出庫很久、被系統歸檔了」**！")
-                            play_error_feedback()
-                        elif res_order.status_code in [401, 403]:
-                            st.error(f"🔒 權限失效 (代碼：{res_order.status_code})\n\n您的 Token 已經過期了，請重新輸入！")
+                        if is_completed or (total_qty > 0 and total_scanned >= total_qty):
+                            st.error(f"🚫 訂單 【{order_input}】 已出庫！請勿重複作業。")
                             play_error_feedback()
                         else:
-                            st.error(f"❌ 發生未知的連線錯誤！(代碼：{res_order.status_code})")
-                            play_error_feedback()
+                            st.session_state.current_order_id = order_input
+                            st.session_state.order_details = order_json
+                            play_success_feedback()
+                            st.rerun()
                             
-                    except Exception as e:
-                        st.error(f"連線錯誤：{e}")
+                    elif res_order.status_code == 500:
+                        st.error(f"🚫 伺服器拒絕 (代碼：500)\n\n這通常代表：此單號**「不存在」**，或是**「已經出庫很久、被系統歸檔了」**！")
+                        play_error_feedback()
+                    elif res_order.status_code in [401, 403]:
+                        st.error(f"🔒 權限失效 (代碼：{res_order.status_code})\n\n您的 Token 已經過期了，請重新輸入！")
+                        play_error_feedback()
+                    else:
+                        st.error(f"❌ 發生未知的連線錯誤！(代碼：{res_order.status_code})")
+                        play_error_feedback()
+                        
+                except Exception as e:
+                    st.error(f"連線錯誤：{e}")
 
     # ==========================================
     # 第二階段：已鎖定訂單
@@ -174,13 +189,12 @@ def show_scanner_page():
 
         col1, col2, col3 = st.columns([2, 1, 1])
         with col1:
-            st.success(f"📌 **{st.session_state.current_order_id}**\n\n🚚 目的地：{order_data.get('deliver_to_warehouse', '未指定')}")
+            st.success(f"📌 **{st.session_state.current_order_id}**\n🚚 目的地：{order_data.get('deliver_to_warehouse', '未指定')}")
         
         with col2:
-            # 🌟 變更：強制出庫按鈕改為「開發中提示」，不再執行資料庫寫入與跳轉
             if st.button("⚠️ 強制出庫", use_container_width=True):
                 st.warning("🚧 此功能開發中！(需等待 Letech 系統提供強制結單 API)")
-                play_error_feedback() # 發出提示音引起注意
+                play_error_feedback()
 
         with col3:
             if st.button("🔄 重置", use_container_width=True):
@@ -195,7 +209,6 @@ def show_scanner_page():
                 
                 is_done = st.session_state.order_details.get("status", False) or (t_q > 0 and t_s >= t_q)
                 
-                # 如果尚未滿單就按下重置，一併清除資料庫與伺服器紀錄
                 if not is_done:
                     delete_log_from_supabase(st.session_state.current_order_id)
                     url_cancel = f"https://api.letech.com.hk/api/dear/scan/cancel?order_id={st.session_state.current_order_id}"
@@ -259,49 +272,65 @@ def show_scanner_page():
         st.divider()
 
         st.markdown("#### 🛒 步驟 2：連續掃描貨品")
-        with st.form("barcode_form", clear_on_submit=True):
-            barcode_input = st.text_input("2️⃣ 請掃描【貨品條碼】(Barcode)：")
-            submit_barcode = st.form_submit_button("⚡ 出庫此貨品", use_container_width=True)
-            
-            if submit_barcode and barcode_input:
-                url_barcode = f"https://api.letech.com.hk/api/dear/scan/barcode?order_id={st.session_state.current_order_id}&barcode={barcode_input}&is_open=0"
-                try:
-                    res_barcode = requests.post(url_barcode, headers=get_headers())
-                    if res_barcode.status_code == 200:
+        
+        # 選擇輸入模式
+        scan_mode = st.radio("掃碼方式：", ["⌨️ 鍵盤打字 / 藍牙掃描槍", "📷 開啟手機相機掃碼"], horizontal=True, key="scan_mode")
+        
+        barcode_input = None
+        
+        if scan_mode == "⌨️ 鍵盤打字 / 藍牙掃描槍":
+            with st.form("barcode_form", clear_on_submit=True):
+                text_in_b = st.text_input("2️⃣ 請掃描【貨品條碼】(Barcode)：")
+                submit_barcode = st.form_submit_button("⚡ 出庫此貨品", use_container_width=True)
+                if submit_barcode and text_in_b:
+                    barcode_input = text_in_b
+        else:
+            if HAS_ZXING:
+                st.caption("請將鏡頭對準貨品條碼")
+                camera_val_b = st_zxing(key="zxing_barcode")
+                if camera_val_b:
+                    barcode_input = camera_val_b
+            else:
+                st.error("⚠️ 系統缺少相機套件，請在電腦終端機輸入：`pip install streamlit-zxing`")
+
+        # 執行扣庫存邏輯
+        if barcode_input:
+            url_barcode = f"https://api.letech.com.hk/api/dear/scan/barcode?order_id={st.session_state.current_order_id}&barcode={barcode_input}&is_open=0"
+            try:
+                res_barcode = requests.post(url_barcode, headers=get_headers())
+                if res_barcode.status_code == 200:
+                    
+                    url_refresh = f"https://api.letech.com.hk/api/dear/scan/order?order_id={st.session_state.current_order_id}"
+                    refreshed_data = requests.get(url_refresh, headers=get_headers()).json()
+                    
+                    t_q = 0
+                    t_s = 0
+                    for p in refreshed_data.get("products") or []:
+                        t_q += p.get('quantity', 0)
+                        t_s += p.get('scanQty', 0)
+                        for sub_p in p.get('products') or []:
+                            t_q += sub_p.get('quantity', 0)
+                            t_s += sub_p.get('scanQty', 0)
+                            
+                    is_done = refreshed_data.get("status", False) or (t_q > 0 and t_s >= t_q)
+                    
+                    if is_done:
+                        log_to_supabase(st.session_state.current_order_id, barcode_input, "✅ 已出庫")
+                        st.session_state.last_completed_order = st.session_state.current_order_id
+                        st.session_state.current_order_id = None
+                        st.session_state.order_details = None
+                        st.rerun()
                         
-                        url_refresh = f"https://api.letech.com.hk/api/dear/scan/order?order_id={st.session_state.current_order_id}"
-                        refreshed_data = requests.get(url_refresh, headers=get_headers()).json()
-                        
-                        t_q = 0
-                        t_s = 0
-                        for p in refreshed_data.get("products") or []:
-                            t_q += p.get('quantity', 0)
-                            t_s += p.get('scanQty', 0)
-                            for sub_p in p.get('products') or []:
-                                t_q += sub_p.get('quantity', 0)
-                                t_s += sub_p.get('scanQty', 0)
-                                
-                        is_done = refreshed_data.get("status", False) or (t_q > 0 and t_s >= t_q)
-                        
-                        if is_done:
-                            log_to_supabase(st.session_state.current_order_id, barcode_input, "✅ 已出庫")
-                            st.session_state.last_completed_order = st.session_state.current_order_id
-                            
-                            st.session_state.current_order_id = None
-                            st.session_state.order_details = None
-                            st.rerun()
-                            
-                        else:
-                            st.toast(f"✅ {barcode_input} 掃描成功！")
-                            play_success_feedback()
-                            log_to_supabase(st.session_state.current_order_id, barcode_input, "🟡 出庫中")
-                            
-                            st.session_state.order_details = refreshed_data
-                            st.rerun()
-                            
                     else:
-                        st.error(f"❌ 條碼 {barcode_input} 錯誤或數量已滿！")
-                        play_error_feedback()
-                except Exception as e:
-                    st.error(f"連線錯誤：{e}")
+                        st.toast(f"✅ {barcode_input} 掃描成功！")
+                        play_success_feedback()
+                        log_to_supabase(st.session_state.current_order_id, barcode_input, "🟡 出庫中")
+                        st.session_state.order_details = refreshed_data
+                        st.rerun()
+                        
+                else:
+                    st.error(f"❌ 條碼 {barcode_input} 錯誤或數量已滿！")
                     play_error_feedback()
+            except Exception as e:
+                st.error(f"連線錯誤：{e}")
+                play_error_feedback()
