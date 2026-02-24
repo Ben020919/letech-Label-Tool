@@ -5,6 +5,13 @@ import streamlit.components.v1 as components
 from supabase import create_client, Client
 from PIL import Image
 
+# 🌟 新增：匯入使用量追蹤器
+try:
+    from usage_tracker import log_action
+except ImportError:
+    def log_action(action_name):
+        pass
+
 # 嘗試載入條碼解析引擎
 try:
     from pyzbar.pyzbar import decode
@@ -354,6 +361,10 @@ def show_scanner_page():
                         
                         if is_done:
                             log_to_supabase(st.session_state.current_order_id, barcode_input, "✅ 已出庫")
+                            
+                            # 🌟 寫入總儀表板統計數字 (+1)
+                            log_action("Order_Outbound_Success")
+                            
                             st.session_state.last_completed_order = st.session_state.current_order_id
                             st.session_state.current_order_id = None
                             st.session_state.order_details = None
