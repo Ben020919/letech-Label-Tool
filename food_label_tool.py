@@ -149,7 +149,7 @@ def get_best_results(results_df):
 
 # 1. 食品標籤
 def create_food_label_html(item, matched_data, font_css, qty):
-    # 安全的資料型態轉換
+    # ✨ 絕對安全的型別判定
     if isinstance(matched_data, pd.DataFrame):
         data = matched_data.iloc[0].to_dict() if not matched_data.empty else {}
     elif isinstance(matched_data, dict):
@@ -255,9 +255,9 @@ def create_caution_html(text, qty):
     else: final_html = single_label_html
     return final_html
 
-# 3. 蟲蟲標籤 (完美排版，不隔行)
+# ✨ 3. 蟲蟲標籤 (完美排版，不隔行) ✨
 def create_insects_label_html(matched_data, qty):
-    # 安全的資料型態轉換
+    # ✨ 絕對安全的型別判定
     if isinstance(matched_data, pd.DataFrame):
         data = matched_data.iloc[0].to_dict() if not matched_data.empty else {}
     elif isinstance(matched_data, dict):
