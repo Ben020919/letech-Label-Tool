@@ -444,7 +444,7 @@ def show_food_label_page():
         </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("### 🍎 Food Lable 打印系統")
+    st.markdown("### 🏷️ Label Printing")
     
     # --- 載入字體 ---
     font_bytes = load_local_font_bytes(DEFAULT_FONT_PATH)
