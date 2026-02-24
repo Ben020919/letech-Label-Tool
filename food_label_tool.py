@@ -85,36 +85,49 @@ def smart_get_caution_text(data_dict):
         if 'warning' in k_lower: return clean_val(data_dict[k_original])
     return None
 
-def is_caution_only(data_dict):
-    """如果沒有任何食品成分或營養標示數據，就判定為警告標籤"""
-    food_keys = ['Ingredients', 'Energy', 'Protein', 'Total_Fat', 'Carb', 'Sodium']
-    for k in food_keys:
-        val = clean_val(data_dict.get(k, ''))
-        if val and val != "0":
-            return False
-    return True
+# ✨ 新增：三階段智能判定器 (食品標籤 / 警告標籤 / 無資料)
+def check_data_status(data_dict):
+    """回傳: 'food', 'caution', 或 'empty'"""
+    if not data_dict:
+        return 'empty'
+        
+    # 1. 檢查是否有 Food 欄位 (只要有一個非空且非0)
+    food_keywords = ['ingredient', 'energy', 'protein', 'fat', 'carb', 'sodium', 'serving']
+    for k, v in data_dict.items():
+        k_lower = str(k).lower()
+        if any(fw in k_lower for fw in food_keywords):
+            val = str(v).strip().lower()
+            if val and val not in ['nan', '0', 'none']:
+                return 'food'
+                
+    # 2. 如果沒有 Food，檢查是否有 Caution 欄位
+    caution_keywords = ['caution', 'warning']
+    for k, v in data_dict.items():
+        k_lower = str(k).lower()
+        if any(cw in k_lower for cw in caution_keywords):
+            val = str(v).strip().lower()
+            if val and val not in ['nan', 'none', '']:
+                return 'caution'
+                
+    # 3. 如果都沒有，就是空資料
+    return 'empty'
 
-# ✨ 新增：智能資料過濾器（過濾掉空白、無效的重複資料）
 def get_best_results(results_df):
     if results_df.empty: 
         return results_df
     
     scores = []
     for _, row in results_df.iterrows():
-        score = 0
-        if str(row.get('Ingredients', '')).strip() not in ['', 'nan', '0', 'None']: score += 2
-        if str(row.get('Energy', '')).strip() not in ['', 'nan', '0', 'None']: score += 1
-        
-        for k in row.keys():
-            if 'caution' in str(k).lower() or 'warning' in str(k).lower():
-                if str(row[k]).strip() not in ['', 'nan', '0', 'None']: 
-                    score += 2
-                    break
-        scores.append(score)
-        
+        status = check_data_status(row.to_dict())
+        if status == 'food':
+            scores.append(2)
+        elif status == 'caution':
+            scores.append(1)
+        else:
+            scores.append(0)
+            
     results_df = results_df.copy()
     results_df['__score'] = scores
-    # 根據分數從高到低排序，然後刪除重複的 Product_No，只保留分數最高的那一筆
     results_df = results_df.sort_values(by='__score', ascending=False)
     results_df = results_df.drop_duplicates(subset=['Product_No'], keep='first')
     return results_df
@@ -203,7 +216,7 @@ def create_caution_html(text, qty):
     <html><head><style>
         @page {{ size: auto; margin: 0mm; }}
         body {{ margin: 0; padding: 0; font-family: Helvetica, Arial, sans-serif; }}
-        .label-container {{ width: 70mm; height: 50mm; box-sizing: border-box; padding: 2mm; page-break-after: always; position: relative; display: flex; align-items: center; justify-content: center; text-align: center; border: 4px solid black; }}
+        .label-container {{ width: 70mm; height: 50mm; box-sizing: border-box; padding: 2mm; page-break-after: always; position: relative; display: flex; align-items: center; justify-content: center; text-align: center; }}
         .caution-text {{ font-size: 15pt; font-weight: 900; line-height: 1.2; word-wrap: break-word; color: black; }}
     </style></head><body>
         <div class="label-container"><div class="caution-text">{formatted_text}</div></div>
@@ -277,7 +290,7 @@ def show_food_label_page():
             /* 隱藏 st.form 預設的醜邊框 */
             [data-testid="stForm"] { border: none !important; padding: 0 !important; margin: 0 !important; }
             
-            /* 打印按鈕高質感美化 (對齊高度) 適用於 Form 裡面的按鈕 */
+            /* 打印按鈕高質感美化 */
             div.stButton, div[data-testid="stFormSubmitButton"] { margin-top: 28px !important; } 
             div.stButton > button, div[data-testid="stFormSubmitButton"] > button { 
                 width: 100% !important; height: 42px !important; 
@@ -292,7 +305,7 @@ def show_food_label_page():
                 transform: translateY(-1px) !important; filter: brightness(1.1);
             }
             
-            /* ✨ 讓 popover 按鈕變成綠色 */
+            /* 綠色 popover 按鈕 */
             div[data-testid="stPopover"] > button {
                 background-color: #28a745 !important;
                 color: white !important;
@@ -306,16 +319,25 @@ def show_food_label_page():
             div[data-testid="stPopover"] > button:hover {
                 background-color: #218838 !important;
                 box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3) !important;
-                transform: none !important;
-                filter: none !important;
             }
 
-            /* ✨ 讓 Popover 裡面的確認按鈕恢復原本的藍色 */
+            /* Popover 裡面的確認按鈕恢復藍色 */
             div[data-testid="stPopoverBody"] div.stButton { margin-top: 0px !important; }
             div[data-testid="stPopoverBody"] div.stButton > button { background: #007bff !important; height: 38px !important; }
 
-            /* Search Input X 按鈕 */
             input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: searchfield-cancel-button; cursor: pointer; height: 16px; width: 16px; opacity: 0.6; }
+            
+            /* ✨ 無資料的錯誤徽章 */
+            .error-badge {
+                background-color: #ffe6e6;
+                color: #dc3545;
+                font-weight: bold;
+                padding: 12px 15px;
+                border-radius: 8px;
+                text-align: center;
+                margin-top: 28px;
+                border: 1px solid #f5c6cb;
+            }
         </style>
     """, unsafe_allow_html=True)
 
@@ -404,9 +426,7 @@ def show_food_label_page():
         if results.empty:
             st.warning(f"❌ 找不到包含「{search_query}」的商品。")
         else:
-            # ✨ 智能過濾：過濾掉空資料的重複項目
             best_results = get_best_results(results)
-            
             st.success(f"✅ 找到 {len(best_results)} 款商品")
             
             for idx, row in best_results.iterrows():
@@ -414,9 +434,9 @@ def show_food_label_page():
                 barcode = row.get('Barcode', 'N/A')
                 desc = row.get('Description', '未命名商品')
                 
-                # ✨ 智能判斷：是否為警告標籤 (Caution Label)
                 matched_data = row.to_dict()
-                is_caution_item = is_caution_only(matched_data)
+                # ✨ 呼叫新的三階段判定函數
+                data_status = check_data_status(matched_data)
                 
                 with st.container():
                     st.markdown('<div class="result-card">', unsafe_allow_html=True)
@@ -432,8 +452,7 @@ def show_food_label_page():
                                     <div class='item-badge'>SKU <span class='item-badge-value'>{p_no}</span></div>
                                     <div class='item-badge'>Barcode <span class='item-badge-value'>{barcode}</span></div>
                             """
-                            # 如果是警告標籤，多顯示一個紅色的 Badge 讓使用者知道
-                            if is_caution_item:
+                            if data_status == 'caution':
                                 badge_html += f"<div class='item-badge' style='color:#dc3545; background-color:#ffe6e6; border-color:#f5c6cb;'>⚠️ 警告標籤模式</div>"
                                 
                             badge_html += "</div>"
@@ -443,25 +462,24 @@ def show_food_label_page():
                             qty = st.number_input("列印數量 (Qty)", min_value=1, max_value=500, value=1, step=1, key=f"qty_{idx}")
                             
                         with c_print:
-                            submitted = st.form_submit_button("🖨️ 打印標籤", use_container_width=True)
-                            if submitted:
-                                log_action("FoodLabel_Print")
-                                item_data = {'Barcode': barcode, '商品名稱': desc}
-                                
-                                # ✨ 根據判斷生成不同的標籤
-                                if is_caution_item:
-                                    caution_text = smart_get_caution_text(matched_data)
-                                    if caution_text is None:
-                                        available_cols = ", ".join(matched_data.keys())
-                                        caution_text = f"Cautions Column Missing!<br>Available: {available_cols}"
-                                    elif caution_text == "":
-                                        caution_text = "Caution Column Empty"
-                                        
-                                    html_content = create_caution_html(caution_text, qty)
-                                else:
-                                    html_content = create_food_label_html(item_data, matched_data, st.session_state['font_css'], qty)
+                            # ✨ 根據資料狀態決定顯示什麼
+                            if data_status == 'empty':
+                                st.markdown("<div class='error-badge'>❌ 無資料</div>", unsafe_allow_html=True)
+                            else:
+                                submitted = st.form_submit_button("🖨️ 打印標籤", use_container_width=True)
+                                if submitted:
+                                    log_action("FoodLabel_Print")
+                                    item_data = {'Barcode': barcode, '商品名稱': desc}
                                     
-                                js_instant_print(html_content)
+                                    if data_status == 'caution':
+                                        caution_text = smart_get_caution_text(matched_data)
+                                        if not caution_text:
+                                            caution_text = "Caution Column Empty"
+                                        html_content = create_caution_html(caution_text, qty)
+                                    else: # food
+                                        html_content = create_food_label_html(item_data, matched_data, st.session_state['font_css'], qty)
+                                        
+                                    js_instant_print(html_content)
                                 
                     st.markdown('</div>', unsafe_allow_html=True)
 
