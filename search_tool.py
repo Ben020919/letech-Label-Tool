@@ -74,13 +74,18 @@ def show_search_barcode_page():
             .card-value { color: #333; font-size: 15px; margin-bottom: 8px; word-break: break-all; font-family: monospace; }
             .card-name { color: #2c3e50; font-weight: 700; font-size: 16px; line-height: 1.4; border-top: 1px solid #f0f0f0; padding-top: 10px; margin-top: 5px; }
             
-            /* 🌟 強制顯示瀏覽器原生的「清除打叉按鈕」 */
+          /* 🌟 強制顯示瀏覽器原生的「清除打叉按鈕」 (加強手機相容性) */
+            input[type="search"] {
+                -webkit-appearance: textfield; /* 確保 Safari 不會搞怪 */
+            }
             input[type="search"]::-webkit-search-cancel-button {
-                -webkit-appearance: searchfield-cancel-button;
+                -webkit-appearance: searchfield-cancel-button !important;
+                display: block !important; /* 強制在手機上顯示 */
                 cursor: pointer;
                 height: 16px;
                 width: 16px;
                 opacity: 0.6;
+                margin-left: 5px;
             }
             input[type="search"]::-webkit-search-cancel-button:hover {
                 opacity: 1;
