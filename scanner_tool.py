@@ -18,20 +18,13 @@ def init_supabase():
 
 supabase = init_supabase()
 
-# ==========================================
-# 🌟 【全新邏輯】：智慧更新資料庫 (一張訂單只會有一行)
-# ==========================================
+# 新增/更新資料庫紀錄
 def log_to_supabase(order_id, barcode, status):
     if supabase is not None:
         try:
-            # 1. 先查詢資料庫有沒有這張訂單
             res = supabase.table("scan_logs").select("*").eq("order_id", order_id).execute()
-            
             if len(res.data) > 0:
-                # 2. 如果資料庫已經有這張單，我們用「更新 (Update)」的
                 existing_barcodes = res.data[0].get("barcode") or ""
-                
-                # 如果是重置動作，清空條碼；否則就把新條碼用逗號接在後面
                 if status == "RESET":
                     new_barcodes = ""
                     final_status = "🔄 已重置"
@@ -43,17 +36,23 @@ def log_to_supabase(order_id, barcode, status):
                     "barcode": new_barcodes,
                     "status": final_status
                 }).eq("order_id", order_id).execute()
-                
             else:
-                # 3. 如果資料庫沒有這張單，我們才「新增 (Insert)」
-                if status != "RESET": # 沒資料就不需要記錄重置
+                if status != "RESET": 
                     supabase.table("scan_logs").insert({
                         "order_id": order_id,
                         "barcode": barcode,
                         "status": status
                     }).execute()
         except Exception:
-            pass # 寫入失敗不報錯，不影響現場人員出庫
+            pass 
+
+# 🌟 【全新功能】：刪除資料庫紀錄 (用於中途放棄時)
+def delete_log_from_supabase(order_id):
+    if supabase is not None:
+        try:
+            supabase.table("scan_logs").delete().eq("order_id", order_id).execute()
+        except Exception:
+            pass
 
 # ==========================================
 # 聲音與震動回饋 (JavaScript)
@@ -189,7 +188,25 @@ def show_scanner_page():
                 except Exception as e:
                     st.error(f"連線錯誤：{e}")
         with col3:
+            # 🌟 【修改重點】：換單時判斷是否為「中途放棄」
             if st.button("🔄 換單", use_container_width=True):
+                # 1. 檢查目前進度是否已滿
+                t_q = 0
+                t_s = 0
+                for p in products_data:
+                    t_q += p.get('quantity', 0)
+                    t_s += p.get('scanQty', 0)
+                    for sub_p in p.get('products') or []:
+                        t_q += sub_p.get('quantity', 0)
+                        t_s += sub_p.get('scanQty', 0)
+                
+                is_done = st.session_state.order_details.get("status", False) or (t_q > 0 and t_s >= t_q)
+                
+                # 2. 如果沒掃完就按換單 -> 從資料庫中刪除這筆半成品紀錄
+                if not is_done:
+                    delete_log_from_supabase(st.session_state.current_order_id)
+                
+                # 3. 清空畫面，進入下一單
                 st.session_state.current_order_id = None
                 st.session_state.order_details = None
                 st.rerun()
@@ -264,7 +281,7 @@ def show_scanner_page():
                         refreshed_data = requests.get(url_refresh, headers=get_headers()).json()
                         st.session_state.order_details = refreshed_data
                         
-                        # 🌟 【全新邏輯】：判斷這張單掃完了沒，決定要傳給資料庫什麼狀態
+                        # 判斷這張單掃完了沒，決定要傳給資料庫什麼狀態
                         t_q = 0
                         t_s = 0
                         for p in refreshed_data.get("products") or []:
