@@ -177,19 +177,12 @@ def show_scanner_page():
             st.success(f"📌 **{st.session_state.current_order_id}**\n\n🚚 目的地：{order_data.get('deliver_to_warehouse', '未指定')}")
         
         with col2:
-            # 🌟 新增：強制出庫按鈕
+            # 🌟 變更：強制出庫按鈕改為「開發中提示」，不再執行資料庫寫入與跳轉
             if st.button("⚠️ 強制出庫", use_container_width=True):
-                # 寫入特殊的資料庫狀態
-                log_to_supabase(st.session_state.current_order_id, "MANUAL_FORCE", "⚠️ 強制出庫")
-                
-                # 給予提示並跳回首頁
-                st.session_state.last_completed_order = f"{st.session_state.current_order_id} (強制放行)"
-                st.session_state.current_order_id = None
-                st.session_state.order_details = None
-                st.rerun()
+                st.warning("🚧 此功能開發中！(需等待 Letech 系統提供強制結單 API)")
+                play_error_feedback() # 發出提示音引起注意
 
         with col3:
-            # 🌟 變更：原本的換單改名為「重置」
             if st.button("🔄 重置", use_container_width=True):
                 t_q = 0
                 t_s = 0
