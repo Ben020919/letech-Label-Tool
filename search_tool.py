@@ -84,7 +84,7 @@ def show_search_barcode_page():
             input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: searchfield-cancel-button !important; display: block !important; cursor: pointer; height: 16px; width: 16px; opacity: 0.6; margin-left: 5px; }
             input[type="search"]::-webkit-search-cancel-button:hover { opacity: 1; }
             @media screen and (max-width: 768px) { .result-card { flex-direction: column; align-items: flex-start; } .card-action-container { margin-right: 0; margin-bottom: 15px; width: 100%; height: auto; padding: 12px 0; background: transparent; justify-content: flex-start; } .hktv-btn { width: auto; padding: 8px 20px; display: flex; align-items: center; gap: 8px; } .hktv-btn span { margin-bottom: 0 !important; } }
-            
+
             /* ✨ 讓 popover 按鈕變成綠色 */
             div[data-testid="stPopover"] > button {
                 background-color: #28a745 !important;
@@ -136,7 +136,7 @@ def show_search_barcode_page():
     current_db_name = get_current_db_name()
     
     if df is None:
-        st.error(f"❌ 找不到資料庫 `{current_db_name}`，請點擊上方按鈕上傳檔案。")
+        st.error(f"❌ 找不到資料庫 `{current_db_name}`，請點擊右上方「⚙️ 配置文件」上傳檔案。")
         return
 
     st.caption(f"📚 Linked Database: `{current_db_name}` (Total {len(df)} Data)")
