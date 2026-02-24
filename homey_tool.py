@@ -282,25 +282,26 @@ def show_homey_page():
             .grid-row:hover { background-color: #f8f9fa; }
             
             /* 完全還原您原本的按鈕 CSS */
-            div[data-testid="column"]:nth-of-type(7) div.stButton > button { 
-                width: 100px !important; height: 38px !important; min-height: 32px !important;
-                border-radius: 6px !important; padding: 0px !important;      
-                background-color: #e7f5ff !important; color: #004085 !important; border: none !important; 
-                display: flex !important; justify-content: center !important; align-items: center !important;
-                margin: 0 auto !important; transform: translateX(19px) !important;
+            div.stButton > button { 
+                width: 100px !important; 
+                height: 38px !important; 
+                min-height: 38px !important; 
+                border-radius: 6px !important; 
+                padding: 0px !important; 
+                background-color: #e7f5ff !important; 
+                color: #004085 !important; 
+                border: none !important; 
+                display: flex !important; 
+                justify-content: center !important; 
+                align-items: center !important; 
+                margin: 0 auto !important; 
+                transform: translateX(19px) !important; 
             }
-            div[data-testid="column"]:nth-of-type(7) div.stButton > button:hover { background-color: #d0ebff !important; color: #002752 !important; }
-            div[data-testid="column"]:nth-of-type(7) div.stButton > button p { font-size: 13px !important; font-weight: bold !important; line-height: 1 !important; margin: 0 !important; padding: 0 !important; }
-            div[data-testid="column"]:nth-of-type(7) div.stButton { width: 100% !important; display: flex !important; justify-content: center !important; margin: 0 !important; }
+            div.stButton > button:hover { background-color: #d0ebff !important; color: #002752 !important; }
+            div.stButton > button p { font-size: 13px !important; font-weight: bold !important; line-height: 1 !important; margin: 0 !important; padding: 0 !important; }
+            div.stButton { width: 100% !important; display: flex !important; justify-content: center !important; align-items: center !important; height: 100% !important; min-height: 45px !important; margin: 0 !important; }
 
-            .cell-badge-normal { 
-                width: 100px !important; height: 37px !important; min-height: 32px !important;
-                border-radius: 6px !important; padding: 0px !important;
-                background-color: #eee !important; color: #666 !important; 
-                display: flex !important; justify-content: center !important; align-items: center !important;
-                margin: 0 auto !important; font-size: 13px !important; font-weight: bold !important;
-                line-height: 1 !important; transform: translateX(1px) !important;
-            }
+            .cell-badge-normal { width: 100px !important; height: 38px !important; min-height: 38px !important; border-radius: 6px !important; padding: 0px !important; background-color: #eee !important; color: #666 !important; display: flex !important; justify-content: center !important; align-items: center !important; margin: 0 auto !important; font-size: 13px !important; font-weight: bold !important; line-height: 1 !important; transform: translateX(1px) !important; }
 
             .cell-text { font-size: 15px; color: #333; padding: 0 5px; width: 100%; text-align: left; }
             .cell-qty { font-weight: bold; font-size: 15px; color: #000; text-align: center; display: block; width: 100%; }
