@@ -262,9 +262,9 @@ def show_yummy_page():
 
     # ================= ✨ Yummy 專用：配置新文件區塊 (按鈕版) ✨ =================
     if hasattr(st, "popover"):
-        db_container = st.popover("⚙️ Upload New Database (Upload New Database)", use_container_width=True)
+        db_container = st.popover("⚙️ Upload New Database", use_container_width=True)
     else:
-        db_container = st.expander("⚙️ Upload New Database (Upload New Database)", expanded=False)
+        db_container = st.expander("⚙️ Upload New Database", expanded=False)
 
     with db_container:
         st.markdown("#### 📂 Upload New Database")
