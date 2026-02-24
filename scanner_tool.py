@@ -18,7 +18,6 @@ def init_supabase():
 
 supabase = init_supabase()
 
-# 新增/更新資料庫紀錄
 def log_to_supabase(order_id, barcode, status):
     if supabase is not None:
         try:
@@ -46,7 +45,6 @@ def log_to_supabase(order_id, barcode, status):
         except Exception:
             pass 
 
-# 🌟 【全新功能】：刪除資料庫紀錄 (用於中途放棄時)
 def delete_log_from_supabase(order_id):
     if supabase is not None:
         try:
@@ -83,6 +81,8 @@ def show_scanner_page():
         st.session_state.current_order_id = None
     if 'order_details' not in st.session_state:
         st.session_state.order_details = None
+    if 'last_completed_order' not in st.session_state:
+        st.session_state.last_completed_order = None
 
     st.title("📦 Letech 連續出庫系統")
 
@@ -111,6 +111,11 @@ def show_scanner_page():
     # ==========================================
     if st.session_state.current_order_id is None:
         st.markdown("### 步驟 1：載入訂單")
+        
+        if st.session_state.last_completed_order:
+            st.success(f"🌟 訂單 【{st.session_state.last_completed_order}】 已全數出庫完成！請繼續掃描下一張單。")
+            play_success_feedback()
+            st.session_state.last_completed_order = None
         
         with st.form("order_form"):
             order_input = st.text_input("1️⃣ 請掃描或輸入【訂單號碼】(Order ID)：")
@@ -178,7 +183,6 @@ def show_scanner_page():
                     if res_cancel.status_code == 200:
                         st.toast("✅ 紀錄已重置！")
                         log_to_supabase(st.session_state.current_order_id, "", "RESET")
-                        
                         url_refresh = f"https://api.letech.com.hk/api/dear/scan/order?order_id={st.session_state.current_order_id}"
                         st.session_state.order_details = requests.get(url_refresh, headers=get_headers()).json()
                         st.rerun()
@@ -188,9 +192,7 @@ def show_scanner_page():
                 except Exception as e:
                     st.error(f"連線錯誤：{e}")
         with col3:
-            # 🌟 【修改重點】：換單時判斷是否為「中途放棄」
             if st.button("🔄 換單", use_container_width=True):
-                # 1. 檢查目前進度是否已滿
                 t_q = 0
                 t_s = 0
                 for p in products_data:
@@ -202,11 +204,16 @@ def show_scanner_page():
                 
                 is_done = st.session_state.order_details.get("status", False) or (t_q > 0 and t_s >= t_q)
                 
-                # 2. 如果沒掃完就按換單 -> 從資料庫中刪除這筆半成品紀錄
+                # 🌟 【關鍵修復】：中途放棄換單 -> 同時清空 Supabase 與 Letech 伺服器的紀錄
                 if not is_done:
                     delete_log_from_supabase(st.session_state.current_order_id)
+                    # 呼叫 Letech 的 Cancel API，強迫伺服器遺忘剛才的掃描
+                    url_cancel = f"https://api.letech.com.hk/api/dear/scan/cancel?order_id={st.session_state.current_order_id}"
+                    try:
+                        requests.post(url_cancel, headers=get_headers())
+                    except:
+                        pass
                 
-                # 3. 清空畫面，進入下一單
                 st.session_state.current_order_id = None
                 st.session_state.order_details = None
                 st.rerun()
@@ -251,8 +258,6 @@ def show_scanner_page():
         if total_qty > 0:
             progress = min(total_scanned / total_qty, 1.0)
             st.progress(progress, text=f"📦 出庫總進度： {total_scanned} / {total_qty}")
-            if progress == 1.0:
-                st.success("🌟 這張訂單的所有貨品已全數出庫完畢！可以準備換下一單了！")
 
         st.markdown("#### 📋 應出貨品清單")
         if table_rows:
@@ -273,15 +278,10 @@ def show_scanner_page():
                 try:
                     res_barcode = requests.post(url_barcode, headers=get_headers())
                     if res_barcode.status_code == 200:
-                        st.toast(f"✅ {barcode_input} 掃描成功！")
-                        play_success_feedback()
                         
-                        # 重新抓取資料來計算最新進度
                         url_refresh = f"https://api.letech.com.hk/api/dear/scan/order?order_id={st.session_state.current_order_id}"
                         refreshed_data = requests.get(url_refresh, headers=get_headers()).json()
-                        st.session_state.order_details = refreshed_data
                         
-                        # 判斷這張單掃完了沒，決定要傳給資料庫什麼狀態
                         t_q = 0
                         t_s = 0
                         for p in refreshed_data.get("products") or []:
@@ -292,12 +292,23 @@ def show_scanner_page():
                                 t_s += sub_p.get('scanQty', 0)
                                 
                         is_done = refreshed_data.get("status", False) or (t_q > 0 and t_s >= t_q)
-                        db_status = "✅ 已出庫" if is_done else "🟡 出庫中"
                         
-                        # 執行更新資料庫
-                        log_to_supabase(st.session_state.current_order_id, barcode_input, db_status)
-                        
-                        st.rerun()
+                        if is_done:
+                            log_to_supabase(st.session_state.current_order_id, barcode_input, "✅ 已出庫")
+                            st.session_state.last_completed_order = st.session_state.current_order_id
+                            
+                            st.session_state.current_order_id = None
+                            st.session_state.order_details = None
+                            st.rerun()
+                            
+                        else:
+                            st.toast(f"✅ {barcode_input} 掃描成功！")
+                            play_success_feedback()
+                            log_to_supabase(st.session_state.current_order_id, barcode_input, "🟡 出庫中")
+                            
+                            st.session_state.order_details = refreshed_data
+                            st.rerun()
+                            
                     else:
                         st.error(f"❌ 條碼 {barcode_input} 錯誤或數量已滿！")
                         play_error_feedback()
