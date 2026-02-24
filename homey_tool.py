@@ -237,7 +237,7 @@ def create_insects_label_html(matched_data, qty):
 def create_simple_text_html(text, qty):
     single_label_html = f"""
     <div style="width: 70mm; height: 50mm; box-sizing: border-box; padding: 2mm; page-break-after: always; display: flex; align-items: center; justify-content: center; text-align: center;">
-        <div style="font-size: 3.5pt; font-weight: 900; line-height: 1.2; font-family: sans-serif;">{text}</div>
+        <div style="font-size: 15pt; font-weight: 900; line-height: 1.2; font-family: sans-serif;">{text}</div>
     </div>
     """
     full_html = f"""
@@ -281,7 +281,7 @@ def show_homey_page():
             .grid-row { padding: 8px 0; border-bottom: 1px solid #f1f3f5; transition: background-color 0.2s; display: flex; align-items: center; height: 100%; min-height: 45px; }
             .grid-row:hover { background-color: #f8f9fa; }
             
-            /* ✨ 修正：只針對 Grid 裡的 Action 欄位按鈕套用排版，避免影響下載按鈕 */
+            /* 完全還原您原本的按鈕 CSS */
             div[data-testid="column"]:nth-of-type(7) div.stButton > button { 
                 width: 100px !important; height: 38px !important; min-height: 32px !important;
                 border-radius: 6px !important; padding: 0px !important;      
@@ -307,7 +307,7 @@ def show_homey_page():
             div[data-testid="column"] { display: flex; flex-direction: column; justify-content: center; }
             div[data-testid="column"]:nth-of-type(7) > div { display: flex !important; flex-direction: row !important; justify-content: center !important; align-items: center !important; width: 100% !important; height: 100% !important; }
 
-            /* ✨ PDF 下載按鈕的專屬樣式，避免被全局覆蓋 */
+            /* ✨ 保護下載按鈕的專屬樣式，避免被上面全局覆蓋 */
             div[data-testid="stDownloadButton"] > button {
                 width: auto !important; 
                 height: 32px !important; 
@@ -329,6 +329,7 @@ def show_homey_page():
                 font-weight: bold !important;
                 border-radius: 6px !important;
                 padding: 8px 16px !important;
+                transform: none !important; /* 確保不被 translateX 影響 */
             }
             div[data-testid="stPopover"] > button:hover {
                 background-color: #218838 !important;
@@ -383,7 +384,7 @@ def show_homey_page():
     if master_df is not None:
         st.success(f"✅ Linked Database：`{current_db_name}`")
     else:
-        st.warning(f"⚠️ 找不到 `{current_db_name}`，請點擊上方按鈕上傳檔案。")
+        st.warning(f"⚠️ 找不到 `{current_db_name}`，請點擊右上方「⚙️ 配置文件」上傳檔案。")
 
     st.divider()
 
