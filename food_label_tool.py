@@ -85,47 +85,23 @@ def smart_get_caution_text(data_dict):
         if 'warning' in k_lower: return clean_val(data_dict[k_original])
     return None
 
-def is_caution_only(data_dict):
-    """如果沒有任何食品成分或營養標示數據，就判定為警告標籤"""
-    food_keys = ['Ingredients', 'Energy', 'Protein', 'Total_Fat', 'Carb', 'Sodium']
-    for k in food_keys:
-        val = clean_val(data_dict.get(k, ''))
-        if val and val != "0":
-            return False
-    return True
-
-# ✨ 智能資料過濾器（過濾掉空白、無效的重複資料）
-def get_best_results(results_df):
-    if results_df.empty: 
-        return results_df
-    
-    scores = []
-    for _, row in results_df.iterrows():
-        score = 0
-        if str(row.get('Ingredients', '')).strip() not in ['', 'nan', '0', 'None']: score += 2
-        if str(row.get('Energy', '')).strip() not in ['', 'nan', '0', 'None']: score += 1
-        
-        for k in row.keys():
-            if 'caution' in str(k).lower() or 'warning' in str(k).lower():
-                if str(row[k]).strip() not in ['', 'nan', '0', 'None']: 
-                    score += 2
-                    break
-        scores.append(score)
-        
-    results_df = results_df.copy()
-    results_df['__score'] = scores
-    # 根據分數從高到低排序，然後刪除重複的 Product_No，只保留分數最高的那一筆
-    results_df = results_df.sort_values(by='__score', ascending=False)
-    results_df = results_df.drop_duplicates(subset=['Product_No'], keep='first')
-    return results_df
-
-# ✨ 新增：三階段智能判定器
+# ✨ 新增：四階段智能判定器 (蟲蟲標籤 / 食品標籤 / 警告標籤 / 無資料) ✨
 def check_data_status(data_dict):
-    """回傳: 'food', 'caution', 或 'empty'"""
+    """回傳: 'insect', 'food', 'caution', 或 'empty'"""
     if not data_dict:
         return 'empty'
         
-    # 1. 檢查是否有 Food 欄位
+    # 0. 優先檢查是否為蟲蟲標籤 (看 Label Type 是否包含蟲/insect，或是有 FEATURES 欄位)
+    for k, v in data_dict.items():
+        k_lower = str(k).lower()
+        val = str(v).strip().lower()
+        if val and val not in ['nan', '0', 'none', '']:
+            if 'label' in k_lower and ('蟲' in val or 'insect' in val):
+                return 'insect'
+            if k_lower in ['features', '警告字眼']:
+                return 'insect'
+
+    # 1. 檢查是否有 Food 欄位 (只要有一個非空且非0)
     food_keywords = ['ingredient', 'energy', 'protein', 'fat', 'carb', 'sodium', 'serving']
     for k, v in data_dict.items():
         k_lower = str(k).lower()
@@ -134,7 +110,7 @@ def check_data_status(data_dict):
             if val and val not in ['nan', '0', 'none']:
                 return 'food'
                 
-    # 2. 檢查是否有 Caution 欄位
+    # 2. 如果沒有 Food，檢查是否有 Caution 欄位
     caution_keywords = ['caution', 'warning']
     for k, v in data_dict.items():
         k_lower = str(k).lower()
@@ -143,8 +119,35 @@ def check_data_status(data_dict):
             if val and val not in ['nan', 'none', '']:
                 return 'caution'
                 
+    # 3. 如果都沒有，就是空資料
     return 'empty'
 
+def get_best_results(results_df):
+    if results_df.empty: 
+        return results_df
+    
+    scores = []
+    for _, row in results_df.iterrows():
+        status = check_data_status(row.to_dict())
+        if status == 'insect':
+            scores.append(3)  # 蟲蟲標籤優先級最高
+        elif status == 'food':
+            scores.append(2)
+        elif status == 'caution':
+            scores.append(1)
+        else:
+            scores.append(0)
+            
+    results_df = results_df.copy()
+    results_df['__score'] = scores
+    # 根據分數從高到低排序，然後刪除重複的 Product_No，只保留分數最高的那一筆
+    results_df = results_df.sort_values(by='__score', ascending=False)
+    results_df = results_df.drop_duplicates(subset=['Product_No'], keep='first')
+    return results_df
+
+# ================= 標籤 HTML 生成器 =================
+
+# 1. 食品標籤
 def create_food_label_html(item, matched_data, font_css, qty):
     data = matched_data if matched_data else {}
     desc_text = clean_val(data.get('Description', item['商品名稱']))
@@ -222,6 +225,7 @@ def create_food_label_html(item, matched_data, font_css, qty):
         final_html = single_label_html
     return final_html
 
+# 2. 警告標籤 (無黑框版)
 def create_caution_html(text, qty):
     formatted_text = str(text).replace('\n', '<br/>')
     if not formatted_text or formatted_text == "nan": formatted_text = ""
@@ -243,6 +247,70 @@ def create_caution_html(text, qty):
         final_html = single_label_html.replace(div_content, full_body)
     else: final_html = single_label_html
     return final_html
+
+# ✨ 3. 蟲蟲標籤 (完美排版，不隔行) ✨
+def create_insects_label_html(matched_data, qty):
+    data = matched_data if matched_data is not None and not matched_data.empty else {}
+    if isinstance(data, pd.DataFrame):
+        data = data.iloc[0].to_dict()
+    elif not isinstance(data, dict):
+        data = {}
+        
+    barcode = clean_val(data.get('Barcode', ''))         
+    desc = clean_val(data.get('Description', ''))        
+    features = clean_val(data.get('FEATURES', ''))       
+    cautions = clean_val(data.get('Cautions', ''))       
+    
+    net_content = clean_val(data.get('Net Content', '')) 
+    if not net_content: net_content = clean_val(data.get('Net_Content', ''))
+        
+    ingredients = clean_val(data.get('Ingredients', '')) 
+    warnings = clean_val(data.get('警告字眼', ''))         
+    
+    css = """
+    <style>
+        @page { size: 70mm 50mm; margin: 0; }
+        body { margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: white;}
+        .label-box {
+            width: 70mm;
+            height: 50mm;
+            box-sizing: border-box;
+            padding: 3mm 4mm;
+            overflow: hidden;
+            background-color: white;
+            color: black;
+            font-size: 8.5pt;
+            line-height: 1.1;
+            page-break-after: always;
+        }
+        .line-section {
+            margin-bottom: 6pt; 
+            word-wrap: break-word;
+            font-weight: bold;
+            min-height: 6pt; 
+        }
+        .line-section:last-child {
+            margin-bottom: 0;
+        }
+    </style>
+    """
+    
+    label_content = f"""
+        <div class="line-section">
+            <div>{barcode}</div>
+            <div>{desc}</div>
+        </div>
+        <div class="line-section">{features}</div>
+        <div class="line-section">{cautions}</div>
+        <div class="line-section">{net_content}</div>
+        <div class="line-section">{ingredients}</div>
+        <div class="line-section">{warnings}</div>
+    """
+    
+    single_label = f'<div class="label-box">{label_content}</div>'
+    html = f"<html><head>{css}</head><body>{single_label * qty}</body></html>"
+    return html
+
 
 def js_instant_print(full_html_content):
     b64_html = base64.b64encode(full_html_content.encode('utf-8')).decode('utf-8')
@@ -267,11 +335,13 @@ def show_food_label_page():
     # ================= ✨ UI 與 CSS 美化 ✨ =================
     st.markdown("""
         <style>
+            /* 保留 Logo 樣式 */
             .logo-container { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
             .logo-text { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 28px; font-weight: 800; color: #2c3e50; letter-spacing: -0.5px; margin-left: 10px; line-height: 1; }
             .logo-dot { color: #007bff; }
             .logo-sub { font-size: 14px; color: #888; font-weight: 400; margin-left: 15px; padding-left: 15px; border-left: 1px solid #ddd; height: 20px; line-height: 20px; }
             
+            /* 高質感搜尋結果卡片 */
             .result-card { 
                 background: linear-gradient(145deg, #ffffff, #fcfcfc);
                 border: 1px solid #e2e8f0; 
@@ -287,16 +357,21 @@ def show_food_label_page():
                 transform: translateY(-2px);
             }
             
+            /* 商品名稱字體 */
             .item-title { font-size: 20px; font-weight: 800; color: #1e293b; margin-bottom: 15px; line-height: 1.4; }
             
+            /* 精緻的小標籤 (Badges) */
             .info-badges-container { display: flex; flex-wrap: wrap; gap: 10px; }
             .item-badge { display: flex; align-items: center; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 4px 10px; font-size: 13px; color: #64748b; font-weight: 600; }
             .item-badge-value { color: #0369a1; background-color: #f0f9ff; margin-left: 8px; padding: 2px 6px; border-radius: 4px; font-family: 'Courier New', monospace; font-weight: bold; }
             
+            /* 調整數量輸入框外觀，讓它與按鈕對齊 */
             div[data-testid="stNumberInput"] label { font-size: 14px !important; color: #475569 !important; font-weight: 600 !important; }
             
+            /* 隱藏 st.form 預設的醜邊框 */
             [data-testid="stForm"] { border: none !important; padding: 0 !important; margin: 0 !important; }
             
+            /* 打印按鈕高質感美化 */
             div.stButton, div[data-testid="stFormSubmitButton"] { margin-top: 28px !important; } 
             div.stButton > button, div[data-testid="stFormSubmitButton"] > button { 
                 width: 100% !important; height: 42px !important; 
@@ -311,6 +386,7 @@ def show_food_label_page():
                 transform: translateY(-1px) !important; filter: brightness(1.1);
             }
             
+            /* ✨ 讓 popover 按鈕變成綠色 */
             div[data-testid="stPopover"] > button {
                 background-color: #28a745 !important;
                 color: white !important;
@@ -328,11 +404,13 @@ def show_food_label_page():
                 filter: none !important;
             }
 
+            /* ✨ 讓 Popover 裡面的確認按鈕恢復原本的藍色 */
             div[data-testid="stPopoverBody"] div.stButton { margin-top: 0px !important; }
             div[data-testid="stPopoverBody"] div.stButton > button { background: #007bff !important; height: 38px !important; }
 
             input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: searchfield-cancel-button; cursor: pointer; height: 16px; width: 16px; opacity: 0.6; }
             
+            /* ✨ 無資料的錯誤徽章 */
             .error-badge {
                 background-color: #ffe6e6;
                 color: #dc3545;
@@ -431,6 +509,7 @@ def show_food_label_page():
         if results.empty:
             st.warning(f"❌ 找不到包含「{search_query}」的商品。")
         else:
+            # ✨ 智能過濾：過濾掉空資料的重複項目
             best_results = get_best_results(results)
             st.success(f"✅ 找到 {len(best_results)} 款商品")
             
@@ -440,7 +519,7 @@ def show_food_label_page():
                 desc = row.get('Description', '未命名商品')
                 
                 matched_data = row.to_dict()
-                # ✨ 呼叫新的三階段判定函數
+                # ✨ 呼叫新的四階段判定函數
                 data_status = check_data_status(matched_data)
                 
                 with st.container():
@@ -457,7 +536,11 @@ def show_food_label_page():
                                     <div class='item-badge'>SKU <span class='item-badge-value'>{p_no}</span></div>
                                     <div class='item-badge'>Barcode <span class='item-badge-value'>{barcode}</span></div>
                             """
-                            if data_status == 'caution':
+                            
+                            # 根據不同標籤模式顯示不同顏色的 Badge
+                            if data_status == 'insect':
+                                badge_html += f"<div class='item-badge' style='color:#856404; background-color:#fff3cd; border-color:#ffeeba;'>🐛 蟲蟲標籤模式</div>"
+                            elif data_status == 'caution':
                                 badge_html += f"<div class='item-badge' style='color:#dc3545; background-color:#ffe6e6; border-color:#f5c6cb;'>⚠️ 警告標籤模式</div>"
                                 
                             badge_html += "</div>"
@@ -476,7 +559,9 @@ def show_food_label_page():
                                     log_action("FoodLabel_Print")
                                     item_data = {'Barcode': barcode, '商品名稱': desc}
                                     
-                                    if data_status == 'caution':
+                                    if data_status == 'insect':
+                                        html_content = create_insects_label_html(matched_data, qty)
+                                    elif data_status == 'caution':
                                         caution_text = smart_get_caution_text(matched_data)
                                         if not caution_text:
                                             caution_text = "Caution Column Empty"
