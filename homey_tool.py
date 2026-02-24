@@ -237,7 +237,7 @@ def create_insects_label_html(matched_data, qty):
 def create_simple_text_html(text, qty):
     single_label_html = f"""
     <div style="width: 70mm; height: 50mm; box-sizing: border-box; padding: 2mm; page-break-after: always; display: flex; align-items: center; justify-content: center; text-align: center;">
-        <div style="font-size: 15pt; font-weight: 900; line-height: 1.2; font-family: sans-serif;">{text}</div>
+        <div style="font-size: 30pt; font-weight: 900; line-height: 1.2; font-family: sans-serif;">{text}</div>
     </div>
     """
     full_html = f"""
