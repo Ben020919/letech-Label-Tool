@@ -17,6 +17,16 @@ DEFAULT_EXCEL_PATH = "data.xlsx"
 DEFAULT_FONT_PATH = "font.ttf"
 DB_NAME_FILE = "current_db_name.txt"
 
+# ================= 設定特殊警告標籤清單 =================
+CAUTION_PRODUCT_LIST = [
+    "GAR-113166", "GAR-113167", "GAR-113168",
+    "LT10006114", "LT10006115", "LT10006116",
+    "POPS-106413", "POPS-107836", "SAX-103842",
+    "LT10014114", "LT10011267", "NATV-113301",
+    "LT10013458", "LT10013459", "PRI-111852",
+    "CHE-108483"
+]
+
 # ================= 1. 資料庫與字體讀取 =================
 def get_current_db_name():
     if os.path.exists(DB_NAME_FILE):
@@ -72,6 +82,19 @@ def font_to_base64_css(font_bytes, file_name):
         """
     except Exception: return ""
 
+def smart_get_caution_text(data_dict):
+    """從資料字典中聰明地尋找警告文字欄位"""
+    if 'Cautions' in data_dict: return clean_val(data_dict['Cautions'])
+    if 'Caution' in data_dict: return clean_val(data_dict['Caution'])
+    if 'cautions' in data_dict: return clean_val(data_dict['cautions'])
+    
+    lower_keys = {k.lower(): k for k in data_dict.keys()}
+    for k_lower, k_original in lower_keys.items():
+        if 'caution' in k_lower: return clean_val(data_dict[k_original])
+    for k_lower, k_original in lower_keys.items():
+        if 'warning' in k_lower: return clean_val(data_dict[k_original])
+    return None
+
 def create_food_label_html(item, matched_data, font_css, qty):
     data = matched_data if matched_data else {}
     desc_text = clean_val(data.get('Description', item['商品名稱']))
@@ -98,7 +121,7 @@ def create_food_label_html(item, matched_data, font_css, qty):
     <html><head><style>
         {font_css}
         @page {{ size: auto; margin: 0mm; }}
-        body {{ margin: 0; padding: 0; }}
+        body {{ margin: 0; padding: 0; font-family: Helvetica, Arial, sans-serif; }}
         .label-container {{ width: 70mm; height: 50mm; position: relative; box-sizing: border-box; border: 1px solid #ddd; page-break-after: always; overflow: hidden; font-weight: bold; }}
         .barcode-text {{ position: absolute; left: 2mm; top: 2mm; font-size: 5pt; font-weight: bold; }}
         .desc-text {{ position: absolute; left: 2mm; top: 4.5mm; width: 59mm; font-size: 5pt; line-height: 1.2; font-weight: bold; }}
@@ -147,6 +170,29 @@ def create_food_label_html(item, matched_data, font_css, qty):
         final_html = single_label_html.replace(div_content, full_body)
     else:
         final_html = single_label_html
+    return final_html
+
+# ✨ 新增：警告標籤生成器 ✨
+def create_caution_html(text, qty):
+    formatted_text = str(text).replace('\n', '<br/>')
+    if not formatted_text or formatted_text == "nan": formatted_text = ""
+    single_label_html = f"""
+    <html><head><style>
+        @page {{ size: auto; margin: 0mm; }}
+        body {{ margin: 0; padding: 0; font-family: Helvetica, Arial, sans-serif; }}
+        .label-container {{ width: 70mm; height: 50mm; box-sizing: border-box; padding: 2mm; page-break-after: always; position: relative; display: flex; align-items: center; justify-content: center; text-align: center; }}
+        .caution-text {{ font-size: 15pt; font-weight: 900; line-height: 1.2; word-wrap: break-word; color: black; }}
+    </style></head><body>
+        <div class="label-container"><div class="caution-text">{formatted_text}</div></div>
+    </body></html>
+    """
+    import re as regex
+    match = regex.search(r'<body>(.*?)</body>', single_label_html, regex.DOTALL)
+    if match:
+        div_content = match.group(1)
+        full_body = div_content * qty
+        final_html = single_label_html.replace(div_content, full_body)
+    else: final_html = single_label_html
     return final_html
 
 def js_instant_print(full_html_content):
@@ -238,6 +284,31 @@ def show_food_label_page():
                 transform: translateY(-1px) !important; filter: brightness(1.1);
             }
             
+            /* ✨ 讓 popover 按鈕變成綠色 */
+            div[data-testid="stPopover"] > button {
+                background-color: #28a745 !important;
+                color: white !important;
+                border: none !important;
+                font-weight: bold !important;
+                border-radius: 6px !important;
+                padding: 8px 16px !important;
+                height: 38px !important;
+                margin-top: 0px !important; /* 蓋掉上面強制加的 margin-top */
+            }
+            div[data-testid="stPopover"] > button:hover {
+                background-color: #218838 !important;
+                box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3) !important;
+                transform: none !important;
+                filter: none !important;
+            }
+
+            /* ✨ 讓 Popover 裡面的確認按鈕恢復原本的藍色，避免被吃掉樣式 */
+            div[data-testid="stPopoverBody"] div.stButton { margin-top: 0px !important; }
+            div[data-testid="stPopoverBody"] div.stButton > button {
+                background: #007bff !important;
+                height: 38px !important;
+            }
+
             /* Search Input X 按鈕 */
             input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: searchfield-cancel-button; cursor: pointer; height: 16px; width: 16px; opacity: 0.6; }
         </style>
@@ -261,28 +332,34 @@ def show_food_label_page():
     if 'font_css' not in st.session_state:
         st.session_state['font_css'] = font_to_base64_css(font_bytes, DEFAULT_FONT_PATH) if font_bytes else ""
     
-    # --- 配置新文件區塊 ---
-    with st.expander("⚙️ 配置新資料庫文件 (Database Management)", expanded=False):
-        st.info("支援上傳任何檔名的 Excel (.xlsx) 或 CSV (.csv) 檔案。上傳後系統會自動套用！")
-        new_db_file = st.file_uploader("上傳新的資料庫檔案", type=["xlsx", "csv"], key="food_new_db_uploader")
-        
-        if new_db_file:
-            if st.button("確認更新資料庫", type="primary", key="food_update_db_btn"):
-                try:
-                    if new_db_file.name.endswith('.csv'):
-                        temp_df = pd.read_csv(new_db_file, dtype=str)
-                        temp_df.to_excel(DEFAULT_EXCEL_PATH, index=False)
-                    else:
-                        with open(DEFAULT_EXCEL_PATH, "wb") as f:
-                            f.write(new_db_file.getbuffer())
-                    
-                    set_current_db_name(new_db_file.name)
-                    st.cache_data.clear()
-                    st.success(f"✅ 資料庫已成功更新為：【{new_db_file.name}】！系統將在 2 秒後重新載入...")
-                    time.sleep(2)
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"❌ 更新失敗: {e}")
+    # ================= ✨ 綠色彈出式配置文件按鈕 ✨ =================
+    col1, col2 = st.columns([0.8, 0.2])
+    with col2:
+        if hasattr(st, "popover"):
+            with st.popover("⚙️ 配置文件"):
+                st.markdown("#### 📂 上傳新資料庫")
+                st.caption("支援上傳 Excel (.xlsx) 或 CSV (.csv) 檔案。上傳後會自動套用！")
+                new_db_file = st.file_uploader("", type=["xlsx", "csv"], key="food_new_db_uploader", label_visibility="collapsed")
+                
+                if new_db_file:
+                    if st.button("確認更新資料庫", type="primary", key="food_update_db_btn", use_container_width=True):
+                        try:
+                            if new_db_file.name.endswith('.csv'):
+                                temp_df = pd.read_csv(new_db_file, dtype=str)
+                                temp_df.to_excel(DEFAULT_EXCEL_PATH, index=False)
+                            else:
+                                with open(DEFAULT_EXCEL_PATH, "wb") as f:
+                                    f.write(new_db_file.getbuffer())
+                            
+                            set_current_db_name(new_db_file.name)
+                            st.cache_data.clear()
+                            st.success(f"✅ 資料庫已成功更新為：【{new_db_file.name}】！系統將在 2 秒後重新載入...")
+                            time.sleep(2)
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ 更新失敗: {e}")
+        else:
+            st.info("請更新 Streamlit。")
 
     # --- 載入資料庫 ---
     df = load_database()
@@ -290,7 +367,7 @@ def show_food_label_page():
     if df is not None:
         st.caption(f"📚 Linked Database: `{db_name}` (Total {len(df)} items)")
     else:
-        st.warning(f"⚠️ 找不到資料庫 `{db_name}`，請在上方「配置新資料庫文件」上傳檔案。")
+        st.warning(f"⚠️ 找不到資料庫 `{db_name}`，請點擊右上方「⚙️ 配置文件」上傳檔案。")
         return
 
     # --- 搜尋區塊 ---
@@ -329,34 +406,53 @@ def show_food_label_page():
                 barcode = row.get('Barcode', 'N/A')
                 desc = row.get('Description', '未命名商品')
                 
+                # ✨ 判斷是否為警告標籤 (Caution Label)
+                is_caution_item = str(p_no).strip() in CAUTION_PRODUCT_LIST
+                matched_data = row.to_dict()
+                
                 with st.container():
                     st.markdown('<div class="result-card">', unsafe_allow_html=True)
                     
-                    # 💡 魔法在這裡：用 st.form 將輸入框與按鈕包起來，實現 Enter 提交！
                     with st.form(key=f"form_print_{idx}", clear_on_submit=False):
                         c_info, c_qty, c_print = st.columns([3.5, 1, 1.2])
                         
                         with c_info:
                             st.markdown(f"<div class='item-title'>{desc}</div>", unsafe_allow_html=True)
-                            st.markdown(f"""
+                            
+                            badge_html = f"""
                                 <div class='info-badges-container'>
                                     <div class='item-badge'>SKU <span class='item-badge-value'>{p_no}</span></div>
                                     <div class='item-badge'>Barcode <span class='item-badge-value'>{barcode}</span></div>
-                                </div>
-                            """, unsafe_allow_html=True)
+                            """
+                            # 如果是警告標籤，多顯示一個紅色的 Badge 讓使用者知道
+                            if is_caution_item:
+                                badge_html += f"<div class='item-badge' style='color:#dc3545; background-color:#ffe6e6; border-color:#f5c6cb;'>⚠️ 警告標籤模式</div>"
+                                
+                            badge_html += "</div>"
+                            st.markdown(badge_html, unsafe_allow_html=True)
                             
                         with c_qty:
                             qty = st.number_input("列印數量 (Qty)", min_value=1, max_value=500, value=1, step=1, key=f"qty_{idx}")
                             
                         with c_print:
-                            # form 裡面的按鈕必須是 form_submit_button
                             submitted = st.form_submit_button("🖨️ 打印標籤", use_container_width=True)
                             if submitted:
                                 log_action("FoodLabel_Print")
                                 item_data = {'Barcode': barcode, '商品名稱': desc}
-                                matched_data = row.to_dict()
                                 
-                                html_content = create_food_label_html(item_data, matched_data, st.session_state['font_css'], qty)
+                                # ✨ 根據判斷生成不同的標籤
+                                if is_caution_item:
+                                    caution_text = smart_get_caution_text(matched_data)
+                                    if caution_text is None:
+                                        available_cols = ", ".join(matched_data.keys())
+                                        caution_text = f"Cautions Column Missing!<br>Available: {available_cols}"
+                                    elif caution_text == "":
+                                        caution_text = "Caution Column Empty"
+                                        
+                                    html_content = create_caution_html(caution_text, qty)
+                                else:
+                                    html_content = create_food_label_html(item_data, matched_data, st.session_state['font_css'], qty)
+                                    
                                 js_instant_print(html_content)
                                 
                     st.markdown('</div>', unsafe_allow_html=True)
