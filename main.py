@@ -242,7 +242,7 @@ def main():
     
     category_selection = st.sidebar.radio(
         "Main Category", 
-        ["📊 Dashboard", "🏠 Homepage", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🍎 Food Label or 🐛 Insect Lable", "🔍 Search Barcode"],
+        ["📊 Dashboard", "🏠 Homepage", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🏷️ Label Printing", "🔍 Search Barcode"],
         label_visibility="collapsed",
         key="main_nav",
         on_change=close_sidebar_callback
@@ -272,7 +272,7 @@ def main():
         st.sidebar.markdown("---")
         show_homey_page()
 
-    elif category_selection == "🍎 Food Label or 🐛 Insect Lable":
+    elif category_selection == "🏷️ Label Printing":
         st.sidebar.markdown("---")
         show_food_label_page()
 
