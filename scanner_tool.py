@@ -87,6 +87,49 @@ def play_error_feedback():
 # 主功能函式
 # ==========================================
 def show_scanner_page():
+    # --- 💅 注入自訂 CSS 美化介面 ---
+    st.markdown("""
+        <style>
+        /* 隱藏頂部空白與側邊欄干擾 */
+        .block-container { padding-top: 1rem !important; padding-bottom: 2rem !important; }
+        
+        /* 輸入框巨大化設計 */
+        div[data-baseweb="input"] { border-radius: 12px !important; border: 2px solid #007bff !important; }
+        div[data-baseweb="input"] input { font-size: 1.2rem !important; padding: 12px !important; text-align: center; font-weight: bold;}
+        
+        /* 漂亮的按鈕設計 */
+        div.stButton > button {
+            width: 100%;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 16px;
+            padding: 10px 0;
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border: none;
+        }
+        /* 查詢/出庫按鈕變藍色 */
+        div.stButton > button:first-child { background-color: #007bff; color: white; }
+        div.stButton > button:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.15); }
+        
+        /* 資訊卡片設計 */
+        .info-card {
+            background: #ffffff;
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            border: 1px solid #e0e0e0;
+            margin-bottom: 15px;
+        }
+        .info-title { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;}
+        .info-value { font-size: 20px; font-weight: 900; color: #2c3e50; }
+        .info-dest { font-size: 14px; color: #e67e22; font-weight: bold; margin-top: 5px; }
+        
+        /* Radio 按鈕美化 */
+        div[role="radiogroup"] { background: #f8f9fa; padding: 10px; border-radius: 10px; }
+        </style>
+    """, unsafe_allow_html=True)
+
     if 'current_order_id' not in st.session_state:
         st.session_state.current_order_id = None
     if 'order_details' not in st.session_state:
@@ -96,13 +139,32 @@ def show_scanner_page():
     if 'processed_cam_hashes' not in st.session_state:
         st.session_state.processed_cam_hashes = set()
 
-    st.title("📦 Letech 連續出庫系統")
+    st.markdown("<h2 style='text-align: center; color: #2c3e50;'>📦 出庫作業台</h2>", unsafe_allow_html=True)
 
-    st.sidebar.markdown("### ⚙️ 出庫系統設定")
-    token = st.sidebar.text_input("輸入 Authorization Token：", type="password")
+    # ==========================================
+    # 🌟 智慧獲取 Token 邏輯
+    # ==========================================
+    st.sidebar.markdown("### ⚙️ 系統核心設定")
     
+    # 嘗試從 Secrets 讀取 Token
+    try:
+        secret_token = st.secrets["LETECH_TOKEN"]
+    except Exception:
+        secret_token = ""
+        
+    # 將 Secrets 中的 Token 預設填入輸入框
+    token = st.sidebar.text_input("輸入 Authorization Token：", value=secret_token, type="password")
+    
+    # 給予明確的連線提示
+    if token and token == secret_token:
+        st.sidebar.success("✅ API Token 已從雲端自動載入")
+    elif token and token != secret_token:
+        st.sidebar.info("💡 目前使用手動輸入的 Token")
+        
     if supabase is None:
         st.sidebar.warning("⚠️ 尚未設定 Supabase 密鑰，出庫紀錄將不會儲存。")
+    else:
+        st.sidebar.success("✅ Supabase 資料庫已連線")
 
     def get_headers():
         return {
@@ -113,45 +175,44 @@ def show_scanner_page():
         }
 
     if not token:
-        st.warning("👈 請先在左側邊欄輸入 Token 才能開始出庫作業。")
+        st.info("👋 歡迎使用！請先設定或輸入您的 Token 以啟用系統。")
         st.stop()
 
     # ==========================================
     # 第一階段：尚未鎖定訂單
     # ==========================================
     if st.session_state.current_order_id is None:
-        st.markdown("### 步驟 1：載入訂單")
         
         if st.session_state.last_completed_order:
-            st.success(f"🌟 訂單 【{st.session_state.last_completed_order}】 已全數出庫完成！請繼續作業。")
+            st.success(f"🎉 完美！訂單 **{st.session_state.last_completed_order}** 已全數出庫完成。")
             play_success_feedback()
             st.session_state.last_completed_order = None
             
-        input_mode = st.radio("掃描模式：", ["⌨️ 鍵盤 / 藍牙槍", "📷 手機相機拍照"], horizontal=True, key="mode_1")
+        input_mode = st.radio("選擇掃描工具：", ["⌨️ 掃描槍 / 鍵盤", "📷 手機相機 (需手動拍照)"], horizontal=True, key="mode_1")
         
         order_input = None
         
-        if input_mode == "⌨️ 鍵盤 / 藍牙槍":
-            with st.form("order_form"):
-                text_in = st.text_input("1️⃣ 請輸入或掃描【訂單號碼】：")
-                submit_order = st.form_submit_button("🔍 查詢並鎖定", use_container_width=True)
+        if input_mode == "⌨️ 掃描槍 / 鍵盤":
+            with st.form("order_form", clear_on_submit=True):
+                text_in = st.text_input("📝 請掃描訂單條碼：", placeholder="等待掃描...")
+                submit_order = st.form_submit_button("🔍 鎖定訂單", use_container_width=True)
                 if submit_order and text_in:
                     order_input = text_in
         else:
-            cam_image = st.camera_input("📸 請對準訂單條碼並拍照", key="cam_order")
+            cam_image = st.camera_input("📸 請對準訂單條碼並點擊拍照", key="cam_order")
             if cam_image:
                 cam_hash = hash(cam_image.getvalue())
                 if cam_hash not in st.session_state.processed_cam_hashes:
-                    with st.spinner("解析條碼中..."):
+                    with st.spinner("🔄 解析條碼中..."):
                         decoded_text = decode_barcode(cam_image)
                         if decoded_text:
                             order_input = decoded_text
                             st.session_state.processed_cam_hashes.add(cam_hash)
                         else:
-                            st.error("❌ 無法辨識條碼，請確認畫面清晰！")
+                            st.error("❌ 條碼解析失敗，請靠近一點或確保光線充足！")
 
         if order_input:
-            with st.spinner("查詢訂單資料中..."):
+            with st.spinner("🔄 正在連線 Letech 伺服器..."):
                 url_order = f"https://api.letech.com.hk/api/dear/scan/order?order_id={order_input}"
                 try:
                     res_order = requests.get(url_order, headers=get_headers())
@@ -169,18 +230,24 @@ def show_scanner_page():
                                 total_scanned += sub_p.get("scanQty", 0)
                                 
                         if is_completed or (total_qty > 0 and total_scanned >= total_qty):
-                            st.error(f"🚫 訂單 【{order_input}】 已出庫！請勿重複作業。")
+                            st.error(f"🚫 訂單 **{order_input}** 已出庫！請勿重複作業。")
                             play_error_feedback()
                         else:
                             st.session_state.current_order_id = order_input
                             st.session_state.order_details = order_json
                             play_success_feedback()
                             st.rerun()
+                    elif res_order.status_code == 500:
+                        st.error("🚫 查無此單，或該單號已歸檔 (代碼：500)")
+                        play_error_feedback()
+                    elif res_order.status_code in [401, 403]:
+                        st.error("🔒 Token 權限已失效！請重新從系統獲取並更新至 Secrets。")
+                        play_error_feedback()
                     else:
-                        st.error(f"❌ 找不到此訂單或伺服器異常 (代碼：{res_order.status_code})")
+                        st.error(f"❌ 發生連線錯誤！(代碼：{res_order.status_code})")
                         play_error_feedback()
                 except Exception as e:
-                    st.error(f"連線錯誤：{e}")
+                    st.error(f"連線異常：{e}")
 
     # ==========================================
     # 第二階段：已鎖定訂單
@@ -189,23 +256,25 @@ def show_scanner_page():
         order_data = st.session_state.order_details.get("order") or {}
         products_data = st.session_state.order_details.get("products") or []
 
-        col1, col2, col3 = st.columns([2, 1, 1])
+        # --- 漂亮的資訊卡片 ---
+        dest = order_data.get('deliver_to_warehouse', '未指定')
+        st.markdown(f"""
+            <div class="info-card">
+                <div class="info-title">目前處理訂單</div>
+                <div class="info-value">{st.session_state.current_order_id}</div>
+                <div class="info-dest">🚚 目的地：{dest}</div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        col1, col2 = st.columns(2)
         with col1:
-            st.success(f"📌 **{st.session_state.current_order_id}**\n🚚 目的地：{order_data.get('deliver_to_warehouse', '未指定')}")
-        with col2:
             if st.button("⚠️ 強制出庫", use_container_width=True):
-                st.warning("🚧 此功能開發中！")
+                st.warning("🚧 強制過帳功能開發中！")
                 play_error_feedback()
-        with col3:
-            if st.button("🔄 重置", use_container_width=True):
-                t_q = 0
-                t_s = 0
-                for p in products_data:
-                    t_q += p.get('quantity', 0)
-                    t_s += p.get('scanQty', 0)
-                    for sub_p in p.get('products') or []:
-                        t_q += sub_p.get('quantity', 0)
-                        t_s += sub_p.get('scanQty', 0)
+        with col2:
+            if st.button("🔄 換單 / 重置", use_container_width=True):
+                t_q = sum(p.get('quantity', 0) for p in products_data) + sum(sub_p.get('quantity', 0) for p in products_data for sub_p in (p.get('products') or []))
+                t_s = sum(p.get('scanQty', 0) for p in products_data) + sum(sub_p.get('scanQty', 0) for p in products_data for sub_p in (p.get('products') or []))
                 
                 is_done = st.session_state.order_details.get("status", False) or (t_q > 0 and t_s >= t_q)
                 if not is_done:
@@ -227,77 +296,77 @@ def show_scanner_page():
             sqty = p.get('scanQty', 0)
             total_qty += qty
             total_scanned += sqty
-            status = "✅ 完成" if qty - sqty <= 0 else f"🟡 尚缺 {qty - sqty}"
-            table_rows.append({"商品名稱": p.get('skuNameZh', ''), "條碼": p.get('barcode', ''), "應出": qty, "已掃": sqty, "狀態": status})
+            status = "✅ 完成" if qty - sqty <= 0 else f"🟡 缺 {qty - sqty}"
+            table_rows.append({"商品名稱": p.get('skuNameZh', '')[:15]+"...", "條碼": p.get('barcode', ''), "應出": qty, "已掃": sqty, "狀態": status})
             
             for sub_p in (p.get('products') or []):
                 sub_qty = sub_p.get('quantity', 0)
                 sub_sqty = sub_p.get('scanQty', 0)
-                sub_status = "✅ 完成" if sub_qty - sub_sqty <= 0 else f"🟡 尚缺 {sub_qty - sub_sqty}"
-                table_rows.append({"商品名稱": " ↳ " + sub_p.get('skuNameZh', ''), "條碼": sub_p.get('barcode', ''), "應出": sub_qty, "已掃": sub_sqty, "狀態": sub_status})
+                sub_status = "✅ 完成" if sub_qty - sub_sqty <= 0 else f"🟡 缺 {sub_qty - sub_sqty}"
+                table_rows.append({"商品名稱": " ↳ " + sub_p.get('skuNameZh', '')[:12]+"...", "條碼": sub_p.get('barcode', ''), "應出": sub_qty, "已掃": sub_sqty, "狀態": sub_status})
 
         if total_qty > 0:
             st.progress(min(total_scanned / total_qty, 1.0), text=f"📦 出庫總進度： {total_scanned} / {total_qty}")
 
-        st.markdown("#### 📋 應出貨品清單")
+        st.caption("📋 應出貨品清單")
         if table_rows:
             st.dataframe(pd.DataFrame(table_rows), use_container_width=True, hide_index=True)
 
         st.divider()
 
-        st.markdown("#### 🛒 步驟 2：連續掃描貨品")
-        
-        input_mode_2 = st.radio("掃描模式：", ["⌨️ 鍵盤 / 藍牙槍", "📷 手機相機拍照"], horizontal=True, key="mode_2")
+        st.markdown("<h4 style='text-align: center;'>🛒 連續掃描貨品</h4>", unsafe_allow_html=True)
+        input_mode_2 = st.radio("掃描工具：", ["⌨️ 掃描槍 / 鍵盤", "📷 手機相機 (需手動拍照)"], horizontal=True, key="mode_2")
         
         barcode_input = None
         
-        if input_mode_2 == "⌨️ 鍵盤 / 藍牙槍":
+        if input_mode_2 == "⌨️ 掃描槍 / 鍵盤":
             with st.form("barcode_form", clear_on_submit=True):
-                text_in_b = st.text_input("2️⃣ 請輸入或掃描【貨品條碼】：")
+                text_in_b = st.text_input("📝 請掃描貨品條碼：", placeholder="等待掃描...")
                 submit_barcode = st.form_submit_button("⚡ 出庫此貨品", use_container_width=True)
                 if submit_barcode and text_in_b:
                     barcode_input = text_in_b
         else:
-            cam_image_b = st.camera_input("📸 請對準貨品條碼並拍照", key="cam_barcode")
+            cam_image_b = st.camera_input("📸 請對準貨品條碼並點擊拍照", key="cam_barcode")
             if cam_image_b:
                 cam_hash_b = hash(cam_image_b.getvalue())
                 if cam_hash_b not in st.session_state.processed_cam_hashes:
-                    with st.spinner("解析條碼中..."):
+                    with st.spinner("🔄 解析條碼中..."):
                         decoded_text_b = decode_barcode(cam_image_b)
                         if decoded_text_b:
                             barcode_input = decoded_text_b
                             st.session_state.processed_cam_hashes.add(cam_hash_b)
                         else:
-                            st.error("❌ 無法辨識條碼，請確認畫面清晰！")
+                            st.error("❌ 條碼解析失敗，請重新拍攝！")
 
         if barcode_input:
-            url_barcode = f"https://api.letech.com.hk/api/dear/scan/barcode?order_id={st.session_state.current_order_id}&barcode={barcode_input}&is_open=0"
-            try:
-                res_barcode = requests.post(url_barcode, headers=get_headers())
-                if res_barcode.status_code == 200:
-                    url_refresh = f"https://api.letech.com.hk/api/dear/scan/order?order_id={st.session_state.current_order_id}"
-                    refreshed_data = requests.get(url_refresh, headers=get_headers()).json()
-                    
-                    t_q = sum(p.get('quantity', 0) for p in (refreshed_data.get("products") or [])) + sum(sub_p.get('quantity', 0) for p in (refreshed_data.get("products") or []) for sub_p in (p.get('products') or []))
-                    t_s = sum(p.get('scanQty', 0) for p in (refreshed_data.get("products") or [])) + sum(sub_p.get('scanQty', 0) for p in (refreshed_data.get("products") or []) for sub_p in (p.get('products') or []))
-                            
-                    is_done = refreshed_data.get("status", False) or (t_q > 0 and t_s >= t_q)
-                    
-                    if is_done:
-                        log_to_supabase(st.session_state.current_order_id, barcode_input, "✅ 已出庫")
-                        st.session_state.last_completed_order = st.session_state.current_order_id
-                        st.session_state.current_order_id = None
-                        st.session_state.order_details = None
-                        st.rerun()
+            with st.spinner("⚡ 過帳中..."):
+                url_barcode = f"https://api.letech.com.hk/api/dear/scan/barcode?order_id={st.session_state.current_order_id}&barcode={barcode_input}&is_open=0"
+                try:
+                    res_barcode = requests.post(url_barcode, headers=get_headers())
+                    if res_barcode.status_code == 200:
+                        url_refresh = f"https://api.letech.com.hk/api/dear/scan/order?order_id={st.session_state.current_order_id}"
+                        refreshed_data = requests.get(url_refresh, headers=get_headers()).json()
+                        
+                        t_q = sum(p.get('quantity', 0) for p in (refreshed_data.get("products") or [])) + sum(sub_p.get('quantity', 0) for p in (refreshed_data.get("products") or []) for sub_p in (p.get('products') or []))
+                        t_s = sum(p.get('scanQty', 0) for p in (refreshed_data.get("products") or [])) + sum(sub_p.get('scanQty', 0) for p in (refreshed_data.get("products") or []) for sub_p in (p.get('products') or []))
+                                
+                        is_done = refreshed_data.get("status", False) or (t_q > 0 and t_s >= t_q)
+                        
+                        if is_done:
+                            log_to_supabase(st.session_state.current_order_id, barcode_input, "✅ 已出庫")
+                            st.session_state.last_completed_order = st.session_state.current_order_id
+                            st.session_state.current_order_id = None
+                            st.session_state.order_details = None
+                            st.rerun()
+                        else:
+                            st.toast(f"✅ {barcode_input} 掃描成功！")
+                            play_success_feedback()
+                            log_to_supabase(st.session_state.current_order_id, barcode_input, "🟡 出庫中")
+                            st.session_state.order_details = refreshed_data
+                            st.rerun()
                     else:
-                        st.toast(f"✅ {barcode_input} 掃描成功！")
-                        play_success_feedback()
-                        log_to_supabase(st.session_state.current_order_id, barcode_input, "🟡 出庫中")
-                        st.session_state.order_details = refreshed_data
-                        st.rerun()
-                else:
-                    st.error(f"❌ 條碼 {barcode_input} 錯誤或數量已滿！")
+                        st.error(f"❌ 條碼 {barcode_input} 錯誤或數量已滿！")
+                        play_error_feedback()
+                except Exception as e:
+                    st.error(f"連線異常：{e}")
                     play_error_feedback()
-            except Exception as e:
-                st.error(f"連線錯誤：{e}")
-                play_error_feedback()
