@@ -229,16 +229,16 @@ def show_yummy_page():
             .logo-text { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 28px; font-weight: 800; color: #2c3e50; letter-spacing: -0.5px; margin-left: 10px; line-height: 1; }
             .logo-dot { color: #007bff; }
             .logo-sub { font-size: 14px; color: #888; font-weight: 400; margin-left: 15px; padding-left: 15px; border-left: 1px solid #ddd; height: 20px; line-height: 20px; }
-            .grid-header { background-color: #f8f9fa; padding: 12px 10px; border-top: 2px solid #e9ecef; border-bottom: 2px solid #e9ecef; font-weight: 600; color: #495057; font-size: 14px; }
-            .grid-row { padding: 8px 0; border-bottom: 1px solid #f1f3f5; transition: background-color 0.2s; display: flex; align-items: center; height: 100%; min-height: 45px;}
-            .grid-row:hover { background-color: #f8f9fa; }
-            div[data-testid="column"] { display: flex; flex-direction: column; justify-content: center; }
             
-            /* ✨ 修正：只針對 Grid 裡的 Action 欄位按鈕套用排版，完美還原原本的樣式 */
+            .grid-header { background-color: #f8f9fa; padding: 12px 10px; border-top: 2px solid #e9ecef; border-bottom: 2px solid #e9ecef; font-weight: 600; color: #495057; font-size: 14px; }
+            .grid-row { padding: 8px 0; border-bottom: 1px solid #f1f3f5; transition: background-color 0.2s; display: flex; align-items: center; height: 100%; min-height: 45px; }
+            .grid-row:hover { background-color: #f8f9fa; }
+            
+            /* ✨ 完美套用您原本的打印按鈕排版 (針對 Action 欄位) */
             div[data-testid="column"]:nth-of-type(7) div.stButton > button { 
                 width: 100px !important; 
                 height: 38px !important; 
-                min-height: 38px !important; 
+                min-height: 32px !important; 
                 border-radius: 6px !important; 
                 padding: 0px !important; 
                 background-color: #e7f5ff !important; 
@@ -248,20 +248,21 @@ def show_yummy_page():
                 justify-content: center !important; 
                 align-items: center !important; 
                 margin: 0 auto !important; 
-                transform: translateX(20px) !important; 
+                transform: translateX(19px) !important; 
             }
             div[data-testid="column"]:nth-of-type(7) div.stButton > button:hover { background-color: #d0ebff !important; color: #002752 !important; }
             div[data-testid="column"]:nth-of-type(7) div.stButton > button p { font-size: 13px !important; font-weight: bold !important; line-height: 1 !important; margin: 0 !important; padding: 0 !important; }
-            div[data-testid="column"]:nth-of-type(7) div.stButton { width: 100% !important; display: flex !important; justify-content: center !important; align-items: center !important; height: 100% !important; min-height: 45px !important; margin: 0 !important; }
-            
-            .cell-badge-err { width: 100px !important; height: 38px !important; min-height: 38px !important; border-radius: 6px !important; padding: 0px !important; background-color: #ffe6e6 !important; color: #dc3545 !important; display: flex !important; justify-content: center !important; align-items: center !important; margin: 0 auto !important; font-size: 13px !important; font-weight: bold !important; line-height: 1 !important; transform: translateX(-1px) !important; }
-            
+            div[data-testid="column"]:nth-of-type(7) div.stButton { width: 100% !important; display: flex !important; justify-content: center !important; margin: 0 !important; }
+
+            .cell-badge-err { width: 100px !important; height: 38px !important; min-height: 38px !important; border-radius: 6px !important; padding: 0px !important; background-color: #ffe6e6 !important; color: #dc3545 !important; display: flex !important; justify-content: center !important; align-items: center !important; margin: 0 auto !important; font-size: 13px !important; font-weight: bold !important; line-height: 1 !important; transform: translateX(1px) !important; }
+
             .cell-text { font-size: 15px; color: #333; padding: 0 5px; width: 100%; text-align: left; }
             .cell-sub { font-size: 12px; color: #888; padding: 0 5px; width: 100%; text-align: left; }
             .cell-code { font-family: monospace; font-size: 13px; background: #f1f3f5; padding: 2px 6px; border-radius: 4px; color: #333; }
             .cell-qty { font-weight: bold; font-size: 15px; color: #000; text-align: center; display: block; width: 100%; }
+            div[data-testid="column"] { display: flex; flex-direction: column; justify-content: center; }
             div[data-testid="column"]:nth-of-type(7) > div { display: flex !important; flex-direction: row !important; justify-content: center !important; align-items: center !important; width: 100% !important; height: 100% !important; }
-            
+
             /* ✨ 保護下載按鈕，不受打印按鈕的樣式影響 */
             div[data-testid="stDownloadButton"] > button {
                 width: auto !important; 
@@ -278,7 +279,6 @@ def show_yummy_page():
 
             /* ✨ 讓 popover 按鈕變成綠色，且不受打印按鈕影響 */
             div[data-testid="stPopover"] > button {
-                width: 100% !important;
                 background-color: #28a745 !important;
                 color: white !important;
                 border: none !important;
@@ -286,8 +286,9 @@ def show_yummy_page():
                 border-radius: 6px !important;
                 padding: 8px 16px !important;
                 transform: none !important;
-                height: 38px !important;
-                min-height: 38px !important;
+                height: auto !important;
+                min-height: auto !important;
+                width: 100% !important;
             }
             div[data-testid="stPopover"] > button:hover {
                 background-color: #218838 !important;
@@ -306,7 +307,7 @@ def show_yummy_page():
 
     st.markdown("### 🍔 Yummy 3PL System")
 
-    # ================= ✨ Yummy 專用：配置新文件區塊 (按鈕版) ✨ =================
+    # ================= ✨ 綠色彈出式配置文件按鈕 ✨ =================
     col1, col2 = st.columns([0.8, 0.2])
     with col2:
         if hasattr(st, "popover"):
@@ -342,9 +343,9 @@ def show_yummy_page():
     
     if df_master is not None:
         df_master.columns = df_master.columns.str.strip()
-        st.success(f"✅ Linked Database：`{current_db_name}`")
+        st.success(f"✅ Linked Database：`{current_db_name}` (最新版本)")
     else:
-        st.warning(f"⚠️ 找不到 `{current_db_name}`，請點擊上方「⚙️ 配置文件」上傳檔案。")
+        st.warning(f"⚠️ 找不到 `{current_db_name}`，請點擊右上方「⚙️ 配置文件」上傳檔案。")
 
     st.divider()
 
