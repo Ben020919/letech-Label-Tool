@@ -175,24 +175,22 @@ def show_scanner_page():
         col1, col2, col3 = st.columns([2, 1, 1])
         with col1:
             st.success(f"📌 **{st.session_state.current_order_id}**\n\n🚚 目的地：{order_data.get('deliver_to_warehouse', '未指定')}")
+        
         with col2:
-            if st.button("🗑️ 重置", use_container_width=True):
-                url_cancel = f"https://api.letech.com.hk/api/dear/scan/cancel?order_id={st.session_state.current_order_id}"
-                try:
-                    res_cancel = requests.post(url_cancel, headers=get_headers())
-                    if res_cancel.status_code == 200:
-                        st.toast("✅ 紀錄已重置！")
-                        log_to_supabase(st.session_state.current_order_id, "", "RESET")
-                        url_refresh = f"https://api.letech.com.hk/api/dear/scan/order?order_id={st.session_state.current_order_id}"
-                        st.session_state.order_details = requests.get(url_refresh, headers=get_headers()).json()
-                        st.rerun()
-                    else:
-                        st.error("❌ 重置失敗！")
-                        play_error_feedback()
-                except Exception as e:
-                    st.error(f"連線錯誤：{e}")
+            # 🌟 新增：強制出庫按鈕
+            if st.button("⚠️ 強制出庫", use_container_width=True):
+                # 寫入特殊的資料庫狀態
+                log_to_supabase(st.session_state.current_order_id, "MANUAL_FORCE", "⚠️ 強制出庫")
+                
+                # 給予提示並跳回首頁
+                st.session_state.last_completed_order = f"{st.session_state.current_order_id} (強制放行)"
+                st.session_state.current_order_id = None
+                st.session_state.order_details = None
+                st.rerun()
+
         with col3:
-            if st.button("🔄 換單", use_container_width=True):
+            # 🌟 變更：原本的換單改名為「重置」
+            if st.button("🔄 重置", use_container_width=True):
                 t_q = 0
                 t_s = 0
                 for p in products_data:
@@ -204,10 +202,9 @@ def show_scanner_page():
                 
                 is_done = st.session_state.order_details.get("status", False) or (t_q > 0 and t_s >= t_q)
                 
-                # 🌟 【關鍵修復】：中途放棄換單 -> 同時清空 Supabase 與 Letech 伺服器的紀錄
+                # 如果尚未滿單就按下重置，一併清除資料庫與伺服器紀錄
                 if not is_done:
                     delete_log_from_supabase(st.session_state.current_order_id)
-                    # 呼叫 Letech 的 Cancel API，強迫伺服器遺忘剛才的掃描
                     url_cancel = f"https://api.letech.com.hk/api/dear/scan/cancel?order_id={st.session_state.current_order_id}"
                     try:
                         requests.post(url_cancel, headers=get_headers())
