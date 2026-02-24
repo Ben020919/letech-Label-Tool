@@ -253,7 +253,7 @@ def main():
     # ✅ 在這裡將 "📦 掃碼出庫" 加入到左側選單列表中
     category_selection = st.sidebar.radio(
         "Main Category", 
-        ["📊 Dashboard", "🏠 Homepage", "開發掃碼出庫系統中", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🏷️ Label Printing", "🔍 Search Barcode"],
+        ["📊 Dashboard", "🏠 Homepage", "📷 掃碼出庫系統", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🏷️ Label Printing", "🔍 Search Barcode"],
         label_visibility="collapsed",
         key="main_nav",
         on_change=close_sidebar_callback
@@ -268,7 +268,7 @@ def main():
         render_home_page() 
         
     # ✅ 新增的選項路由
-    elif category_selection == "開發掃碼出庫系統中":
+    elif category_selection == "📷 掃碼出庫系統":
         st.sidebar.markdown("---")
         show_scanner_page()
 
