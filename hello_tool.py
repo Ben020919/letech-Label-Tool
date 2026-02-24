@@ -4,12 +4,12 @@ import pandas as pd
 import re
 import os
 import base64
+import time
 import streamlit.components.v1 as components
 import sys
 from pathlib import Path
 from usage_tracker import log_action
 
-# ================= 新增：強制路徑並匯入標籤格式模組 =================
 current_dir = Path(__file__).parent.absolute()
 if str(current_dir) not in sys.path:
     sys.path.append(str(current_dir))
@@ -22,16 +22,31 @@ except ImportError as e:
 
 # ================= 設定固定主檔名稱 =================
 MASTER_FILE = "data.xlsx"
+DB_NAME_FILE = "hello_current_db_name.txt"
+
+def get_current_db_name():
+    if os.path.exists(DB_NAME_FILE):
+        with open(DB_NAME_FILE, "r", encoding="utf-8") as f:
+            return f.read().strip()
+    return MASTER_FILE
+
+def set_current_db_name(name):
+    with open(DB_NAME_FILE, "w", encoding="utf-8") as f:
+        f.write(name)
 
 # ================= 1. 資料讀取函數 =================
-
 @st.cache_data
 def load_master_data():
-    """自動讀取固定的 Excel 主檔"""
-    if not os.path.exists(MASTER_FILE):
-        return None
+    if not os.path.exists(MASTER_FILE): return None
     try:
-        df = pd.read_excel(MASTER_FILE)
+        if MASTER_FILE.endswith('.csv'):
+            df = pd.read_csv(MASTER_FILE)
+        else:
+            try:
+                df = pd.read_excel(MASTER_FILE)
+            except:
+                df = pd.read_csv(MASTER_FILE)
+                
         df.columns = [str(c).strip() for c in df.columns]
         col_map = {c.replace('_', '').replace(' ', '').lower(): c for c in df.columns}
         p_no_col = col_map.get('productno')
@@ -42,11 +57,9 @@ def load_master_data():
             return df[[p_no_col, label_col]].rename(columns={p_no_col: 'Product_No', label_col: 'Label_Type'})
         else:
             return None
-    except Exception:
-        return None
+    except Exception: return None
 
-# ================= 2. 主頁面顯示 (由 main.py 呼叫) =================
-
+# ================= 2. 主頁面顯示 =================
 def show_hellobear_page():
     st.markdown("""
         <style>
@@ -54,72 +67,21 @@ def show_hellobear_page():
             .logo-text { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 28px; font-weight: 800; color: #2c3e50; letter-spacing: -0.5px; margin-left: 10px; line-height: 1; }
             .logo-dot { color: #007bff; }
             .logo-sub { font-size: 14px; color: #888; font-weight: 400; margin-left: 15px; padding-left: 15px; border-left: 1px solid #ddd; height: 20px; line-height: 20px; }
-            
             .grid-header { background-color: #f8f9fa; padding: 12px 10px; border-top: 2px solid #e9ecef; border-bottom: 2px solid #e9ecef; font-weight: 600; color: #495057; font-size: 14px; }
-            .grid-row { 
-                padding: 8px 0; border-bottom: 1px solid #f1f3f5; 
-                transition: background-color 0.2s; 
-                display: flex; align-items: center; height: 100%; 
-                min-height: 45px; 
-            }
+            .grid-row { padding: 8px 0; border-bottom: 1px solid #f1f3f5; transition: background-color 0.2s; display: flex; align-items: center; height: 100%; min-height: 45px; }
             .grid-row:hover { background-color: #f8f9fa; }
             
-            div.stButton > button { 
-                width: 100px !important;       
-                height: 38px !important;      
-                min-height: 32px !important;
-                border-radius: 6px !important; 
-                padding: 0px !important;      
-                background-color: #e7f5ff !important; 
-                color: #004085 !important; 
-                border: none !important; 
-                display: flex !important; 
-                justify-content: center !important; 
-                align-items: center !important;
-                margin: 0 auto !important;    
-                transform: translateX(19px) !important;
-            }
-            div.stButton > button:hover { background-color: #d0ebff !important; color: #002752 !important; }
+            /* ✨ 修正：只針對 Grid 裡的 Action 欄位按鈕套用排版，避免影響 Popover */
+            div[data-testid="column"]:nth-of-type(7) div.stButton > button { width: 100px !important; height: 38px !important; min-height: 32px !important; border-radius: 6px !important; padding: 0px !important; background-color: #e7f5ff !important; color: #004085 !important; border: none !important; display: flex !important; justify-content: center !important; align-items: center !important; margin: 0 auto !important; transform: translateX(19px) !important; }
+            div[data-testid="column"]:nth-of-type(7) div.stButton > button:hover { background-color: #d0ebff !important; color: #002752 !important; }
+            div[data-testid="column"]:nth-of-type(7) div.stButton > button p { font-size: 13px !important; font-weight: bold !important; line-height: 1 !important; margin: 0 !important; padding: 0 !important; }
+            div[data-testid="column"]:nth-of-type(7) div.stButton { width: 100% !important; display: flex !important; justify-content: center !important; margin: 0 !important; }
             
-            div.stButton > button p {
-                font-size: 13px !important;
-                font-weight: bold !important;
-                line-height: 1 !important;
-                margin: 0 !important;
-                padding: 0 !important;
-            }
-            
-            div.stButton { width: 100% !important; display: flex !important; justify-content: center !important; margin: 0 !important; }
-
-            .cell-badge-normal { 
-                width: 100px !important;       
-                height: 37px !important;      
-                min-height: 32px !important;
-                border-radius: 6px !important; 
-                padding: 0px !important;
-                background-color: #eee !important; 
-                color: #666 !important; 
-                display: flex !important; 
-                justify-content: center !important; 
-                align-items: center !important;
-                margin: 0 auto !important;
-                font-size: 13px !important;    
-                font-weight: bold !important;
-                line-height: 1 !important;
-                transform: translateX(1px) !important;
-            }
-
+            .cell-badge-normal { width: 100px !important; height: 37px !important; min-height: 32px !important; border-radius: 6px !important; padding: 0px !important; background-color: #eee !important; color: #666 !important; display: flex !important; justify-content: center !important; align-items: center !important; margin: 0 auto !important; font-size: 13px !important; font-weight: bold !important; line-height: 1 !important; transform: translateX(1px) !important; }
             .cell-text { font-size: 15px; color: #333; padding: 0 5px; width: 100%; text-align: left; }
             .cell-qty { font-weight: bold; font-size: 15px; color: #000; text-align: center; display: block; width: 100%; }
             div[data-testid="column"] { display: flex; flex-direction: column; justify-content: center; }
-            div[data-testid="column"]:nth-of-type(7) > div {
-                display: flex !important;
-                flex-direction: row !important;
-                justify-content: center !important; 
-                align-items: center !important;     
-                width: 100% !important;
-                height: 100% !important;
-            }
+            div[data-testid="column"]:nth-of-type(7) > div { display: flex !important; flex-direction: row !important; justify-content: center !important; align-items: center !important; width: 100% !important; height: 100% !important; }
         </style>
         <div class="logo-container">
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#007bff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -132,11 +94,42 @@ def show_hellobear_page():
     
     st.markdown("### 🐻 Hello Bear 3PL System")
 
-    master_df = load_master_data()
-    if master_df is not None:
-        st.success(f"✅ Linked Database：`{MASTER_FILE}`")
+    # ================= ✨ Hello Bear 專用：配置新文件區塊 (按鈕版) ✨ =================
+    if hasattr(st, "popover"):
+        db_container = st.popover("⚙️ 更新資料庫文件 (Upload New Database)", use_container_width=True)
     else:
-        st.warning(f"⚠️ 找不到 `{MASTER_FILE}`")
+        db_container = st.expander("⚙️ 更新資料庫文件 (Upload New Database)", expanded=False)
+
+    with db_container:
+        st.markdown("#### 📂 上傳新資料庫")
+        st.caption("支援上傳 Excel (.xlsx) 或 CSV (.csv) 檔案。上傳後會自動套用！")
+        new_db_file = st.file_uploader("", type=["xlsx", "csv"], key="hello_new_db_uploader", label_visibility="collapsed")
+        
+        if new_db_file:
+            if st.button("確認更新資料庫", type="primary", key="hello_update_btn", use_container_width=True):
+                try:
+                    if new_db_file.name.endswith('.csv'):
+                        temp_df = pd.read_csv(new_db_file, dtype=str)
+                        temp_df.to_excel(MASTER_FILE, index=False)
+                    else:
+                        with open(MASTER_FILE, "wb") as f:
+                            f.write(new_db_file.getbuffer())
+                    
+                    set_current_db_name(new_db_file.name)
+                    st.cache_data.clear()
+                    st.success(f"✅ 資料庫已成功更新為：【{new_db_file.name}】！系統將在 2 秒後重新載入...")
+                    time.sleep(2)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ 更新失敗: {e}")
+
+    master_df = load_master_data()
+    current_db_name = get_current_db_name()
+    
+    if master_df is not None:
+        st.success(f"✅ Linked Database：`{current_db_name}`")
+    else:
+        st.warning(f"⚠️ 找不到 `{current_db_name}`，請點擊上方按鈕上傳檔案。")
 
     st.divider()
 
@@ -288,7 +281,6 @@ def show_hellobear_page():
                                     else:
                                         st.error("找不到 repack_lable.py")
                             else:
-                                # 這裡改為顯示實際的 Label Type 文字！不再是寫死「普通注意」
                                 st.markdown(f"<div style='{row_wrapper_style}'><div class='cell-badge-normal'>{row['Label Type']}</div></div>", unsafe_allow_html=True)
 
                 st.markdown("---")
