@@ -4,9 +4,9 @@ import pandas as pd
 import re
 import os
 import base64
-import time
 import streamlit.components.v1 as components
 import sys
+import time
 import io
 from pathlib import Path
 from usage_tracker import log_action
@@ -73,20 +73,34 @@ def show_hellobear_page():
             .grid-row { padding: 8px 0; border-bottom: 1px solid #f1f3f5; transition: background-color 0.2s; display: flex; align-items: center; height: 100%; min-height: 45px; }
             .grid-row:hover { background-color: #f8f9fa; }
             
-            /* ✨ 修正：只針對 Grid 裡的 Action 欄位按鈕套用排版，避免影響下載按鈕 */
-            div[data-testid="column"]:nth-of-type(7) div.stButton > button { width: 100px !important; height: 38px !important; min-height: 32px !important; border-radius: 6px !important; padding: 0px !important; background-color: #e7f5ff !important; color: #004085 !important; border: none !important; display: flex !important; justify-content: center !important; align-items: center !important; margin: 0 auto !important; transform: translateX(19px) !important; }
-            div[data-testid="column"]:nth-of-type(7) div.stButton > button:hover { background-color: #d0ebff !important; color: #002752 !important; }
-            div[data-testid="column"]:nth-of-type(7) div.stButton > button p { font-size: 13px !important; font-weight: bold !important; line-height: 1 !important; margin: 0 !important; padding: 0 !important; }
-            div[data-testid="column"]:nth-of-type(7) div.stButton { width: 100% !important; display: flex !important; justify-content: center !important; margin: 0 !important; }
-            
+            /* 完全還原您原本的按鈕 CSS */
+            div.stButton > button { 
+                width: 100px !important; 
+                height: 38px !important; 
+                min-height: 32px !important; 
+                border-radius: 6px !important; 
+                padding: 0px !important; 
+                background-color: #e7f5ff !important; 
+                color: #004085 !important; 
+                border: none !important; 
+                display: flex !important; 
+                justify-content: center !important; 
+                align-items: center !important; 
+                margin: 0 auto !important; 
+                transform: translateX(19px) !important; 
+            }
+            div.stButton > button:hover { background-color: #d0ebff !important; color: #002752 !important; }
+            div.stButton > button p { font-size: 13px !important; font-weight: bold !important; line-height: 1 !important; margin: 0 !important; padding: 0 !important; }
+            div.stButton { width: 100% !important; display: flex !important; justify-content: center !important; margin: 0 !important; }
+
             .cell-badge-normal { width: 100px !important; height: 37px !important; min-height: 32px !important; border-radius: 6px !important; padding: 0px !important; background-color: #eee !important; color: #666 !important; display: flex !important; justify-content: center !important; align-items: center !important; margin: 0 auto !important; font-size: 13px !important; font-weight: bold !important; line-height: 1 !important; transform: translateX(1px) !important; }
-            
+
             .cell-text { font-size: 15px; color: #333; padding: 0 5px; width: 100%; text-align: left; }
             .cell-qty { font-weight: bold; font-size: 15px; color: #000; text-align: center; display: block; width: 100%; }
             div[data-testid="column"] { display: flex; flex-direction: column; justify-content: center; }
             div[data-testid="column"]:nth-of-type(7) > div { display: flex !important; flex-direction: row !important; justify-content: center !important; align-items: center !important; width: 100% !important; height: 100% !important; }
 
-            /* ✨ PDF 下載按鈕的專屬樣式，避免被全局覆蓋 */
+            /* ✨ 保護下載按鈕的專屬樣式，避免被上面全局覆蓋 */
             div[data-testid="stDownloadButton"] > button {
                 width: auto !important; 
                 height: 32px !important; 
@@ -108,6 +122,7 @@ def show_hellobear_page():
                 font-weight: bold !important;
                 border-radius: 6px !important;
                 padding: 8px 16px !important;
+                transform: none !important; /* 確保不被 translateX 影響 */
             }
             div[data-testid="stPopover"] > button:hover {
                 background-color: #218838 !important;
@@ -160,7 +175,7 @@ def show_hellobear_page():
     if master_df is not None:
         st.success(f"✅ Linked Database：`{current_db_name}`")
     else:
-        st.warning(f"⚠️ 找不到 `{current_db_name}`，請點擊上方按鈕上傳檔案。")
+        st.warning(f"⚠️ 找不到 `{current_db_name}`，請點擊右上方「⚙️ 配置文件」上傳檔案。")
 
     st.divider()
 
