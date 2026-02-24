@@ -80,9 +80,22 @@ def show_search_barcode_page():
             .card-value { color: #333; font-size: 15px; margin-bottom: 8px; word-break: break-all; font-family: monospace; }
             .card-name { color: #2c3e50; font-weight: 700; font-size: 16px; line-height: 1.4; border-top: 1px solid #f0f0f0; padding-top: 10px; margin-top: 5px; }
             
-            input[type="search"] { -webkit-appearance: textfield; }
-            input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: searchfield-cancel-button !important; display: block !important; cursor: pointer; height: 16px; width: 16px; opacity: 0.6; margin-left: 5px; }
+            /* ✨ 手機版黑色打叉修復 ✨ */
+            input[type="search"] { 
+                -webkit-appearance: searchfield !important; 
+                padding-right: 30px !important; 
+            }
+            input[type="search"]::-webkit-search-cancel-button { 
+                -webkit-appearance: searchfield-cancel-button !important; 
+                display: block !important; 
+                cursor: pointer; 
+                height: 16px; 
+                width: 16px; 
+                opacity: 0.7; 
+                margin-left: 5px; 
+            }
             input[type="search"]::-webkit-search-cancel-button:hover { opacity: 1; }
+            
             @media screen and (max-width: 768px) { .result-card { flex-direction: column; align-items: flex-start; } .card-action-container { margin-right: 0; margin-bottom: 15px; width: 100%; height: auto; padding: 12px 0; background: transparent; justify-content: flex-start; } .hktv-btn { width: auto; padding: 8px 20px; display: flex; align-items: center; gap: 8px; } .hktv-btn span { margin-bottom: 0 !important; } }
 
             /* ✨ 讓 popover 按鈕變成綠色 */
@@ -143,6 +156,7 @@ def show_search_barcode_page():
     
     user_input = st.text_input("Please Enter Keywords:", placeholder="SKU / Barcode / Name")
 
+    # 這段 JS 會找出輸入框，並將 type 改為 search，觸發原生搜尋按鈕
     components.html("""
         <script>
         const parentDoc = window.parent.document;
