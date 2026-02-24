@@ -205,7 +205,7 @@ def create_insects_label_html(matched_data, qty):
             overflow: hidden;
             background-color: white;
             color: black;
-            font-size: 5pt;
+            font-size: 4pt;
             line-height: 1.1;
             page-break-after: always;
         }
