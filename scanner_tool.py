@@ -18,16 +18,42 @@ def init_supabase():
 
 supabase = init_supabase()
 
+# ==========================================
+# 🌟 【全新邏輯】：智慧更新資料庫 (一張訂單只會有一行)
+# ==========================================
 def log_to_supabase(order_id, barcode, status):
     if supabase is not None:
         try:
-            supabase.table("scan_logs").insert({
-                "order_id": order_id,
-                "barcode": barcode,
-                "status": status
-            }).execute()
+            # 1. 先查詢資料庫有沒有這張訂單
+            res = supabase.table("scan_logs").select("*").eq("order_id", order_id).execute()
+            
+            if len(res.data) > 0:
+                # 2. 如果資料庫已經有這張單，我們用「更新 (Update)」的
+                existing_barcodes = res.data[0].get("barcode") or ""
+                
+                # 如果是重置動作，清空條碼；否則就把新條碼用逗號接在後面
+                if status == "RESET":
+                    new_barcodes = ""
+                    final_status = "🔄 已重置"
+                else:
+                    new_barcodes = f"{existing_barcodes}, {barcode}" if existing_barcodes else barcode
+                    final_status = status
+                    
+                supabase.table("scan_logs").update({
+                    "barcode": new_barcodes,
+                    "status": final_status
+                }).eq("order_id", order_id).execute()
+                
+            else:
+                # 3. 如果資料庫沒有這張單，我們才「新增 (Insert)」
+                if status != "RESET": # 沒資料就不需要記錄重置
+                    supabase.table("scan_logs").insert({
+                        "order_id": order_id,
+                        "barcode": barcode,
+                        "status": status
+                    }).execute()
         except Exception:
-            pass 
+            pass # 寫入失敗不報錯，不影響現場人員出庫
 
 # ==========================================
 # 聲音與震動回饋 (JavaScript)
@@ -104,14 +130,10 @@ def show_scanner_page():
                             total_qty = 0
                             total_scanned = 0
                             
-                            # 【防彈修正】: 使用 or [] 避免 API 回傳 null 造成崩潰
                             main_products = order_json.get("products") or []
-                            
                             for p in main_products:
                                 total_qty += p.get("quantity", 0)
                                 total_scanned += p.get("scanQty", 0)
-                                
-                                # 【防彈修正】: 子商品同樣加入 or []
                                 sub_products = p.get("products") or []
                                 for sub_p in sub_products:
                                     total_qty += sub_p.get("quantity", 0)
@@ -129,11 +151,9 @@ def show_scanner_page():
                         elif res_order.status_code == 500:
                             st.error(f"🚫 伺服器拒絕 (代碼：500)\n\n這通常代表：此單號**「不存在」**，或是**「已經出庫很久、被系統歸檔了」**！")
                             play_error_feedback()
-                            
                         elif res_order.status_code in [401, 403]:
                             st.error(f"🔒 權限失效 (代碼：{res_order.status_code})\n\n您的 Token 已經過期了，請重新輸入！")
                             play_error_feedback()
-                            
                         else:
                             st.error(f"❌ 發生未知的連線錯誤！(代碼：{res_order.status_code})")
                             play_error_feedback()
@@ -145,7 +165,6 @@ def show_scanner_page():
     # 第二階段：已鎖定訂單
     # ==========================================
     else:
-        # 【防彈修正】: 使用 or {} 與 or [] 保護資料
         order_data = st.session_state.order_details.get("order") or {}
         products_data = st.session_state.order_details.get("products") or []
 
@@ -159,7 +178,8 @@ def show_scanner_page():
                     res_cancel = requests.post(url_cancel, headers=get_headers())
                     if res_cancel.status_code == 200:
                         st.toast("✅ 紀錄已重置！")
-                        log_to_supabase(st.session_state.current_order_id, "RESET", "Order Reset")
+                        log_to_supabase(st.session_state.current_order_id, "", "RESET")
+                        
                         url_refresh = f"https://api.letech.com.hk/api/dear/scan/order?order_id={st.session_state.current_order_id}"
                         st.session_state.order_details = requests.get(url_refresh, headers=get_headers()).json()
                         st.rerun()
@@ -195,7 +215,6 @@ def show_scanner_page():
                 "狀態": status
             })
             
-            # 【防彈修正】
             sub_products = p.get('products') or []
             if sub_products:
                 for sub_p in sub_products:
@@ -240,15 +259,31 @@ def show_scanner_page():
                         st.toast(f"✅ {barcode_input} 掃描成功！")
                         play_success_feedback()
                         
-                        log_to_supabase(st.session_state.current_order_id, barcode_input, "Success")
-                        
+                        # 重新抓取資料來計算最新進度
                         url_refresh = f"https://api.letech.com.hk/api/dear/scan/order?order_id={st.session_state.current_order_id}"
-                        st.session_state.order_details = requests.get(url_refresh, headers=get_headers()).json()
+                        refreshed_data = requests.get(url_refresh, headers=get_headers()).json()
+                        st.session_state.order_details = refreshed_data
+                        
+                        # 🌟 【全新邏輯】：判斷這張單掃完了沒，決定要傳給資料庫什麼狀態
+                        t_q = 0
+                        t_s = 0
+                        for p in refreshed_data.get("products") or []:
+                            t_q += p.get('quantity', 0)
+                            t_s += p.get('scanQty', 0)
+                            for sub_p in p.get('products') or []:
+                                t_q += sub_p.get('quantity', 0)
+                                t_s += sub_p.get('scanQty', 0)
+                                
+                        is_done = refreshed_data.get("status", False) or (t_q > 0 and t_s >= t_q)
+                        db_status = "✅ 已出庫" if is_done else "🟡 出庫中"
+                        
+                        # 執行更新資料庫
+                        log_to_supabase(st.session_state.current_order_id, barcode_input, db_status)
+                        
                         st.rerun()
                     else:
                         st.error(f"❌ 條碼 {barcode_input} 錯誤或數量已滿！")
                         play_error_feedback()
-                        log_to_supabase(st.session_state.current_order_id, barcode_input, f"Failed: {res_barcode.status_code}")
                 except Exception as e:
                     st.error(f"連線錯誤：{e}")
                     play_error_feedback()
