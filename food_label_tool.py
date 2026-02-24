@@ -85,13 +85,13 @@ def smart_get_caution_text(data_dict):
         if 'warning' in k_lower: return clean_val(data_dict[k_original])
     return None
 
-# ✨ 新增：四階段智能判定器 (蟲蟲標籤 / 食品標籤 / 警告標籤 / 無資料) ✨
+# ✨ 新增：四階段智能判定器 (蟲蟲標籤 / 食品標籤 / 警告標籤 / 無資料)
 def check_data_status(data_dict):
     """回傳: 'insect', 'food', 'caution', 或 'empty'"""
     if not data_dict:
         return 'empty'
         
-    # 0. 優先檢查是否為蟲蟲標籤 (看 Label Type 是否包含蟲/insect，或是有 FEATURES 欄位)
+    # 0. 優先檢查是否為蟲蟲標籤
     for k, v in data_dict.items():
         k_lower = str(k).lower()
         val = str(v).strip().lower()
@@ -149,7 +149,14 @@ def get_best_results(results_df):
 
 # 1. 食品標籤
 def create_food_label_html(item, matched_data, font_css, qty):
-    data = matched_data if matched_data else {}
+    # 安全的資料型態轉換
+    if isinstance(matched_data, pd.DataFrame):
+        data = matched_data.iloc[0].to_dict() if not matched_data.empty else {}
+    elif isinstance(matched_data, dict):
+        data = matched_data
+    else:
+        data = {}
+
     desc_text = clean_val(data.get('Description', item['商品名稱']))
     barcode_text = item['Barcode'] if item['Barcode'] != "未偵測到" else clean_val(data.get('Barcode', ''))
     
@@ -248,12 +255,14 @@ def create_caution_html(text, qty):
     else: final_html = single_label_html
     return final_html
 
-# ✨ 3. 蟲蟲標籤 (完美排版，不隔行) ✨
+# 3. 蟲蟲標籤 (完美排版，不隔行)
 def create_insects_label_html(matched_data, qty):
-    data = matched_data if matched_data is not None and not matched_data.empty else {}
-    if isinstance(data, pd.DataFrame):
-        data = data.iloc[0].to_dict()
-    elif not isinstance(data, dict):
+    # 安全的資料型態轉換
+    if isinstance(matched_data, pd.DataFrame):
+        data = matched_data.iloc[0].to_dict() if not matched_data.empty else {}
+    elif isinstance(matched_data, dict):
+        data = matched_data
+    else:
         data = {}
         
     barcode = clean_val(data.get('Barcode', ''))         
@@ -509,7 +518,7 @@ def show_food_label_page():
         if results.empty:
             st.warning(f"❌ 找不到包含「{search_query}」的商品。")
         else:
-            # ✨ 智能過濾：過濾掉空資料的重複項目
+            # ✨ 智能過濾：過濾掉空資料的重複項目，優先保留蟲蟲標籤或食品資料
             best_results = get_best_results(results)
             st.success(f"✅ 找到 {len(best_results)} 款商品")
             
