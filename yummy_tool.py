@@ -262,17 +262,17 @@ def show_yummy_page():
 
     # ================= ✨ Yummy 專用：配置新文件區塊 (按鈕版) ✨ =================
     if hasattr(st, "popover"):
-        db_container = st.popover("⚙️ 更新資料庫文件 (Upload New Database)", use_container_width=True)
+        db_container = st.popover("⚙️ Upload New Database (Upload New Database)", use_container_width=True)
     else:
-        db_container = st.expander("⚙️ 更新資料庫文件 (Upload New Database)", expanded=False)
+        db_container = st.expander("⚙️ Upload New Database (Upload New Database)", expanded=False)
 
     with db_container:
-        st.markdown("#### 📂 上傳新資料庫")
-        st.caption("支援上傳 Excel (.xlsx) 或 CSV (.csv) 檔案。上傳後會自動套用！")
+        st.markdown("#### 📂 Upload New Database")
+        st.caption("Support Excel (.xlsx) 或 CSV (.csv) File。It will be automatically applied after uploading.！")
         new_db_file = st.file_uploader("", type=["xlsx", "csv"], key="yummy_new_db_uploader", label_visibility="collapsed")
         
         if new_db_file:
-            if st.button("確認更新資料庫", type="primary", key="yummy_update_btn", use_container_width=True):
+            if st.button("Confirm Database Update", type="primary", key="yummy_update_btn", use_container_width=True):
                 try:
                     if new_db_file.name.endswith('.csv'):
                         temp_df = pd.read_csv(new_db_file, dtype=str)
@@ -283,7 +283,7 @@ def show_yummy_page():
                     
                     set_current_db_name(new_db_file.name)
                     st.cache_data.clear()
-                    st.success(f"✅ 資料庫已成功更新為：【{new_db_file.name}】！系統將在 2 秒後重新載入...")
+                    st.success(f"✅ Database Update to：【{new_db_file.name}】！System will Reload in 2 Seconds...")
                     time.sleep(2)
                     st.rerun()
                 except Exception as e:
@@ -296,7 +296,7 @@ def show_yummy_page():
     
     if df_master is not None:
         df_master.columns = df_master.columns.str.strip()
-        st.success(f"✅ Linked Database：`{current_db_name}` (最新版本)")
+        st.success(f"✅ Linked Database：`{current_db_name}`")
     else:
         st.warning(f"⚠️ 找不到 `{current_db_name}`，請點擊上方按鈕上傳檔案。")
 
