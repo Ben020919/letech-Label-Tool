@@ -3,7 +3,7 @@ import streamlit.components.v1 as components
 import pandas as pd
 from usage_tracker import load_stats 
 
-# ================= 1. 匯入功能模組 =================刷
+# ================= 1. 匯入功能模組 =================
 
 # --- 合併後的 Yummy Tool ---
 try:
@@ -48,6 +48,13 @@ try:
 except ImportError as e:
     food_err = str(e)
     def show_food_label_page(): st.error(f"❌ 無法載入 Food Label 工具: {food_err}")
+
+# --- ✅ 新增：掃碼出庫 Tool ---
+try:
+    from scanner_tool import show_scanner_page
+except ImportError as e:
+    scanner_err = str(e)
+    def show_scanner_page(): st.error(f"❌ 無法載入 掃碼出庫 工具: {scanner_err}")
 
 # ================= 2. 頁面設定 =================
 st.set_page_config(page_title="Letech 3PL", page_icon="📦", layout="wide", initial_sidebar_state="auto")
@@ -102,6 +109,7 @@ st.markdown("""
     .tag-homey { background-color: #e2e3e5; color: #383d41; }
     .tag-tool { background-color: #d1ecf1; color: #0c5460; }
     .tag-food { background-color: #f5c6cb; color: #721c24; }
+    .tag-scan { background-color: #cce5ff; color: #004085; } /* 新增掃碼標籤顏色 */
     
     .stat-card-num { font-size: 2.1em; font-weight: 800; color: #007bff; margin: 15px 0; line-height: 1; }
     .stat-card-label { font-size: 1.2em; font-weight: bold; color: #2c3e50; }
@@ -214,6 +222,7 @@ def render_dashboard_page():
 def render_home_page():
     render_main_header()
     home_cards = [
+        {"tag": "WMS Tool", "tag_class": "tag-scan", "icon": "📦", "title": "掃碼出庫系統", "desc": "Mobile Barcode Scanning & Outbound System."}, # ✅ 新增了這裡的區塊
         {"tag": "Yummy 3PL", "tag_class": "tag-yummy", "icon": "🍔", "title": "Yummy System", "desc": "PDF Processing and Food Label Printing."},
         {"tag": "Anymall 3PL", "tag_class": "tag-anymall", "icon": "🛍️", "title": "Anymall System", "desc": "PDF Processing and Label Printing."},
         {"tag": "Hello Bear 3PL", "tag_class": "tag-bear", "icon": "🐻", "title": "Hello Bear System", "desc": "PDF Processing and Repack Label Printing."},
@@ -221,6 +230,7 @@ def render_home_page():
         {"tag": "Nutrition Label", "tag_class": "tag-food", "icon": "🍎 🐛", "title": "Label Printing", "desc": "For Yummy/Homey 3PL, Search and Print Label"},
         {"tag": "Mobile Tool", "tag_class": "tag-tool", "icon": "🔍", "title": "Search Barcode", "desc": "Search for Product Images, SKU Number, and Barcode."}
     ]
+    
     cols = st.columns(3)
     for i, card in enumerate(home_cards):
         col_idx = i % 3
@@ -240,9 +250,10 @@ def main():
     render_sidebar_logo()
     st.sidebar.markdown("<div class='sidebar-header'>MAIN MENU</div>", unsafe_allow_html=True)
     
+    # ✅ 在這裡將 "📦 掃碼出庫" 加入到左側選單列表中
     category_selection = st.sidebar.radio(
         "Main Category", 
-        ["📊 Dashboard", "🏠 Homepage", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🏷️ Label Printing", "🔍 Search Barcode"],
+        ["📊 Dashboard", "🏠 Homepage", "📦 掃碼出庫", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🏷️ Label Printing", "🔍 Search Barcode"],
         label_visibility="collapsed",
         key="main_nav",
         on_change=close_sidebar_callback
@@ -255,6 +266,11 @@ def main():
 
     elif category_selection == "🏠 Homepage":
         render_home_page() 
+        
+    # ✅ 新增的選項路由
+    elif category_selection == "📦 掃碼出庫":
+        st.sidebar.markdown("---")
+        show_scanner_page()
 
     elif category_selection == "🍔 Yummy 3PL":
         st.sidebar.markdown("---")
