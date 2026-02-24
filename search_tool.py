@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 import pandas as pd
 import os
@@ -80,22 +81,6 @@ def show_search_barcode_page():
             .card-value { color: #333; font-size: 15px; margin-bottom: 8px; word-break: break-all; font-family: monospace; }
             .card-name { color: #2c3e50; font-weight: 700; font-size: 16px; line-height: 1.4; border-top: 1px solid #f0f0f0; padding-top: 10px; margin-top: 5px; }
             
-            /* ✨ 手機版黑色打叉修復 ✨ */
-            input[type="search"] { 
-                -webkit-appearance: searchfield !important; 
-                padding-right: 30px !important; 
-            }
-            input[type="search"]::-webkit-search-cancel-button { 
-                -webkit-appearance: searchfield-cancel-button !important; 
-                display: block !important; 
-                cursor: pointer; 
-                height: 16px; 
-                width: 16px; 
-                opacity: 0.7; 
-                margin-left: 5px; 
-            }
-            input[type="search"]::-webkit-search-cancel-button:hover { opacity: 1; }
-            
             @media screen and (max-width: 768px) { .result-card { flex-direction: column; align-items: flex-start; } .card-action-container { margin-right: 0; margin-bottom: 15px; width: 100%; height: auto; padding: 12px 0; background: transparent; justify-content: flex-start; } .hktv-btn { width: auto; padding: 8px 20px; display: flex; align-items: center; gap: 8px; } .hktv-btn span { margin-bottom: 0 !important; } }
 
             /* ✨ 讓 popover 按鈕變成綠色 */
@@ -110,6 +95,30 @@ def show_search_barcode_page():
             div[data-testid="stPopover"] > button:hover {
                 background-color: #218838 !important;
                 box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3) !important;
+            }
+
+            /* ✨ 終極手機版黑色打叉解決方案 ✨ */
+            input[type="search"] { 
+                -webkit-appearance: none !important; /* 拔除 Apple 原生限制 */
+                padding-right: 35px !important; /* 確保右邊有空間放叉叉 */
+            }
+            input[type="search"]::-webkit-search-cancel-button { 
+                -webkit-appearance: none !important;
+                appearance: none !important;
+                display: inline-block !important;
+                width: 18px !important;
+                height: 18px !important;
+                background-color: #888 !important; /* 叉叉的顏色，深灰色 */
+                /* 利用 SVG 繪製一個絕對不會被隱藏的叉叉 */
+                -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'/%3E%3C/svg%3E") !important;
+                mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'/%3E%3C/svg%3E") !important;
+                -webkit-mask-size: contain !important;
+                mask-size: contain !important;
+                cursor: pointer !important;
+                pointer-events: auto !important;
+            }
+            input[type="search"]::-webkit-search-cancel-button:hover { 
+                background-color: #000 !important; /* 滑鼠移過去變純黑 */
             }
         </style>
     """, unsafe_allow_html=True)
