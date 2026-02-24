@@ -268,7 +268,7 @@ def main():
         render_home_page() 
         
     # ✅ 新增的選項路由
-    elif category_selection == "📦 掃碼出庫":
+    elif category_selection == "開發中 📦 掃碼出庫":
         st.sidebar.markdown("---")
         show_scanner_page()
 
