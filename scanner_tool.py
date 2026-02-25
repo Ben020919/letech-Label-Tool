@@ -5,7 +5,7 @@ import streamlit.components.v1 as components
 from supabase import create_client, Client
 from PIL import Image
 
-# 🌟 新增：匯入使用量追蹤器
+# 🌟 匯入使用量追蹤器
 try:
     from usage_tracker import log_action
 except ImportError:
@@ -69,15 +69,16 @@ def log_to_supabase(order_id, barcode, status):
                         "barcode": barcode,
                         "status": status
                     }).execute()
-        except Exception:
-            pass 
+        except Exception as e:
+            # 加入列印錯誤，方便日後在 Streamlit 後台抓蟲
+            print(f"Supabase Insert Error: {e}") 
 
 def delete_log_from_supabase(order_id):
     if supabase is not None:
         try:
             supabase.table("scan_logs").delete().eq("order_id", order_id).execute()
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Supabase Delete Error: {e}")
 
 # ==========================================
 # 聲音與震動回饋
@@ -97,14 +98,11 @@ def show_scanner_page():
     # --- 💅 注入自訂 CSS 美化介面 ---
     st.markdown("""
         <style>
-        /* 隱藏頂部空白與側邊欄干擾 */
         .block-container { padding-top: 1rem !important; padding-bottom: 2rem !important; }
         
-        /* 輸入框巨大化設計 */
         div[data-baseweb="input"] { border-radius: 12px !important; border: 2px solid #007bff !important; }
         div[data-baseweb="input"] input { font-size: 1.2rem !important; padding: 12px !important; text-align: center; font-weight: bold;}
         
-        /* 漂亮的按鈕設計 */
         div.stButton > button {
             width: 100%;
             border-radius: 12px;
@@ -115,11 +113,9 @@ def show_scanner_page():
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             border: none;
         }
-        /* 查詢/出庫按鈕變藍色 */
         div.stButton > button:first-child { background-color: #007bff; color: white; }
         div.stButton > button:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.15); }
         
-        /* 資訊卡片設計 */
         .info-card {
             background: #ffffff;
             border-radius: 15px;
@@ -132,7 +128,6 @@ def show_scanner_page():
         .info-value { font-size: 20px; font-weight: 900; color: #2c3e50; }
         .info-dest { font-size: 14px; color: #e67e22; font-weight: bold; margin-top: 5px; }
         
-        /* Radio 按鈕美化 */
         div[role="radiogroup"] { background: #f8f9fa; padding: 10px; border-radius: 10px; }
         </style>
     """, unsafe_allow_html=True)
@@ -153,16 +148,13 @@ def show_scanner_page():
     # ==========================================
     st.sidebar.markdown("### ⚙️ 系統核心設定")
     
-    # 嘗試從 Secrets 讀取 Token
     try:
         secret_token = st.secrets["LETECH_TOKEN"]
     except Exception:
         secret_token = ""
         
-    # 將 Secrets 中的 Token 預設填入輸入框
     token = st.sidebar.text_input("輸入 Authorization Token：", value=secret_token, type="password")
     
-    # 給予明確的連線提示
     if token and token == secret_token:
         st.sidebar.success("✅ API Token 已從雲端自動載入")
     elif token and token != secret_token:
@@ -263,7 +255,6 @@ def show_scanner_page():
         order_data = st.session_state.order_details.get("order") or {}
         products_data = st.session_state.order_details.get("products") or []
 
-        # --- 漂亮的資訊卡片 ---
         dest = order_data.get('deliver_to_warehouse', '未指定')
         st.markdown(f"""
             <div class="info-card">
@@ -349,8 +340,8 @@ def show_scanner_page():
             with st.spinner("⚡ 過帳中..."):
                 url_barcode = f"https://api.letech.com.hk/api/dear/scan/barcode?order_id={st.session_state.current_order_id}&barcode={barcode_input}&is_open=0"
                 try:
-                    res_barcode = requests.post(url_barcode, headers=get_headers())
-                    if res_barcode.status_code == 200:
+                    res_order_post = requests.post(url_barcode, headers=get_headers())
+                    if res_order_post.status_code == 200:
                         url_refresh = f"https://api.letech.com.hk/api/dear/scan/order?order_id={st.session_state.current_order_id}"
                         refreshed_data = requests.get(url_refresh, headers=get_headers()).json()
                         
