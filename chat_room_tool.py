@@ -92,7 +92,6 @@ def show_chat_room_page():
     if current_hk_time < launch_date:
         st.warning(
             "🚧 **此功能尚未開放**\n\n"
-            "「查詢不到訂單房間」目前正在進行最後的系統測試與優化。\n\n"
             "預計將於 **3 月 1 日** 正式上線開放使用，敬請期待！", 
             icon="⏳"
         )
