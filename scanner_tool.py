@@ -295,13 +295,13 @@ def show_scanner_page():
             total_qty += qty
             total_scanned += sqty
             status = "✅ 完成" if qty - sqty <= 0 else f"🟡 缺 {qty - sqty}"
-            table_rows.append({"商品名稱": p.get('skuNameZh', '')[:15]+"...", "條碼": p.get('barcode', ''), "應出": qty, "已掃": sqty, "狀態": status})
+            table_rows.append({"商品名稱": p.get('skuNameZh', ''), "條碼": p.get('barcode', ''), "應出": qty, "已掃": sqty, "狀態": status})
             
             for sub_p in (p.get('products') or []):
                 sub_qty = sub_p.get('quantity', 0)
                 sub_sqty = sub_p.get('scanQty', 0)
                 sub_status = "✅ 完成" if sub_qty - sub_sqty <= 0 else f"🟡 缺 {sub_qty - sub_sqty}"
-                table_rows.append({"商品名稱": " ↳ " + sub_p.get('skuNameZh', '')[:12]+"...", "條碼": sub_p.get('barcode', ''), "應出": sub_qty, "已掃": sub_sqty, "狀態": sub_status})
+                table_rows.append({"商品名稱": " ↳ " + sub_p.get('skuNameZh', ''), "條碼": sub_p.get('barcode', ''), "應出": sub_qty, "已掃": sub_sqty, "狀態": sub_status})
 
         if total_qty > 0:
             st.progress(min(total_scanned / total_qty, 1.0), text=f"📦 出庫總進度： {total_scanned} / {total_qty}")
