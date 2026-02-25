@@ -29,34 +29,10 @@ def upload_image(supabase, file_bytes, file_name):
     )
     return supabase.storage.from_("chat_images").get_public_url(unique_filename)
 
-# ================= 主功能 =================
-def show_chat_room_page():
-    st.title("💬 查詢不到訂單房間")
-    st.markdown("這裡是專屬的溝通頻道，遇到找不到訂單的狀況請在此回報。")
-    
-    # --- 新增：頂部範例展示 ---
-    st.info(
-        "💡 **填寫範例**：\n\n"
-        "**查詢不到訂單：H260225512645-H0956006**\n\n"
-        "*(提示：您在下方只需輸入「訂單號碼」即可，系統發送時會自動幫您加上「查詢不到訂單：」的前綴)*", 
-        icon="📌"
-    )
-    
-    st.divider()
-
-    try:
-        supabase = init_supabase()
-    except Exception as e:
-        st.error(f"連線 Supabase 失敗: {e}")
-        return
-
-    # 防呆優化：必須填寫名字
-    col1, col2 = st.columns([1, 3])
-    with col1:
-        user_name = st.text_input("👤 您的名字", value="", placeholder="請輸入名字 (必填)", key="chat_user_name")
-
-    # 顯示聊天室歷史訊息
-    st.subheader("聊天室訊息")
+# ================= ✨ 新增：自動更新的聊天區塊 =================
+# run_every=timedelta(seconds=3) 讓這個區塊每 3 秒自動去資料庫抓最新訊息，不用再手動按 F5！
+@st.fragment(run_every=timedelta(seconds=3))
+def live_chat_feed(supabase, current_user):
     chat_container = st.container(height=500) 
     
     with chat_container:
@@ -64,6 +40,23 @@ def show_chat_room_page():
             response = supabase.table("messages").select("*").order("created_at", desc=False).execute()
             messages = response.data
             
+            # 檢查是否有新訊息，有則彈出提示
+            if messages:
+                latest_id = messages[-1]["id"]
+                
+                if "last_msg_id" not in st.session_state:
+                    st.session_state.last_msg_id = latest_id
+                elif latest_id > st.session_state.last_msg_id:
+                    new_msgs = [m for m in messages if m["id"] > st.session_state.last_msg_id]
+                    for nm in new_msgs:
+                        # 只有別人發的訊息，才會在右下角彈出提示
+                        if nm["user_name"] != current_user and current_user != "":
+                            preview = nm["message"] if nm["message"] else "傳送了一張圖片 🖼️"
+                            st.toast(f"**{nm['user_name']}**: {preview}", icon="💬")
+                    
+                    st.session_state.last_msg_id = latest_id
+
+            # 顯示所有對話
             for msg in messages:
                 sender = msg["user_name"]
                 text = msg["message"]
@@ -76,7 +69,7 @@ def show_chat_room_page():
                 except Exception:
                     display_time = msg["created_at"][:16].replace("T", " ")
                 
-                with st.chat_message("user" if sender == user_name and user_name else "assistant"):
+                with st.chat_message("user" if sender == current_user and current_user else "assistant"):
                     st.markdown(
                         f"**{sender}** &nbsp;&nbsp;<span style='color: #888888; font-size: 0.8em;'>{display_time}</span>", 
                         unsafe_allow_html=True
@@ -91,8 +84,37 @@ def show_chat_room_page():
         except Exception as e:
             st.warning("目前沒有訊息或讀取失敗。")
 
+# ================= 主功能頁面 =================
+def show_chat_room_page():
+    st.title("💬 查詢不到訂單房間")
+    st.markdown("這裡是專屬的溝通頻道，遇到找不到訂單的狀況請在此回報。")
+    
+    # 💡 頂部範例展示
+    st.info(
+        "💡 **填寫範例**：\n\n"
+        "**查詢不到訂單：H260225512645-H0956006**\n\n"
+        "*(提示：您在下方只需輸入「訂單號碼」即可，發送時系統會自動幫您加上「查詢不到訂單：」的前綴)*", 
+        icon="📌"
+    )
+    st.divider()
+
+    try:
+        supabase = init_supabase()
+    except Exception as e:
+        st.error(f"連線 Supabase 失敗: {e}")
+        return
+
+    # 名字輸入區
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        user_name = st.text_input("👤 您的名字", value="", placeholder="請輸入名字 (必填)", key="chat_user_name")
+
+    st.subheader("聊天室訊息")
+    
+    # 呼叫會自動更新的聊天訊息區塊
+    live_chat_feed(supabase, user_name)
+
     # ================= 整合版輸入框 =================
-    # 修改了輸入框的預設提示文字
     prompt = st.chat_input(
         "請直接輸入訂單號碼 或 上傳圖片...", 
         accept_file=True, 
@@ -107,14 +129,10 @@ def show_chat_room_page():
             raw_text = prompt.text if hasattr(prompt, "text") else prompt.get("text", "")
             files = prompt.files if hasattr(prompt, "files") else prompt.get("files", [])
             
-            # --- 核心邏輯：自動加上 7 個字的前綴 ---
+            # ✨ 自動加上 7 個字的前綴
             msg_text = raw_text.strip()
-            
-            # 如果員工有打字，且沒有自己打上「查詢不到訂單：」，我們就幫他加
             if msg_text and not msg_text.startswith("查詢不到訂單："):
                 msg_text = f"查詢不到訂單：{msg_text}"
-            
-            # 如果員工連字都沒打，只有上傳圖片，自動補上這句
             elif not msg_text and files:
                 msg_text = "查詢不到訂單：(僅附圖)"
 
@@ -127,4 +145,5 @@ def show_chat_room_page():
             
             if msg_text or img_url:
                 save_message(supabase, user_name, msg_text, img_url)
+                # 發送完畢後強制重整一次，讓您立刻看到自己發的訊息
                 st.rerun()
