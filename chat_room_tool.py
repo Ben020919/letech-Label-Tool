@@ -31,7 +31,7 @@ def upload_image(supabase, file_bytes, file_name):
 
 # ================= ✨ 新增：自動更新的聊天區塊 =================
 # run_every=timedelta(seconds=3) 讓這個區塊每 3 秒自動去資料庫抓最新訊息，不用再手動按 F5！
-@st.fragment(run_every=timedelta(seconds=3))
+@st.fragment(run_every=timedelta(seconds=1))
 def live_chat_feed(supabase, current_user):
     chat_container = st.container(height=500) 
     
