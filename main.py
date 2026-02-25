@@ -3,9 +3,19 @@ import streamlit.components.v1 as components
 import pandas as pd
 from usage_tracker import load_stats 
 
+# ================= 🌟 新增：取得即時在線人數 =================
+def get_online_user_count():
+    """透過 Streamlit 底層引擎，計算目前正在連線的真實瀏覽器分頁數"""
+    try:
+        from streamlit.runtime import get_instance
+        runtime = get_instance()
+        active_sessions = runtime._session_mgr.list_active_sessions()
+        return len(active_sessions)
+    except Exception:
+        return 1 # 萬一底層 API 變更的備用顯示
+
 # ================= 1. 匯入功能模組 =================
 
-# (前面原有的 import 保持不變...)
 try:
     from yummy_tool import show_yummy_page
 except ImportError as e:
@@ -83,7 +93,6 @@ def inject_mobile_sidebar_closer():
 # ================= 4. CSS 美化 =================
 st.markdown("""
     <style>
-    /* ... 保持原有 CSS 不變 ... */
     html, body, [class*="css"] { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
     section[data-testid="stSidebar"] { background-color: #f7f9fc; border-right: 1px solid #e3e6f0; }
     section[data-testid="stSidebar"] .stRadio > div[role="radiogroup"] > label {
@@ -110,7 +119,6 @@ st.markdown("""
     .tag-tool { background-color: #d1ecf1; color: #0c5460; }
     .tag-food { background-color: #f5c6cb; color: #721c24; }
     .tag-scan { background-color: #cce5ff; color: #004085; }
-    /* ✅ 新增聊天室標籤顏色 */
     .tag-chat { background-color: #e2d9f3; color: #4a148c; } 
     
     .stat-card-num { font-size: 2.1em; font-weight: 800; color: #007bff; margin: 15px 0; line-height: 1; }
@@ -127,7 +135,6 @@ st.markdown("""
 
 # ================= 5. 側邊欄 LOGO =================
 def render_sidebar_logo():
-    # ... (保持原樣) ...
     st.sidebar.markdown("""
     <div style="display: flex; align-items: center; padding: 10px 5px 20px 5px; border-bottom: 1px solid #ddd; margin-bottom: 10px;">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#007bff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 10px;">
@@ -144,7 +151,6 @@ def render_sidebar_logo():
 
 # ================= 6. 首頁主視覺 =================
 def render_main_header():
-    # ... (保持原樣) ...
     col_logo, col_text = st.columns([0.08, 0.92])
     with col_logo:
         st.markdown("""<svg width="55" height="55" viewBox="0 0 24 24" fill="none" stroke="#007bff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>""", unsafe_allow_html=True)
@@ -155,11 +161,20 @@ def render_main_header():
 
 # ================= 7. 控制台頁面 =================
 def render_dashboard_page():
-    # ... (保持原樣) ...
     col_title, col_btn = st.columns([0.85, 0.15])
     with col_title:
         st.markdown("### 📊 System Dashboard")
         st.markdown("Overview of system usage statistics.")
+        
+    # 🌟 在右側角落顯示即時上線人數
+    with col_btn:
+        online_users = get_online_user_count()
+        st.markdown(f"""
+            <div style="background-color: #e8f5e9; padding: 10px; border-radius: 10px; text-align: center; border: 1px solid #c8e6c9; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-top: 10px;">
+                <div style="font-size: 11px; color: #2e7d32; font-weight: bold; margin-bottom: 2px;">🟢 目前在線</div>
+                <div style="font-size: 22px; font-weight: 900; color: #1b5e20; line-height: 1;">{online_users} 人</div>
+            </div>
+        """, unsafe_allow_html=True)
             
     st.divider()
     stats = load_stats()
@@ -212,7 +227,6 @@ def render_home_page():
         {"tag": "Homey 3PL", "tag_class": "tag-homey", "icon": "🏠", "title": "Homey System", "desc": "PDF Processing and Insects/Repack Label Printing."},
         {"tag": "Nutrition Label", "tag_class": "tag-food", "icon": "🍎 🐛", "title": "Label Printing", "desc": "For Yummy/Homey 3PL, Search and Print Label"},
         {"tag": "Mobile Tool", "tag_class": "tag-tool", "icon": "🔍", "title": "Search Barcode", "desc": "Search for Product Images, SKU Number, and Barcode."},
-        # ✅ 新增：聊天室的卡片顯示在首頁
         {"tag": "Communication", "tag_class": "tag-chat", "icon": "💬", "title": "查詢不到訂單", "desc": "Missing Order Issue Communication Room."}
     ]
     
@@ -235,7 +249,6 @@ def main():
     render_sidebar_logo()
     st.sidebar.markdown("<div class='sidebar-header'>MAIN MENU</div>", unsafe_allow_html=True)
     
-    # ✅ 新增：在選單清單中加入 "💬 查詢不到訂單房間"
     category_selection = st.sidebar.radio(
         "Main Category", 
         ["📊 Dashboard", "🏠 Homepage", "📷 掃碼出庫系統", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🏷️ Label Printing", "🔍 Search Barcode", "💬 查詢不到訂單"],
@@ -280,7 +293,6 @@ def main():
         st.sidebar.markdown("---")
         show_search_barcode_page()
         
-    # ✅ 新增：點擊選單後，呼叫對應的函數
     elif category_selection == "💬 查詢不到訂單":
         st.sidebar.markdown("---")
         show_chat_room_page()
