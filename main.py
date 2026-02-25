@@ -238,7 +238,7 @@ def main():
     # ✅ 新增：在選單清單中加入 "💬 查詢不到訂單房間"
     category_selection = st.sidebar.radio(
         "Main Category", 
-        ["📊 Dashboard", "🏠 Homepage", "📷 掃碼出庫系統", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🏷️ Label Printing", "🔍 Search Barcode", "💬 查詢不到訂單房間"],
+        ["📊 Dashboard", "🏠 Homepage", "📷 掃碼出庫系統", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🏷️ Label Printing", "🔍 Search Barcode", "💬 查詢不到訂單"],
         label_visibility="collapsed",
         key="main_nav",
         on_change=close_sidebar_callback
@@ -281,7 +281,7 @@ def main():
         show_search_barcode_page()
         
     # ✅ 新增：點擊選單後，呼叫對應的函數
-    elif category_selection == "💬 查詢不到訂單房間":
+    elif category_selection == "💬 查詢不到訂單":
         st.sidebar.markdown("---")
         show_chat_room_page()
 
