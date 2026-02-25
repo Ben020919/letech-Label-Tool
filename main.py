@@ -3,7 +3,14 @@ import streamlit.components.v1 as components
 import pandas as pd
 from usage_tracker import load_stats 
 
-# ================= 🌟 新增：取得即時在線人數 =================
+# 🌟 新增：匯入自動刷新套件
+try:
+    from streamlit_autorefresh import st_autorefresh
+except ImportError:
+    # 預防尚未安裝套件時報錯
+    def st_autorefresh(**kwargs): pass
+
+# ================= 🌟 取得即時在線人數 =================
 def get_online_user_count():
     """透過 Streamlit 底層引擎，計算目前正在連線的真實瀏覽器分頁數"""
     try:
@@ -12,7 +19,7 @@ def get_online_user_count():
         active_sessions = runtime._session_mgr.list_active_sessions()
         return len(active_sessions)
     except Exception:
-        return 1 # 萬一底層 API 變更的備用顯示
+        return 1
 
 # ================= 1. 匯入功能模組 =================
 
@@ -58,7 +65,6 @@ except ImportError as e:
     scanner_err = str(e)
     def show_scanner_page(): st.error(f"❌ 無法載入 掃碼出庫 工具: {scanner_err}")
 
-# --- ✅ 新增：聊天室 Tool ---
 try:
     from chat_room_tool import show_chat_room_page
 except ImportError as e:
@@ -161,12 +167,15 @@ def render_main_header():
 
 # ================= 7. 控制台頁面 =================
 def render_dashboard_page():
+    
+    # 🌟 啟動自動刷新引擎：每 10 秒刷新一次，僅在此頁面有效！
+    st_autorefresh(interval=10000, limit=None, key="dashboard_autorefresh")
+    
     col_title, col_btn = st.columns([0.85, 0.15])
     with col_title:
         st.markdown("### 📊 System Dashboard")
         st.markdown("Overview of system usage statistics.")
         
-    # 🌟 在右側角落顯示即時上線人數
     with col_btn:
         online_users = get_online_user_count()
         st.markdown(f"""
