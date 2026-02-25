@@ -5,7 +5,7 @@ import streamlit.components.v1 as components
 from supabase import create_client, Client
 from PIL import Image
 
-# 🌟 匯入使用量追蹤器
+# 🌟 新增：匯入使用量追蹤器
 try:
     from usage_tracker import log_action
 except ImportError:
@@ -70,7 +70,6 @@ def log_to_supabase(order_id, barcode, status):
                         "status": status
                     }).execute()
         except Exception as e:
-            # 加入列印錯誤，方便日後在 Streamlit 後台抓蟲
             print(f"Supabase Insert Error: {e}") 
 
 def delete_log_from_supabase(order_id):
@@ -129,6 +128,18 @@ def show_scanner_page():
         .info-dest { font-size: 14px; color: #e67e22; font-weight: bold; margin-top: 5px; }
         
         div[role="radiogroup"] { background: #f8f9fa; padding: 10px; border-radius: 10px; }
+        
+        /* 🌟 新增：自訂 HTML 表格自動換行 CSS */
+        table.custom-table { width: 100%; border-collapse: collapse; font-size: 14px; background-color: white; margin-bottom: 15px;}
+        table.custom-table th, table.custom-table td { 
+            border-bottom: 1px solid #e0e0e0; 
+            padding: 10px 8px; 
+            text-align: left; 
+            word-break: break-word; 
+            white-space: normal !important; /* 強制文字遇到邊界自動換行 */
+            vertical-align: middle;
+        }
+        table.custom-table th { background-color: #f8f9fa; color: #555; font-weight: bold; font-size: 13px;}
         </style>
     """, unsafe_allow_html=True)
 
@@ -295,20 +306,29 @@ def show_scanner_page():
             total_qty += qty
             total_scanned += sqty
             status = "✅ 完成" if qty - sqty <= 0 else f"🟡 缺 {qty - sqty}"
+            
+            # 確保主商品名稱完整抓取
             table_rows.append({"商品名稱": p.get('skuNameZh', ''), "條碼": p.get('barcode', ''), "應出": qty, "已掃": sqty, "狀態": status})
             
             for sub_p in (p.get('products') or []):
                 sub_qty = sub_p.get('quantity', 0)
                 sub_sqty = sub_p.get('scanQty', 0)
                 sub_status = "✅ 完成" if sub_qty - sub_sqty <= 0 else f"🟡 缺 {sub_qty - sub_sqty}"
+                # 確保子商品名稱完整抓取 (移除文字截斷)
                 table_rows.append({"商品名稱": " ↳ " + sub_p.get('skuNameZh', ''), "條碼": sub_p.get('barcode', ''), "應出": sub_qty, "已掃": sub_sqty, "狀態": sub_status})
 
         if total_qty > 0:
             st.progress(min(total_scanned / total_qty, 1.0), text=f"📦 出庫總進度： {total_scanned} / {total_qty}")
 
+        # ==========================================
+        # 🌟 自適應 HTML 表格渲染 (解決換行與滑動問題)
+        # ==========================================
         st.caption("📋 應出貨品清單")
         if table_rows:
-            st.dataframe(pd.DataFrame(table_rows), use_container_width=True, hide_index=True)
+            df = pd.DataFrame(table_rows)
+            # 使用 Pandas 轉換成 HTML 並賦予 CSS class，搭配頂部的樣式自動排版
+            html_table = df.to_html(index=False, escape=False, classes="custom-table")
+            st.markdown(html_table, unsafe_allow_html=True)
 
         st.divider()
 
