@@ -41,14 +41,14 @@ def show_chat_room_page():
         st.error(f"連線 Supabase 失敗: {e}")
         return
 
-    # 使用者設定區
+    # --- 防呆優化 1：清空預設名字，加上必填提示 ---
     col1, col2 = st.columns([1, 3])
     with col1:
-        user_name = st.text_input("👤 您的名字", value="匿名員工", key="chat_user_name")
+        user_name = st.text_input("👤 您的名字", value="", placeholder="請輸入名字 (必填)", key="chat_user_name")
 
     # 顯示聊天室歷史訊息
     st.subheader("聊天室訊息")
-    chat_container = st.container(height=500) # 固定高度，讓畫面不會無限延伸
+    chat_container = st.container(height=500) 
     
     with chat_container:
         try:
@@ -60,18 +60,14 @@ def show_chat_room_page():
                 text = msg["message"]
                 img_url = msg["image_url"]
                 
-                # --- 版面優化 1：處理時間格式 (轉為本地時間 UTC+8 並美化) ---
                 try:
-                    # Supabase 預設為 UTC 時間，例如 '2026-02-25T05:39:22+00:00'
                     dt_utc = datetime.strptime(msg["created_at"][:19], "%Y-%m-%dT%H:%M:%S")
-                    dt_local = dt_utc + timedelta(hours=8) # 加上 8 小時
-                    display_time = dt_local.strftime("%Y/%m/%d %H:%M") # 呈現格式：2026/02/25 13:39
+                    dt_local = dt_utc + timedelta(hours=8)
+                    display_time = dt_local.strftime("%Y/%m/%d %H:%M") 
                 except Exception:
-                    # 萬一解析失敗的備用方案
                     display_time = msg["created_at"][:16].replace("T", " ")
                 
-                with st.chat_message("user" if sender == user_name else "assistant"):
-                    # --- 版面優化 2：名字加粗，時間變灰、縮小字體並緊跟在後 ---
+                with st.chat_message("user" if sender == user_name and user_name else "assistant"):
                     st.markdown(
                         f"**{sender}** &nbsp;&nbsp;<span style='color: #888888; font-size: 0.8em;'>{display_time}</span>", 
                         unsafe_allow_html=True
@@ -80,15 +76,14 @@ def show_chat_room_page():
                     if text:
                         st.write(text)
                     if img_url:
-                        # --- 版面優化 3：改回原生圖片，並啟用自動適應寬度 ---
-                        # 這樣一來，點擊圖片右上角的「全螢幕」按鈕，就可以順暢使用手機的雙指放大了
-                        st.image(img_url, use_container_width=True)
-                        st.caption("👆 點擊圖片右上角的 **⛶ (全螢幕圖示)** 即可雙指放大")
+                        # --- 版面優化 2：限制最大寬度為 400px，避免電腦版過大 ---
+                        st.image(img_url, width=400)
+                        st.caption("👆 點擊圖片右上角的 **⛶ (全螢幕圖示)** 即可放大")
                         
         except Exception as e:
             st.warning("目前沒有訊息或讀取失敗。")
 
-    # ================= 整合版輸入框 (WhatsApp 風格) =================
+    # ================= 整合版輸入框 =================
     prompt = st.chat_input(
         "輸入訊息或上傳圖片...", 
         accept_file=True, 
@@ -96,16 +91,22 @@ def show_chat_room_page():
     )
 
     if prompt:
-        msg_text = prompt.text if hasattr(prompt, "text") else prompt.get("text", "")
-        files = prompt.files if hasattr(prompt, "files") else prompt.get("files", [])
-        
-        img_url = ""
+        # --- 防呆優化 3：檢查是否輸入名字 ---
+        if not user_name.strip():
+            # 右下角彈出通知 + 畫面顯示錯誤
+            st.toast("⚠️ 請先在左上方輸入您的名字！", icon="🚨")
+            st.error("發送失敗：請先輸入您的「名字」後再試一次！")
+        else:
+            msg_text = prompt.text if hasattr(prompt, "text") else prompt.get("text", "")
+            files = prompt.files if hasattr(prompt, "files") else prompt.get("files", [])
+            
+            img_url = ""
 
-        if files:
-            uploaded_file = files[0]
-            with st.spinner("圖片上傳中..."):
-                img_url = upload_image(supabase, uploaded_file.getvalue(), uploaded_file.name)
-        
-        if msg_text or img_url:
-            save_message(supabase, user_name, msg_text, img_url)
-            st.rerun()
+            if files:
+                uploaded_file = files[0]
+                with st.spinner("圖片上傳中..."):
+                    img_url = upload_image(supabase, uploaded_file.getvalue(), uploaded_file.name)
+            
+            if msg_text or img_url:
+                save_message(supabase, user_name, msg_text, img_url)
+                st.rerun()
