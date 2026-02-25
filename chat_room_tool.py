@@ -29,40 +29,32 @@ def upload_image(supabase, file_bytes, file_name):
     )
     return supabase.storage.from_("chat_images").get_public_url(unique_filename)
 
-# ================= 聊天訊息顯示區 (每 3 秒自動更新) =================
-# 使用 fragment 讓這個區塊自己定時重新整理，不會干擾使用者打字
-@st.fragment(run_every=timedelta(seconds=3))
-def live_chat_feed(supabase, current_user):
+# ================= 主功能 =================
+def show_chat_room_page():
+    st.title("💬 查詢不到訂單房間")
+    st.markdown("這裡是專屬的溝通頻道，遇到找不到訂單的狀況請在此回報。")
+    st.divider()
+
+    try:
+        supabase = init_supabase()
+    except Exception as e:
+        st.error(f"連線 Supabase 失敗: {e}")
+        return
+
+    # --- 防呆優化：必須填寫名字 ---
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        user_name = st.text_input("👤 您的名字", value="", placeholder="請輸入名字 (必填)", key="chat_user_name")
+
+    # 顯示聊天室歷史訊息
+    st.subheader("聊天室訊息")
     chat_container = st.container(height=500) 
     
     with chat_container:
         try:
-            # 從 Supabase 抓取訊息
             response = supabase.table("messages").select("*").order("created_at", desc=False).execute()
             messages = response.data
             
-            if messages:
-                latest_id = messages[-1]["id"]
-                
-                # 初始化 last_msg_id (如果是剛進網頁，不要彈出所有歷史訊息的通知)
-                if "last_msg_id" not in st.session_state:
-                    st.session_state.last_msg_id = latest_id
-                
-                # 檢查是否有「新的訊息」大於我們記錄的最後一筆 ID
-                elif latest_id > st.session_state.last_msg_id:
-                    new_msgs = [m for m in messages if m["id"] > st.session_state.last_msg_id]
-                    
-                    for nm in new_msgs:
-                        # 如果發訊息的人不是自己，就彈出通知！
-                        if nm["user_name"] != current_user and current_user != "":
-                            preview = nm["message"] if nm["message"] else "傳送了一張圖片 🖼️"
-                            # 在畫面右下角彈出 WhatsApp 風格的提示
-                            st.toast(f"**{nm['user_name']}**: {preview}", icon="💬")
-                            
-                    # 更新最後讀取的訊息 ID
-                    st.session_state.last_msg_id = latest_id
-
-            # 渲染所有訊息到畫面上
             for msg in messages:
                 sender = msg["user_name"]
                 text = msg["message"]
@@ -75,10 +67,7 @@ def live_chat_feed(supabase, current_user):
                 except Exception:
                     display_time = msg["created_at"][:16].replace("T", " ")
                 
-                # 如果使用者有填寫名字，且訊息是自己發的，對話框會變色靠右
-                is_me = (sender == current_user) and (current_user != "")
-                
-                with st.chat_message("user" if is_me else "assistant"):
+                with st.chat_message("user" if sender == user_name and user_name else "assistant"):
                     st.markdown(
                         f"**{sender}** &nbsp;&nbsp;<span style='color: #888888; font-size: 0.8em;'>{display_time}</span>", 
                         unsafe_allow_html=True
@@ -87,33 +76,12 @@ def live_chat_feed(supabase, current_user):
                     if text:
                         st.write(text)
                     if img_url:
+                        # 電腦版限制 400px 避免過大，右上角依然可全螢幕放大
                         st.image(img_url, width=400)
                         st.caption("👆 點擊圖片右上角的 **⛶ (全螢幕圖示)** 即可放大")
                         
         except Exception as e:
-            st.warning(f"訊息讀取失敗或目前無訊息。")
-
-# ================= 主功能頁面 =================
-def show_chat_room_page():
-    st.title("💬 查詢不到訂單房間")
-    st.markdown("這裡是專屬的溝通頻道，遇到找不到訂單的狀況請在此回報。")
-    st.divider()
-
-    try:
-        supabase = init_supabase()
-    except Exception as e:
-        st.error(f"連線 Supabase 失敗: {e}")
-        return
-
-    col1, col2 = st.columns([1, 3])
-    with col1:
-        # 加上 key="chat_user_name" 讓 Streamlit 自動記住輸入過的名字
-        user_name = st.text_input("👤 您的名字", value="", placeholder="請輸入名字 (必填)", key="chat_user_name")
-
-    st.subheader("聊天室訊息")
-    
-    # 呼叫自動更新的聊天區塊函數
-    live_chat_feed(supabase, user_name)
+            st.warning("目前沒有訊息或讀取失敗。")
 
     # ================= 整合版輸入框 =================
     prompt = st.chat_input(
@@ -123,6 +91,7 @@ def show_chat_room_page():
     )
 
     if prompt:
+        # 檢查是否輸入名字
         if not user_name.strip():
             st.toast("⚠️ 請先在左上方輸入您的名字！", icon="🚨")
             st.error("發送失敗：請先輸入您的「名字」後再試一次！")
@@ -139,5 +108,5 @@ def show_chat_room_page():
             
             if msg_text or img_url:
                 save_message(supabase, user_name, msg_text, img_url)
-                # 發送後不需要 st.rerun()，因為 fragment 每 3 秒會自己抓最新訊息
-                st.toast("訊息發送成功！", icon="✅")
+                # 恢復為 st.rerun()，發送完畢後立刻刷新畫面顯示新訊息，不卡頓！
+                st.rerun()
