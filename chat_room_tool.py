@@ -82,7 +82,9 @@ def live_chat_feed(supabase, current_user):
 
 # ================= 主功能頁面 =================
 def show_chat_room_page():
-    st.title("💬 查詢不到訂單房間")
+    # 使用 st.markdown 配合 HTML，透過 font-size 自由調整大小！
+    # 您可以把 40px 改成您喜歡的數字 (數字越小字越小，例如 24px；數字越大字越大，例如 60px)
+    st.markdown("<h1 style='font-size: 30px;'>💬 查詢不到訂單房間</h1>", unsafe_allow_html=True)
     
     # --- 🔒 新增：上線時間鎖定 ---
     # 取得當前伺服器時間並轉換為 UTC+8
