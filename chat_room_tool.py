@@ -29,8 +29,7 @@ def upload_image(supabase, file_bytes, file_name):
     )
     return supabase.storage.from_("chat_images").get_public_url(unique_filename)
 
-# ================= ✨ 新增：自動更新的聊天區塊 =================
-# run_every=timedelta(seconds=3) 讓這個區塊每 3 秒自動去資料庫抓最新訊息，不用再手動按 F5！
+# ================= 自動更新的聊天區塊 =================
 @st.fragment(run_every=timedelta(seconds=3))
 def live_chat_feed(supabase, current_user):
     chat_container = st.container(height=500) 
@@ -40,7 +39,6 @@ def live_chat_feed(supabase, current_user):
             response = supabase.table("messages").select("*").order("created_at", desc=False).execute()
             messages = response.data
             
-            # 檢查是否有新訊息，有則彈出提示
             if messages:
                 latest_id = messages[-1]["id"]
                 
@@ -49,14 +47,12 @@ def live_chat_feed(supabase, current_user):
                 elif latest_id > st.session_state.last_msg_id:
                     new_msgs = [m for m in messages if m["id"] > st.session_state.last_msg_id]
                     for nm in new_msgs:
-                        # 只有別人發的訊息，才會在右下角彈出提示
                         if nm["user_name"] != current_user and current_user != "":
                             preview = nm["message"] if nm["message"] else "傳送了一張圖片 🖼️"
                             st.toast(f"**{nm['user_name']}**: {preview}", icon="💬")
                     
                     st.session_state.last_msg_id = latest_id
 
-            # 顯示所有對話
             for msg in messages:
                 sender = msg["user_name"]
                 text = msg["message"]
@@ -87,9 +83,24 @@ def live_chat_feed(supabase, current_user):
 # ================= 主功能頁面 =================
 def show_chat_room_page():
     st.title("💬 查詢不到訂單房間")
+    
+    # --- 🔒 新增：上線時間鎖定 ---
+    # 取得當前伺服器時間並轉換為 UTC+8
+    current_hk_time = datetime.utcnow() + timedelta(hours=8)
+    launch_date = datetime(2026, 3, 1, 0, 0, 0) # 設定為 2026年3月1日 00:00:00 上線
+    
+    if current_hk_time < launch_date:
+        st.warning(
+            "🚧 **此功能尚未開放**\n\n"
+            "「查詢不到訂單房間」目前正在進行最後的系統測試與優化。\n\n"
+            "預計將於 **3 月 1 日** 正式上線開放使用，敬請期待！", 
+            icon="⏳"
+        )
+        return # 提早中斷程式，不渲染下方的任何聊天室內容與輸入框
+    # ------------------------------
+
     st.markdown("這裡是專屬的溝通頻道，遇到找不到訂單的狀況請在此回報。")
     
-    # 💡 頂部範例展示
     st.info(
         "💡 **填寫範例**：\n\n"
         "**查詢不到訂單：H260225512645-H0956006**\n\n"
@@ -104,17 +115,13 @@ def show_chat_room_page():
         st.error(f"連線 Supabase 失敗: {e}")
         return
 
-    # 名字輸入區
     col1, col2 = st.columns([1, 3])
     with col1:
         user_name = st.text_input("👤 您的名字", value="", placeholder="請輸入名字 (必填)", key="chat_user_name")
 
     st.subheader("聊天室訊息")
-    
-    # 呼叫會自動更新的聊天訊息區塊
     live_chat_feed(supabase, user_name)
 
-    # ================= 整合版輸入框 =================
     prompt = st.chat_input(
         "請直接輸入訂單號碼 或 上傳圖片...", 
         accept_file=True, 
@@ -129,7 +136,6 @@ def show_chat_room_page():
             raw_text = prompt.text if hasattr(prompt, "text") else prompt.get("text", "")
             files = prompt.files if hasattr(prompt, "files") else prompt.get("files", [])
             
-            # ✨ 自動加上 7 個字的前綴
             msg_text = raw_text.strip()
             if msg_text and not msg_text.startswith("查詢不到訂單："):
                 msg_text = f"查詢不到訂單：{msg_text}"
@@ -145,5 +151,4 @@ def show_chat_room_page():
             
             if msg_text or img_url:
                 save_message(supabase, user_name, msg_text, img_url)
-                # 發送完畢後強制重整一次，讓您立刻看到自己發的訊息
                 st.rerun()
