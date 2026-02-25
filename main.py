@@ -5,56 +5,55 @@ from usage_tracker import load_stats
 
 # ================= 1. 匯入功能模組 =================
 
-# --- 合併後的 Yummy Tool ---
+# (前面原有的 import 保持不變...)
 try:
     from yummy_tool import show_yummy_page
 except ImportError as e:
     yummy_err = str(e)
-    def show_yummy_page(): 
-        st.error(f"❌ 無法載入 Yummy 工具: {yummy_err}")
+    def show_yummy_page(): st.error(f"❌ 無法載入 Yummy 工具: {yummy_err}")
 
-# --- Anymall Tool ---
 try:
     from anymall_tool import show_anymall_page
 except ImportError as e:
     anymall_err = str(e)
     def show_anymall_page(): st.error(f"❌ 無法載入 Anymall 工具: {anymall_err}")
 
-# --- Search Tool ---
 try:
     from search_tool import show_search_barcode_page
 except ImportError as e:
     search_err = str(e)
     def show_search_barcode_page(): st.error(f"❌ 無法載入 Search 工具: {search_err}")
 
-# --- Homey Tool ---
 try:
     from homey_tool import show_homey_page
 except ImportError as e:
     homey_err = str(e)
     def show_homey_page(): st.error(f"❌ 無法載入 Homey 工具: {homey_err}")
 
-# --- Hello Bear Tool ---
 try:
     from hello_tool import show_hellobear_page
 except ImportError as e:
     hb_err = str(e)
-    def show_hellobear_page(): 
-        st.error(f"❌ 無法載入 Hello Bear 工具: {hb_err}")
+    def show_hellobear_page(): st.error(f"❌ 無法載入 Hello Bear 工具: {hb_err}")
 
-# --- Food Label Tool ---
 try:
     from food_label_tool import show_food_label_page
 except ImportError as e:
     food_err = str(e)
     def show_food_label_page(): st.error(f"❌ 無法載入 Food Label 工具: {food_err}")
 
-# --- ✅ 新增：掃碼出庫 Tool ---
 try:
     from scanner_tool import show_scanner_page
 except ImportError as e:
     scanner_err = str(e)
     def show_scanner_page(): st.error(f"❌ 無法載入 掃碼出庫 工具: {scanner_err}")
+
+# --- ✅ 新增：聊天室 Tool ---
+try:
+    from chat_room_tool import show_chat_room_page
+except ImportError as e:
+    chat_err = str(e)
+    def show_chat_room_page(): st.error(f"❌ 無法載入 聊天室 工具: {chat_err}")
 
 # ================= 2. 頁面設定 =================
 st.set_page_config(page_title="Letech 3PL", page_icon="📦", layout="wide", initial_sidebar_state="auto")
@@ -84,6 +83,7 @@ def inject_mobile_sidebar_closer():
 # ================= 4. CSS 美化 =================
 st.markdown("""
     <style>
+    /* ... 保持原有 CSS 不變 ... */
     html, body, [class*="css"] { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
     section[data-testid="stSidebar"] { background-color: #f7f9fc; border-right: 1px solid #e3e6f0; }
     section[data-testid="stSidebar"] .stRadio > div[role="radiogroup"] > label {
@@ -109,7 +109,9 @@ st.markdown("""
     .tag-homey { background-color: #e2e3e5; color: #383d41; }
     .tag-tool { background-color: #d1ecf1; color: #0c5460; }
     .tag-food { background-color: #f5c6cb; color: #721c24; }
-    .tag-scan { background-color: #cce5ff; color: #004085; } /* 新增掃碼標籤顏色 */
+    .tag-scan { background-color: #cce5ff; color: #004085; }
+    /* ✅ 新增聊天室標籤顏色 */
+    .tag-chat { background-color: #e2d9f3; color: #4a148c; } 
     
     .stat-card-num { font-size: 2.1em; font-weight: 800; color: #007bff; margin: 15px 0; line-height: 1; }
     .stat-card-label { font-size: 1.2em; font-weight: bold; color: #2c3e50; }
@@ -125,6 +127,7 @@ st.markdown("""
 
 # ================= 5. 側邊欄 LOGO =================
 def render_sidebar_logo():
+    # ... (保持原樣) ...
     st.sidebar.markdown("""
     <div style="display: flex; align-items: center; padding: 10px 5px 20px 5px; border-bottom: 1px solid #ddd; margin-bottom: 10px;">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#007bff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 10px;">
@@ -141,6 +144,7 @@ def render_sidebar_logo():
 
 # ================= 6. 首頁主視覺 =================
 def render_main_header():
+    # ... (保持原樣) ...
     col_logo, col_text = st.columns([0.08, 0.92])
     with col_logo:
         st.markdown("""<svg width="55" height="55" viewBox="0 0 24 24" fill="none" stroke="#007bff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>""", unsafe_allow_html=True)
@@ -151,49 +155,23 @@ def render_main_header():
 
 # ================= 7. 控制台頁面 =================
 def render_dashboard_page():
+    # ... (保持原樣) ...
     col_title, col_btn = st.columns([0.85, 0.15])
     with col_title:
         st.markdown("### 📊 System Dashboard")
         st.markdown("Overview of system usage statistics.")
             
     st.divider()
-    
     stats = load_stats()
     
     dashboard_cards = [
-        # 🌟 新增：掃碼出庫系統專屬卡片
-        {
-            "type": "single", "icon": "📦", "title": "Scanner System", 
-            "count": stats.get("Order_Outbound_Success", 0), "desc": "Total Outbound Orders"
-        },
-        {
-            "type": "dual", "icon": "🍔", "title": "Yummy System",
-            "val1": stats.get("Yummy_Process", 0), "label1": "📄 Uploads",
-            "val2": stats.get("Yummy_Print", 0), "label2": "🖨️ Prints"
-        },
-        {
-            "type": "dual", "icon": "🐻", "title": "HelloBear System",
-            "val1": stats.get("HelloBear_Upload", 0), "label1": "📄 Uploads",
-            "val2": stats.get("HelloBear_Print", 0), "label2": "🖨️ Prints"
-        },
-        {
-            "type": "dual", "icon": "🛍️", "title": "Anymall System", 
-            "val1": stats.get("Anymall_Upload", 0), "label1": "📄 Uploads",
-            "val2": stats.get("Anymall_Print", 0), "label2": "🖨️ Prints" 
-        },
-        {
-            "type": "dual", "icon": "🏠", "title": "Homey System", 
-            "val1": stats.get("Homey_Upload", 0), "label1": "📄 Uploads",
-            "val2": stats.get("Homey_Print", 0), "label2": "🖨️ Prints" 
-        },
-        {
-            "type": "single", "icon": "🍎", "title": "Label System", 
-            "count": stats.get("FoodLabel_Print", 0), "desc": "Total Printed Labels"
-        },
-        {
-            "type": "single", "icon": "🔍", "title": "Search Action", 
-            "count": stats.get("Search_Action", 0), "desc": "Database Queries"
-        },
+        {"type": "single", "icon": "📦", "title": "Scanner System", "count": stats.get("Order_Outbound_Success", 0), "desc": "Total Outbound Orders"},
+        {"type": "dual", "icon": "🍔", "title": "Yummy System", "val1": stats.get("Yummy_Process", 0), "label1": "📄 Uploads", "val2": stats.get("Yummy_Print", 0), "label2": "🖨️ Prints"},
+        {"type": "dual", "icon": "🐻", "title": "HelloBear System", "val1": stats.get("HelloBear_Upload", 0), "label1": "📄 Uploads", "val2": stats.get("HelloBear_Print", 0), "label2": "🖨️ Prints"},
+        {"type": "dual", "icon": "🛍️", "title": "Anymall System", "val1": stats.get("Anymall_Upload", 0), "label1": "📄 Uploads", "val2": stats.get("Anymall_Print", 0), "label2": "🖨️ Prints"},
+        {"type": "dual", "icon": "🏠", "title": "Homey System", "val1": stats.get("Homey_Upload", 0), "label1": "📄 Uploads", "val2": stats.get("Homey_Print", 0), "label2": "🖨️ Prints"},
+        {"type": "single", "icon": "🍎", "title": "Label System", "count": stats.get("FoodLabel_Print", 0), "desc": "Total Printed Labels"},
+        {"type": "single", "icon": "🔍", "title": "Search Action", "count": stats.get("Search_Action", 0), "desc": "Database Queries"},
     ]
     
     cols = st.columns(3)
@@ -233,7 +211,9 @@ def render_home_page():
         {"tag": "Hello Bear 3PL", "tag_class": "tag-bear", "icon": "🐻", "title": "Hello Bear System", "desc": "PDF Processing and Repack Label Printing."},
         {"tag": "Homey 3PL", "tag_class": "tag-homey", "icon": "🏠", "title": "Homey System", "desc": "PDF Processing and Insects/Repack Label Printing."},
         {"tag": "Nutrition Label", "tag_class": "tag-food", "icon": "🍎 🐛", "title": "Label Printing", "desc": "For Yummy/Homey 3PL, Search and Print Label"},
-        {"tag": "Mobile Tool", "tag_class": "tag-tool", "icon": "🔍", "title": "Search Barcode", "desc": "Search for Product Images, SKU Number, and Barcode."}
+        {"tag": "Mobile Tool", "tag_class": "tag-tool", "icon": "🔍", "title": "Search Barcode", "desc": "Search for Product Images, SKU Number, and Barcode."},
+        # ✅ 新增：聊天室的卡片顯示在首頁
+        {"tag": "Communication", "tag_class": "tag-chat", "icon": "💬", "title": "查詢不到訂單", "desc": "Missing Order Issue Communication Room."}
     ]
     
     cols = st.columns(3)
@@ -255,9 +235,10 @@ def main():
     render_sidebar_logo()
     st.sidebar.markdown("<div class='sidebar-header'>MAIN MENU</div>", unsafe_allow_html=True)
     
+    # ✅ 新增：在選單清單中加入 "💬 查詢不到訂單房間"
     category_selection = st.sidebar.radio(
         "Main Category", 
-        ["📊 Dashboard", "🏠 Homepage", "📷 掃碼出庫系統", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🏷️ Label Printing", "🔍 Search Barcode"],
+        ["📊 Dashboard", "🏠 Homepage", "📷 掃碼出庫系統", "🍔 Yummy 3PL", "🛍️ Anymall 3PL", "🐻 Hello Bear 3PL", "🏠 Homey 3PL", "🏷️ Label Printing", "🔍 Search Barcode", "💬 查詢不到訂單房間"],
         label_visibility="collapsed",
         key="main_nav",
         on_change=close_sidebar_callback
@@ -298,6 +279,11 @@ def main():
     elif category_selection == "🔍 Search Barcode":
         st.sidebar.markdown("---")
         show_search_barcode_page()
+        
+    # ✅ 新增：點擊選單後，呼叫對應的函數
+    elif category_selection == "💬 查詢不到訂單房間":
+        st.sidebar.markdown("---")
+        show_chat_room_page()
 
 if __name__ == "__main__":
     main()
