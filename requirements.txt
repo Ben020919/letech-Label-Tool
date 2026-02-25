@@ -9,3 +9,4 @@ selenium-stealth
 supabase
 pyzbar
 Pillow
+streamlit-autorefresh
